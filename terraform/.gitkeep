@@ -1,0 +1,33 @@
+# Ignore terraform run time folder
+.terraform
+
+# Dependency directories
+node_modules/
+jspm_packages/
+__pycache__/
+
+# Coverage directories
+.nyc_output/
+coverage.lcov
+
+# Any production config
+production.json
+
+# automated branch-master synchroniser
+gitup.sh
+jwt-private.key
+jwt-public.key
+
+# git attributes so not everyone needs to run the notebook cleaning
+.gitattributes
+
+# temporary deployment bundles
+*.zip
+
+package-lock.json
+
+# phpstorm & mac specific files
+atlassian-ide-plugin.xml
+/.idea
+cache.properties
+.DS_Store
