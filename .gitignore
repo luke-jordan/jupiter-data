@@ -68,7 +68,7 @@ jupiter-ml-alpha-credentials.json
 
 # ignore terraform's state file
 *.tfstate
-./terraform
+/.terraform
 
 package-lock.json
 
