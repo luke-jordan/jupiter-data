@@ -59,3 +59,21 @@ typings/
 
 # next.js build output
 .next
+
+# google cloud credentials
+jupiter-ml-alpha-credentials.json
+
+# temporary deployment bundles
+*.zip
+
+# ignore terraform's state file
+*.tfstate
+./terraform
+
+package-lock.json
+
+# phpstorm & mac specific files
+atlassian-ide-plugin.xml
+/.idea
+cache.properties
+.DS_Store
