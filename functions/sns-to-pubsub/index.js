@@ -12,12 +12,6 @@ const pubsub = new PubSub();
 // the cloud pubsub topic we will publish messages to
 const topicName = 'sns-events';
 
-const eventTypeList = [
-    'SAVING_EVENT_PAYMENT_CHECK',
-    'SAVING_PAYMENT_SUCCESSFUL',
-    'SAVING_EVENT_INITIATED'
-];
-
 /**
  * Cloud Function.
  * @param {req} request The web request from SNS.
@@ -41,7 +35,7 @@ exports.receiveNotification  = function receiveNotification (req, res) {
         const message = JSON.parse(req.body);
         console.log('JSON parsed message received: ', message);
 
-        if (message && message.eventType && eventTypeList.includes(message.eventType)) {
+        if (message && message.eventType) {
             const attributes = {
                 transactionId: (message.context ? message.context.transactionId : '')
             };
