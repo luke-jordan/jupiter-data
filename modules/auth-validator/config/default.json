@@ -1,0 +1,5 @@
+{
+  "SECRET": "abcdefg",
+  "DIGEST": "hex",
+  "HASHING_ALGORITHM": "sha256"
+}

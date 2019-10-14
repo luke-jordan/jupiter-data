@@ -20,5 +20,8 @@
     "nyc": "^14.1.1",
     "sinon": "^7.4.1",
     "sinon-chai": "^3.3.0"
+  },
+  "dependencies": {
+    "config": "^3.2.3"
   }
 }

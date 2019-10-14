@@ -1,10 +1,9 @@
 const crypto = require('crypto');
 
-const {
-    SECRET,
-    DIGEST,
-    HASHING_ALGORITHM
-} = require('./constants');
+const config = require('config');
+const SECRET = config.get('SECRET');
+const DIGEST = config.get('DIGEST');
+const HASHING_ALGORITHM = config.get('HASHING_ALGORITHM');
 
 function generateHash(key) {
     const hash = crypto.createHmac(HASHING_ALGORITHM, SECRET)
@@ -20,7 +19,7 @@ function verifyHash(givenHash, systemGeneratedHash) {
     return givenHash === systemGeneratedHash;
 }
 
-function authValidator(givenHash, givenKey) {
+exports.authValidator  = function authValidator(givenHash, givenKey) {
     console.log(`authenticating request with hash: ${givenHash} and key: ${givenKey}`);
 
     if (verifyHash(givenHash, generateHash(givenKey))) {
@@ -31,6 +30,4 @@ function authValidator(givenHash, givenKey) {
     const errorMessage = 'Authentication Request Failed';
     console.error(errorMessage);
     throw new Error(errorMessage);
-}
-
-module.exports = authValidator;
+};
