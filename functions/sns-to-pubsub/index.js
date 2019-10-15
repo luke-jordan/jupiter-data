@@ -12,12 +12,13 @@ const pubsub = new PubSub();
 // the cloud pubsub topic we will publish messages to
 const topicName = 'sns-events';
 
-const authValidator = require('auth-validator');
+const authValidator = require('./libs/auth-validator');
+
 
 async function processMessageBasedOnType(message, res) {
     if (message && message.eventType) {
         const attributes = {
-            transactionId: (message.context ? message.context.transactionId : '')
+            context: (message.context ? JSON.stringify(message.context) : '')
         };
         try {
             console.log('converting message to buffer');
@@ -81,7 +82,7 @@ exports.receiveNotification  = function receiveNotification (req, res) {
         return processMessageBasedOnType(message, res);
     } catch(error) {
         console.error('error occurred. Error: ', error);
-        res.status(400).end('invalid SNS message');
+        res.status(400).end('invalid SNS message => authentication or processing error');
     }
 };
 

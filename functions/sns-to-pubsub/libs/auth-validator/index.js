@@ -4,6 +4,7 @@ const config = require('config');
 const SECRET = config.get('SECRET');
 const DIGEST = config.get('DIGEST');
 const HASHING_ALGORITHM = config.get('HASHING_ALGORITHM');
+const DRY_RUN = config.get('DRY_RUN');
 
 function generateHash(key) {
     const hash = crypto.createHmac(HASHING_ALGORITHM, SECRET)
@@ -19,7 +20,11 @@ function verifyHash(givenHash, systemGeneratedHash) {
     return givenHash === systemGeneratedHash;
 }
 
-exports.authValidator  = function authValidator(givenHash, givenKey) {
+function authValidator(givenHash, givenKey) {
+    if (DRY_RUN) {
+        console.log('still testing, skip authentication');
+        return;
+    }
     console.log(`authenticating request with hash: ${givenHash} and key: ${givenKey}`);
 
     if (verifyHash(givenHash, generateHash(givenKey))) {
@@ -30,4 +35,6 @@ exports.authValidator  = function authValidator(givenHash, givenKey) {
     const errorMessage = 'Authentication Request Failed';
     console.error(errorMessage);
     throw new Error(errorMessage);
-};
+}
+
+module.exports = authValidator;

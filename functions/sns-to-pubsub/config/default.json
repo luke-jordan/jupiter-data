@@ -1,5 +1,6 @@
 {
   "SECRET": "abcdefg",
   "DIGEST": "hex",
-  "HASHING_ALGORITHM": "sha256"
+  "HASHING_ALGORITHM": "sha256",
+  "DRY_RUN": true
 }

@@ -5,58 +5,35 @@ provider "google" {
   zone = var.zone
 }
 
-module "network" {
-  source  = "terraform-google-modules/network/google"
-  version = "1.1.0"
+// sns to pub-sub below:
 
-  network_name = "terraform-vpc-network"
-  project_id   = var.project
-
-  subnets = [
-    {
-      subnet_name   = "subnet-01"
-      subnet_ip     = var.cidrs[0]
-      subnet_region = var.region
-    },
-    {
-      subnet_name   = "subnet-02"
-      subnet_ip     = var.cidrs[1]
-      subnet_region = var.region
-
-      subnet_private_access = "true"
-    },
-  ]
-
-  secondary_ranges = {
-    subnet-01 = []
-    subnet-02 = []
-  }
+# zip up our source code
+data "archive_file" "sns-to-pubsub-zip" {
+  type = "zip"
+  source_dir = "../functions/sns-to-pubsub"
+  output_path = "${path.root}/sns-to-pubsub.zip"
 }
 
-resource "google_compute_address" "vm_static_ip" {
-  name = "terraform-static-ip"
+# create the storage bucket
+resource "google_storage_bucket" "sns-to-pubsub-bucket" {
+  name = "sns-to-pubsub-bucket"
 }
 
-resource "google_compute_instance" "vm_instance" {
-  name         = "terraform-instance"
-  machine_type = var.machine_types[var.environment]
-  tags = ["web", "dev"]
+# place the zip-ed code in the bucket
+resource "google_storage_bucket_object" "sns-to-pubsub-zip" {
+  name = "sns-to-pubsub.zip"
+  bucket = google_storage_bucket.sns-to-pubsub-bucket.name
+  source = "${path.root}/sns-to-pubsub.zip"
+}
 
-  provisioner "local-exec" {
-    command = "echo ${google_compute_instance.vm_instance.name}:  ${google_compute_instance.vm_instance.network_interface[0].access_config[0].nat_ip} >> ip_address.txt"
-  }
-
-  boot_disk {
-    initialize_params {
-      image = "cos-cloud/cos-stable"
-    }
-  }
-
-  network_interface {
-    network = module.network.network_name
-    subnetwork = module.network.subnets_names[0]
-    access_config {
-      nat_ip = google_compute_address.vm_static_ip.address
-    }
-  }
+resource "google_cloudfunctions_function" "terraform-sns-to-pubsub" {
+  name = "sns-to-pubsub"
+  description = "receive from sns and send to pub sub"
+  available_memory_mb = 128
+  source_archive_bucket = google_storage_bucket.sns-to-pubsub-bucket.name
+  source_archive_object = google_storage_bucket_object.sns-to-pubsub-zip.name
+  timeout = 60
+  entry_point = "receiveNotification"
+  trigger_http = true
+  runtime = "nodejs8"
 }
