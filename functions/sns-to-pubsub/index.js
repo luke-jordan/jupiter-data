@@ -12,11 +12,49 @@ const pubsub = new PubSub();
 // the cloud pubsub topic we will publish messages to
 const topicName = 'sns-events';
 
-const eventTypeList = [
-    'SAVING_EVENT_PAYMENT_CHECK',
-    'SAVING_PAYMENT_SUCCESSFUL',
-    'SAVING_EVENT_INITIATED'
-];
+const authValidator = require('./libs/auth-validator');
+
+
+async function processMessageBasedOnType(message, res) {
+    if (message && message.eventType) {
+        const attributes = {
+            context: (message.context ? JSON.stringify(message.context) : '')
+        };
+        try {
+            console.log('converting message to buffer');
+            const msgData = Buffer.from(`userid: ${message.userId} performed event type: ${message.eventType} at timestamp: ${message.timestamp}`);
+
+            console.log('sending message to pub/sub. Buffered message:', msgData);
+            const messageId = await pubsub.topic(topicName).publish(msgData, attributes);
+
+            console.log(`message published with id: ${messageId}`);
+            res.status(200).end(messageId);
+            return;
+        } catch(error) {
+            console.error('error while publishing to pub/sub', error);
+        }
+    }
+
+    // here we handle either a request to confirm subscription
+    if (message.Type && message.Type.toLowerCase() === 'subscriptionconfirmation') {
+        console.log(`confirming subscription: ${message.SubscribeURL}`);
+        // SNS subscriptions are confirmed by requesting the special URL sent
+        // by the service as a confirmation
+        https.get(message.SubscribeURL, (subRes) => {
+            console.log('statusCode:', subRes.statusCode);
+            console.log('headers:', subRes.headers);
+
+            subRes.on('data', (d) => {
+                console.log(d);
+                res.status(200).end('ok');
+            });
+        }).on('error', (e) => {
+            console.error(e);
+            res.status(500).end('confirmation failed');
+        });
+        return;
+    }
+}
 
 /**
  * Cloud Function.
@@ -37,53 +75,15 @@ exports.receiveNotification  = function receiveNotification (req, res) {
         return;
     }
 
-    (async function() {
+    try {
         const message = JSON.parse(req.body);
         console.log('JSON parsed message received: ', message);
-
-        if (message && message.eventType && eventTypeList.includes(message.eventType)) {
-            const attributes = {
-                transactionId: (message.context ? message.context.transactionId : '')
-            };
-            try {
-                console.log('converting message to buffer');
-                const msgData = Buffer.from(`userid: ${message.userId} performed event type: ${message.eventType} at timestamp: ${message.timestamp}`);
-
-                console.log('sending message to pub/sub. Buffered message:', msgData);
-                const messageId = await pubsub.topic(topicName).publish(msgData, attributes);
-
-                console.log(`message published with id: ${messageId}`);
-                res.status(200).end(messageId);
-                return;
-            } catch(error) {
-                console.error('error while publishing to pub/sub', error);
-            }
-        }
-
-        // here we handle either a request to confirm subscription
-        if (message.Type && message.Type.toLowerCase() === 'subscriptionconfirmation') {
-            console.log(`confirming subscription: ${message.SubscribeURL}`);
-            // SNS subscriptions are confirmed by requesting the special URL sent
-            // by the service as a confirmation
-            https.get(message.SubscribeURL, (subRes) => {
-                console.log('statusCode:', subRes.statusCode);
-                console.log('headers:', subRes.headers);
-
-                subRes.on('data', (d) => {
-                    console.log(d);
-                    res.status(200).end('ok');
-                });
-            }).on('error', (e) => {
-                console.error(e);
-                res.status(500).end('confirmation failed');
-            });
-            return;
-        }
-
-        console.error('should not have gotten to default block');
-        res.status(400).end('invalid SNS message');
-
-    })();
+        authValidator(message.hash, message.eventType);
+        return processMessageBasedOnType(message, res);
+    } catch(error) {
+        console.error('error occurred. Error: ', error);
+        res.status(400).end('invalid SNS message => authentication or processing error');
+    }
 };
 
 
