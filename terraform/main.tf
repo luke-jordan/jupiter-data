@@ -35,5 +35,5 @@ resource "google_cloudfunctions_function" "terraform-sns-to-pubsub" {
   timeout = 60
   entry_point = "receiveNotification"
   trigger_http = true
-  runtime = "nodejs8"
+  runtime = "nodejs10"
 }
