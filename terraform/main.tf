@@ -5,12 +5,11 @@ provider "google" {
   zone = var.zone
 }
 
-// sns to pub-sub below:
-
+############## sns to pub-sub below: ###############
 # zip up our source code
 data "archive_file" "sns-to-pubsub-zip" {
   type = "zip"
-  source_dir = "../functions/sns-to-pubsub"
+  source_dir = "../functions/javascript/sns-to-pubsub"
   output_path = "${path.root}/sns-to-pubsub.zip"
 }
 
