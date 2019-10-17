@@ -1,4 +1,7 @@
 #!/usr/bin/python
+# This script was written by Martijn Scheijbeler: https://github.com/martijnsch/amplitude-bigquery
+# Bolu Ajibawo did add a few tweaks :)
+
 import gzip
 import json
 import os
