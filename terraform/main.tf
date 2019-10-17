@@ -37,3 +37,33 @@ resource "google_cloudfunctions_function" "terraform-sns-to-pubsub" {
   trigger_http = true
   runtime = "nodejs10"
 }
+
+
+############## amplitude-to-big-query below: ###############
+data "archive_file" "amplitude-to-big-query-zip" {
+  type = "zip"
+  source_dir = "../functions/python/amplitude-to-big-query"
+  output_path = "${path.root}/amplitude-to-big-query-cron.zip"
+}
+
+# place the zip-ed code in the bucket
+resource "google_storage_bucket_object" "amplitude-to-big-query-zip" {
+  name = "amplitude-to-big-query-cron.zip"
+  bucket = "amplitude-to-big-query"
+  source = "${path.root}/amplitude-to-big-query-cron.zip"
+}
+
+resource "google_cloudfunctions_function" "amplitude-to-big-query-function" {
+  name = "amplitude-to-big-query"
+  description = "fetch data from Amplitude and load into Big Query"
+  available_memory_mb = 128
+  source_archive_bucket = "amplitude-to-big-query"
+  source_archive_object = google_storage_bucket_object.amplitude-to-big-query-zip.name
+  timeout = 360
+  entry_point = "main"
+  event_trigger {
+    event_type = "google.pubsub.topic.publish"
+    resource = "projects/jupiter-ml-alpha/topics/daily-runs"
+  }
+  runtime = "python37"
+}
