@@ -41,7 +41,7 @@ exports.fetchFromBigQuery = async function fetchFromBigQuery(req, res) {
         // The SQL query to run
         const sqlQuery = `SELECT event_type, COUNT(event_type) as event_count
                     FROM \`jupiter-ml-alpha.amplitude.events\`
-                    where DATE(_PARTITIONTIME) BETWEEN @start_date and @end_date and event_type in `
+                    where DATE(client_event_time) BETWEEN @start_date and @end_date and event_type in `
                     +  eventTypesInSQLFormat + ` GROUP BY event_type`;
 
         console.log(`sql query to be run: ${sqlQuery}`);

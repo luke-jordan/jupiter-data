@@ -153,6 +153,7 @@ def process_line_json(line):
         data['region'] = value_def(parsed['region'])
         data['session_id'] = value_def(parsed['session_id'])
         data['idfa'] = value_def(parsed['idfa'])
+        data['reference_time'] = value_def(parsed['client_event_time'])
 
         # Loop through DICTs and save all properties
         for property_value in PROPERTIES:
