@@ -3,8 +3,8 @@ const {BigQuery} = require('@google-cloud/bigquery');
 const bigqueryClient = new BigQuery();
 
 function confirmRequiredParameters(parameters) {
-    return !parameters.start_date || !parameters.end_date
-        || !parameters.event_types || !Array.isArray(parameters.event_types);
+    return !parameters.startDate || !parameters.endDate
+        || !parameters.eventTypes || !Array.isArray(parameters.eventTypes);
 }
 
 function formatEventTypesForSQLQuery(eventTypes) {
@@ -25,24 +25,23 @@ exports.fetchFromBigQuery = async function fetchFromBigQuery(req, res) {
         console.log('parameters received', parameters);
 
         if (confirmRequiredParameters(parameters)) {
-            console.log('missing value');
-            // res.status(400).end('invalid parameters => start_date, end_date and event_types are required');
+            res.status(400).end('invalid parameters => startDate, endDate and eventTypes are required');
             return;
         }
 
         const {
-            start_date,
-            end_date,
-            event_types
+            startDate,
+            endDate,
+            eventTypes
         } = parameters;
 
-        const eventTypesInSQLFormat = formatEventTypesForSQLQuery(event_types);
+        const eventTypesInSQLFormat = formatEventTypesForSQLQuery(eventTypes);
 
         console.log('constructing sql query');
         // The SQL query to run
         const sqlQuery = `SELECT event_type, COUNT(event_type) as event_count
                     FROM \`jupiter-ml-alpha.amplitude.events\`
-                    where DATE(_PARTITIONTIME) BETWEEN @startDate and @endDate and event_type in `
+                    where DATE(_PARTITIONTIME) BETWEEN @start_date and @end_date and event_type in `
                     +  eventTypesInSQLFormat + ` GROUP BY event_type`;
 
         console.log(`sql query to be run: ${sqlQuery}`);
@@ -51,7 +50,7 @@ exports.fetchFromBigQuery = async function fetchFromBigQuery(req, res) {
             query: sqlQuery,
             // Location must match that of the dataset(s) referenced in the query.
             location: 'US',
-            params: {startDate: start_date, endDate: end_date, eventTypes: event_types },
+            params: { start_date: startDate, end_date: endDate },
         };
 
         // Run the query
