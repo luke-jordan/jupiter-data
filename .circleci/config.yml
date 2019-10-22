@@ -20,11 +20,6 @@ jobs:
       - checkout
 
       - run:
-          name: switch to directory of fetch-from-big-query
-          command: |
-            cd $HOME/app/functions/javascript/fetch-from-big-query
-
-      - run:
           name: install node modules
           command: |
             cd $HOME/app/functions/javascript/fetch-from-big-query && npm install
