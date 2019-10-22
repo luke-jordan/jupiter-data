@@ -20,14 +20,14 @@ jobs:
       - checkout
 
       - run:
-          name: install node modules
+          name: switch to directory of fetch-from-big-query
           command: |
             cd $HOME/app/functions/javascript/fetch-from-big-query
 
       # Download and cache dependencies
       - restore_cache:
           keys:
-            - v1-dependencies-{{ checksum "package.json" }}
+            - v1-dependencies-{{ checksum "functions/javascript/fetch-from-big-query/package.json" }}
             # fallback to using the latest cache if no exact match is found
             - v1-dependencies-
 
@@ -36,7 +36,7 @@ jobs:
       - save_cache:
           paths:
             - node_modules
-          key: v1-dependencies-{{ checksum "package.json" }}
+          key: v1-dependencies-{{ checksum "functions/javascript/fetch-from-big-query/package.json" }}
 
       # run tests!
       - run: npm test
