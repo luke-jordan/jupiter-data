@@ -41,7 +41,7 @@ To add the events and events properties to Google BigQuery you'll need to create
 
 *Events:* 
 ```
-client_event_time:TIMESTAMP,ip_address:STRING,library:STRING,dma:STRING,user_creation_time:TIMESTAMP,insert_id:STRING,schema:INTEGER,processed_time:TIMESTAMP,client_upload_time:TIMESTAMP,app:INTEGER,user_id:STRING,city:STRING,event_type:STRING,device_carrier:STRING,location_lat:STRING,event_time:TIMESTAMP,platform:STRING,is_attribution_event:BOOLEAN,os_version:STRING,paying:BOOLEAN,amplitude_id:INTEGER,device_type:STRING,sample_rate:STRING,device_manufacturer:STRING,start_version:STRING,uuid:STRING,version_name:STRING,location_lng:STRING,server_upload_time:TIMESTAMP,event_id:INTEGER,device_id:STRING,device_family:STRING,os_name:STRING,adid:STRING,amplitude_event_type:STRING,device_brand:STRING,country:STRING,device_model:STRING,language:STRING,region:STRING,session_id:INTEGER,idfa:STRING
+client_event_time:TIMESTAMP,ip_address:STRING,library:STRING,dma:STRING,user_creation_time:TIMESTAMP,insert_id:STRING,schema:INTEGER,processed_time:TIMESTAMP,client_upload_time:TIMESTAMP,app:INTEGER,user_id:STRING,city:STRING,event_type:STRING,device_carrier:STRING,location_lat:STRING,event_time:TIMESTAMP,platform:STRING,is_attribution_event:BOOLEAN,os_version:STRING,paying:BOOLEAN,amplitude_id:INTEGER,device_type:STRING,sample_rate:STRING,device_manufacturer:STRING,start_version:STRING,uuid:STRING,version_name:STRING,location_lng:STRING,server_upload_time:TIMESTAMP,event_id:INTEGER,device_id:STRING,device_family:STRING,os_name:STRING,adid:STRING,amplitude_event_type:STRING,device_brand:STRING,country:STRING,device_model:STRING,language:STRING,region:STRING,session_id:INTEGER,idfa:STRING,reference_time:TIMESTAMP
 ```
 
 *Events Properties:*

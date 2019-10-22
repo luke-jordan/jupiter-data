@@ -208,5 +208,10 @@
     "mode": "NULLABLE",
     "name": "idfa",
     "type": "STRING"
+  },
+  {
+    "mode": "NULLABLE",
+    "name": "reference_time",
+    "type": "TIMESTAMP"
   }
 ]

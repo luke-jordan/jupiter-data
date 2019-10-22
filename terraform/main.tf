@@ -5,12 +5,11 @@ provider "google" {
   zone = var.zone
 }
 
-// sns to pub-sub below:
-
+############## sns to pub-sub below: ###############
 # zip up our source code
 data "archive_file" "sns-to-pubsub-zip" {
   type = "zip"
-  source_dir = "../functions/sns-to-pubsub"
+  source_dir = "../functions/javascript/sns-to-pubsub"
   output_path = "${path.root}/sns-to-pubsub.zip"
 }
 
@@ -26,7 +25,7 @@ resource "google_storage_bucket_object" "sns-to-pubsub-zip" {
   source = "${path.root}/sns-to-pubsub.zip"
 }
 
-resource "google_cloudfunctions_function" "terraform-sns-to-pubsub" {
+resource "google_cloudfunctions_function" "sns-to-pubsub-function" {
   name = "sns-to-pubsub"
   description = "receive from sns and send to pub sub"
   available_memory_mb = 128
@@ -38,27 +37,69 @@ resource "google_cloudfunctions_function" "terraform-sns-to-pubsub" {
   runtime = "nodejs10"
 }
 
+############## sns to pub-sub ends: ###############
 
-############## amplitude-to-big-query below: ###############
-data "archive_file" "amplitude-to-big-query-zip" {
+
+############## fetch-from-big-query below: ###############
+# zip up our source code
+data "archive_file" "fetch-from-big-query-zip" {
   type = "zip"
-  source_dir = "../functions/python/amplitude-to-big-query"
-  output_path = "${path.root}/amplitude-to-big-query-cron.zip"
+  source_dir = "../functions/javascript/fetch-from-big-query"
+  output_path = "${path.root}/fetch-from-big-query.zip"
+}
+
+# create the storage bucket
+resource "google_storage_bucket" "fetch-from-big-query-bucket" {
+  name = "fetch-from-big-query-bucket"
 }
 
 # place the zip-ed code in the bucket
-resource "google_storage_bucket_object" "amplitude-to-big-query-zip" {
-  name = "amplitude-to-big-query-cron.zip"
-  bucket = "amplitude-to-big-query"
-  source = "${path.root}/amplitude-to-big-query-cron.zip"
+resource "google_storage_bucket_object" "fetch-from-big-query-zip" {
+  name = "fetch-from-big-query.zip"
+  bucket = google_storage_bucket.fetch-from-big-query-bucket.name
+  source = "${path.root}/fetch-from-big-query.zip"
 }
 
-resource "google_cloudfunctions_function" "amplitude-to-big-query-function" {
-  name = "amplitude-to-big-query"
-  description = "fetch data from Amplitude and load into Big Query"
+resource "google_cloudfunctions_function" "fetch-from-big-query-function" {
+  name = "fetch-from-big-query"
+  description = "fetch data from big query"
   available_memory_mb = 128
-  source_archive_bucket = "amplitude-to-big-query"
-  source_archive_object = google_storage_bucket_object.amplitude-to-big-query-zip.name
+  source_archive_bucket = google_storage_bucket.fetch-from-big-query-bucket.name
+  source_archive_object = google_storage_bucket_object.fetch-from-big-query-zip.name
+  timeout = 60
+  entry_point = "fetchFromBigQuery"
+  trigger_http = true
+  runtime = "nodejs10"
+}
+
+############## fetch-from-big-query end: ###############
+
+
+############## sync-amplitude-data-to-big-query below: ###############
+data "archive_file" "sync-amplitude-data-to-big-query-zip" {
+  type = "zip"
+  source_dir = "../functions/python/sync-amplitude-data-to-big-query"
+  output_path = "${path.root}/sync-amplitude-data-to-big-query.zip"
+}
+
+# create the storage bucket
+resource "google_storage_bucket" "sync-amplitude-data-to-big-query-bucket" {
+  name = "sync-amplitude-data-to-big-query-bucket"
+}
+
+# place the zip-ed code in the bucket
+resource "google_storage_bucket_object" "sync-amplitude-data-to-big-query-zip" {
+  name = "sync-amplitude-data-to-big-query.zip"
+  bucket = google_storage_bucket.sync-amplitude-data-to-big-query-bucket.name
+  source = "${path.root}/sync-amplitude-data-to-big-query.zip"
+}
+
+resource "google_cloudfunctions_function" "sync-amplitude-data-to-big-query-function" {
+  name = "sync-amplitude-data-to-big-query"
+  description = "sync data from Amplitude into Big Query"
+  available_memory_mb = 128
+  source_archive_bucket = google_storage_bucket.sync-amplitude-data-to-big-query-bucket.name
+  source_archive_object = google_storage_bucket_object.sync-amplitude-data-to-big-query-zip.name
   timeout = 360
   entry_point = "main"
   event_trigger {
@@ -67,3 +108,5 @@ resource "google_cloudfunctions_function" "amplitude-to-big-query-function" {
   }
   runtime = "python37"
 }
+
+############## sync-amplitude-data-to-big-query end: ###############

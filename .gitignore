@@ -83,3 +83,6 @@ terraform.tfstate
 ./*.tfstate
 .terraform/
 *.log
+
+tmp/
+.terraform.tfstate.lock.info
