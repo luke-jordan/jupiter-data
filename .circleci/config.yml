@@ -39,4 +39,6 @@ jobs:
           key: v1-dependencies-{{ checksum "functions/javascript/fetch-from-big-query/package.json" }}
 
       # run tests!
-      - run: npm test
+      - run:
+          name: npm test
+          command: cd $HOME/app/functions/javascript/fetch-from-big-query && npm test
