@@ -184,7 +184,7 @@ def process_line_json(line):
 ###############################################################################
 
 os.system("curl -u " + API_KEY + ":" + API_SECRET + " \
-              'https://amplitude.com/api/2/export?start=" + YESTERDAY + "T01&end="
+              'https://amplitude.com/api/2/export?start=" + YESTERDAY + "T00&end="
               + YESTERDAY + "T23'  >> amplitude.zip")
 
 # Unzip the file
