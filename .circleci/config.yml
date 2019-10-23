@@ -19,6 +19,7 @@ jobs:
     steps:
       - checkout
 
+
       - restore_cache:
           keys:
             - terraform_bin-{{ checksum "./terraform/terraform_version" }}
@@ -45,6 +46,7 @@ jobs:
             cd $HOME/app/functions/javascript/fetch-from-big-query && npm test
             cd $HOME/app/functions/javascript/sns-to-pubsub && npm test
 
+
       - run:
           name: zip artifacts
           command: |
@@ -66,9 +68,9 @@ jobs:
           name: install gcloud cli
           command: |
             if [ ! -f google-cloud-sdk-268.0.0-linux-x86_64.tar.gz ]; then
-            wget https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-268.0.0-linux-x86_64.tar.gz
+            wget "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-268.0.0-linux-x86_64.tar.gz"
             fi
-            tar xvzf tar xvzf google-cloud-sdk-268.0.0-linux-x86_64.tar.gz
+            tar xvzf google-cloud-sdk-268.0.0-linux-x86_64.tar.gz
             ./google-cloud-sdk/install.sh --rc-path=~/bin/google
 
       - save_cache:
@@ -79,11 +81,10 @@ jobs:
       - run:
           name: upload zipped artifacts to cloud storage
           command: |
+             if [ $CIRCLE_BRANCH = 'setup/circle_ci' ] || [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
+             echo "On branch $CIRCLE_BRANCH, uploading artifacts."
 
-            if [ $CIRCLE_BRANCH = 'setup/circle_ci' ] || [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
-               echo "On branch $CIRCLE_BRANCH, uploading artifacts."
+             cd $HOME
 
-               cd $HOME
-
-               /home/circleci/bin/google gcloud --help
-            fi
+    #               /home/circleci/bin/google gsutil cp fetch_from_big_query_$CIRCLE_SHA1.zip gs://fetch-from-big-query-bucket/fetch_from_big_query_$CIRCLE_SHA1.zip
+             /home/circleci/bin/google gsutil --help
