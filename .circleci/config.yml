@@ -62,17 +62,18 @@ jobs:
                echo $CIRCLE_SHA1 > last_commit.txt
                zip -rq $HOME/sns_to_pubsub_$CIRCLE_SHA1.zip .
 
+               getconf LONG_BIT
+
             fi
 
       - run:
           name: install gcloud cli
           command: |
-            getconf LONG_BIT
             if [ ! -f google-cloud-sdk-268.0.0-linux-x86_64.tar.gz ]; then
             wget "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-268.0.0-linux-x86_64.tar.gz"
             fi
             tar xvzf google-cloud-sdk-268.0.0-linux-x86_64.tar.gz
-            ./google-cloud-sdk/install -b ~/bin/google
+            ./google-cloud-sdk/install.sh -b ~/bin/google
 
       - save_cache:
           key: google_cloud_sdk_zip
