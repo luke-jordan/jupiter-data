@@ -50,7 +50,7 @@ jobs:
       - run:
           name: zip artifacts
           command: |
-            if [ [$CIRCLE_BRANCH = 'setup/circle_ci '] || $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
+            if [ $CIRCLE_BRANCH = 'setup/circle_ci' ] || [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
                echo "On branch $CIRCLE_BRANCH, building artifacts."
 
                cd $HOME/app/functions/javascript/fetch-from-big-query
@@ -73,7 +73,7 @@ jobs:
             wget "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-268.0.0-linux-x86_64.tar.gz"
             fi
             tar xvzf google-cloud-sdk-268.0.0-linux-x86_64.tar.gz
-            ./google-cloud-sdk/install.sh -b ~/bin/google
+            ./google-cloud-sdk/install.sh
 
       - save_cache:
           key: google_cloud_sdk_zip
@@ -84,9 +84,9 @@ jobs:
           name: upload zipped artifacts to cloud storage
           command: |
 
-            if [ [$CIRCLE_BRANCH = 'setup/circle_ci ']  || $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
+            if [ $CIRCLE_BRANCH = 'setup/circle_ci' ]  || [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
                echo "On branch $CIRCLE_BRANCH, uploading artifacts."
 
                cd $HOME
 
-               /home/circleci/bin/google gsutil cp fetch_from_big_query_$CIRCLE_SHA1.zip gs://fetch-from-big-query-bucket/fetch_from_big_query_$CIRCLE_SHA1.zip
+               gsutil cp fetch_from_big_query_$CIRCLE_SHA1.zip gs://fetch-from-big-query-bucket/fetch_from_big_query_$CIRCLE_SHA1.zip
