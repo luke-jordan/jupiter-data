@@ -67,10 +67,11 @@ jobs:
       - run:
           name: install gcloud cli
           command: |
+            getconf LONG_BIT
             if [ ! -f google-cloud-sdk-268.0.0-linux-x86_64.tar.gz ]; then
             wget "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-268.0.0-linux-x86_64.tar.gz"
             fi
-            unzip google-cloud-sdk-268.0.0-linux-x86_64.tar.gz
+            tar xvzf google-cloud-sdk-268.0.0-linux-x86_64.tar.gz
             ./google-cloud-sdk/install -b ~/bin/google
 
       - save_cache:
