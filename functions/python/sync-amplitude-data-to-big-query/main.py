@@ -214,7 +214,7 @@ def fetch_data_from_amplitude():
     print(TEMP)
     print("download command")
     print(download_cmd)
-    os.system(download)
+    os.system(download_cmd)
     print('completed download from amplitude to ' + TEMP)
 
 
