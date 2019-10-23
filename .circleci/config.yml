@@ -80,6 +80,8 @@ jobs:
       - run:
           name: set gcloud config
           command: |
+            cd $HOME
+
             echo $GCLOUD_SERVICE_KEY | ./app/google-cloud-sdk/bin/gcloud auth activate-service-account --key-file=-
             ./app/google-cloud-sdk/bin/gcloud --quiet config set project ${GOOGLE_PROJECT_ID}
             ./app/google-cloud-sdk/bin/gcloud --quiet config set compute/zone ${GOOGLE_COMPUTE_ZONE}
