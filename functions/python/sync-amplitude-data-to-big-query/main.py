@@ -208,10 +208,6 @@ def final_clean_up():
 def fetch_data_from_amplitude():
     # Perform a CURL request to download the export from Amplitude
     print('downloading data for ' + YESTERDAY + ' from amplitude')
-    print(TEMP)
-    print("debugging weird error")
-    print(YESTERDAY + "T23" + TEMP + "/amplitude.zip")
-    exit()
     os.system("curl -u " + API_KEY + ":" + API_SECRET + " \
                  'https://amplitude.com/api/2/export?start=" + YESTERDAY + "T00&end="
                   + YESTERDAY + "T23'  >> " + TEMP + "/amplitude.zip")
