@@ -210,7 +210,7 @@ def fetch_data_from_amplitude():
     print('downloading data for ' + YESTERDAY + ' from amplitude')
     os.system("curl -u " + API_KEY + ":" + API_SECRET + " \
               'https://amplitude.com/api/2/export?start=" + YESTERDAY + "T00&end="
-              + YESTERDAY + "T23'  >> " + TEMP + "/amplitude.zip")
+              + YESTERDAY + "T23  >> " + TEMP + "/amplitude.zip")
     print('completed download from amplitude to ' + TEMP)
 
 
