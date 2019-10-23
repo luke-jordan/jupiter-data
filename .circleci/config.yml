@@ -8,6 +8,9 @@ jobs:
     docker:
       # specify the version you desire here
       - image: circleci/node:10
+      - auth:
+          username: _json_key  # default username when using a JSON key file to authenticate
+          password: $GCLOUD_SERVICE_KEY
 
       # Specify service dependencies here if necessary
       # CircleCI maintains a library of pre-built images
@@ -94,4 +97,4 @@ jobs:
 
              cd $HOME
 
-             ./app/google-cloud-sdk/bin/gsutil cp README.md gs://fetch-from-big-query-bucket
+             ./app/google-cloud-sdk/bin/gsutil cp app/README.md gs://fetch-from-big-query-bucket
