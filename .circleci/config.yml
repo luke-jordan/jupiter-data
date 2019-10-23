@@ -19,7 +19,6 @@ jobs:
     steps:
       - checkout
 
-
       - restore_cache:
           keys:
             - terraform_bin-{{ checksum "./terraform/terraform_version" }}
@@ -87,5 +86,5 @@ jobs:
 
                cd $HOME
 
-#               /home/circleci/bin/google gsutil cp fetch_from_big_query_$CIRCLE_SHA1.zip gs://fetch-from-big-query-bucket/fetch_from_big_query_$CIRCLE_SHA1.zip
                /home/circleci/bin/google gsutil --help
+            fi
