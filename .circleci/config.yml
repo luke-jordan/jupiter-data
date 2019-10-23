@@ -96,4 +96,4 @@ jobs:
 
                ./app/google-cloud-sdk/bin/gsutil cp app/README.md gs://fetch-from-big-query-bucket
                echo "upload completed"
-            fi
+             fi
