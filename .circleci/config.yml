@@ -78,6 +78,13 @@ jobs:
             - google-cloud-sdk-268.0.0-linux-x86_64.tar.gz
 
       - run:
+          name: set gcloud config
+          command: |
+            echo $GCLOUD_SERVICE_KEY | ./app/google-cloud-sdk/bin/gcloud auth activate-service-account --key-file=-
+            ./app/google-cloud-sdk/bin/gcloud --quiet config set project ${GOOGLE_PROJECT_ID}
+            ./app/google-cloud-sdk/bin/gcloud --quiet config set compute/zone ${GOOGLE_COMPUTE_ZONE}
+
+      - run:
           name: upload zipped artifacts to cloud storage
           command: |
              if [ $CIRCLE_BRANCH = 'setup/circle_ci' ] || [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
@@ -85,4 +92,4 @@ jobs:
 
              cd $HOME
 
-             /app/google-cloud-sdk/bin/gcloud/gsutil --help
+             ./app/google-cloud-sdk/bin/gsutil cp README.md gs://fetch-from-big-query-bucket
