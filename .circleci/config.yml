@@ -73,7 +73,7 @@ jobs:
             wget "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-268.0.0-linux-x86_64.tar.gz"
             fi
             tar xvzf google-cloud-sdk-268.0.0-linux-x86_64.tar.gz
-            ./google-cloud-sdk/install.sh
+            ./google-cloud-sdk/install.sh --rc-path=~/bin/google
 
       - save_cache:
           key: google_cloud_sdk_zip
@@ -89,4 +89,4 @@ jobs:
 
                cd $HOME
 
-               gsutil cp fetch_from_big_query_$CIRCLE_SHA1.zip gs://fetch-from-big-query-bucket/fetch_from_big_query_$CIRCLE_SHA1.zip
+               /home/circleci/bin/google gsutil cp fetch_from_big_query_$CIRCLE_SHA1.zip gs://fetch-from-big-query-bucket/fetch_from_big_query_$CIRCLE_SHA1.zip
