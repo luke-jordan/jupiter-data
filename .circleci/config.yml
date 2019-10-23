@@ -56,8 +56,8 @@ jobs:
                echo $CIRCLE_SHA1 > last_commit.txt
                zip -rq $HOME/fetch_from_big_query_$CIRCLE_SHA1.zip .
 
-
                cd $HOME/app/functions/javascript/sns-to-pubsub
+               echo $GCLOUD_SERVICE_KEY >> jupiter_ml_python_credentials.json
                echo $CIRCLE_SHA1 > last_commit.txt
                zip -rq $HOME/sns_to_pubsub_$CIRCLE_SHA1.zip .
 

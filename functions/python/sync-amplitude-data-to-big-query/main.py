@@ -17,7 +17,7 @@ load_dotenv()
 import tempfile
 import io
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="jupiter-ml-alpha-credentials.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="jupiter_ml_python_credentials.json"
 
 TEMP = tempfile.gettempdir()
 
