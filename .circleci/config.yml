@@ -27,24 +27,24 @@ jobs:
           keys:
             - google_cloud_sdk_zip
 
-#      - run:
-#          name: install node modules
-#          command: |
-#            cd $HOME/app/functions/javascript/fetch-from-big-query && npm install
-#            cd $HOME/app/functions/javascript/sns-to-pubsub && npm install
-#            cd $HOME/app/functions/javascript/sns-to-pubsub/libs/auth-validator && npm install
-#
-#      - run:
-#          name: Run linter
-#          command: |
-#            cd $HOME/app/functions/javascript/fetch-from-big-query && npm run lint
-#            cd $HOME/app/functions/javascript/sns-to-pubsub && npm run lint
-#
-#      - run:
-#          name: Run tests
-#          command: |
-#            cd $HOME/app/functions/javascript/fetch-from-big-query && npm test
-#            cd $HOME/app/functions/javascript/sns-to-pubsub && npm test
+      - run:
+          name: install node modules
+          command: |
+            cd $HOME/app/functions/javascript/fetch-from-big-query && npm install
+            cd $HOME/app/functions/javascript/sns-to-pubsub && npm install
+            cd $HOME/app/functions/javascript/sns-to-pubsub/libs/auth-validator && npm install
+
+      - run:
+          name: Run linter
+          command: |
+            cd $HOME/app/functions/javascript/fetch-from-big-query && npm run lint
+            cd $HOME/app/functions/javascript/sns-to-pubsub && npm run lint
+
+      - run:
+          name: Run tests
+          command: |
+            cd $HOME/app/functions/javascript/fetch-from-big-query && npm test
+            cd $HOME/app/functions/javascript/sns-to-pubsub && npm test
 
       - run:
           name: zip artifacts
