@@ -67,16 +67,16 @@ jobs:
       - run:
           name: install gcloud cli
           command: |
-            if [ ! -f google-cloud-sdk-bundle.zip ]; then
+            if [ ! -f google-cloud-sdk-268.0.0-linux-x86_64.tar.gz.zip ]; then
             wget "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-268.0.0-linux-x86_64.tar.gz"
             fi
-            unzip google-cloud-sdk-bundle.zip
+            unzip google-cloud-sdk-268.0.0-linux-x86_64.tar.gz.zip
             ./google-cloud-sdk/install -b ~/bin/google
 
       - save_cache:
           key: google_cloud_sdk_zip
           paths:
-            - google-cloud-sdk-bundle.zip
+            - google-cloud-sdk-268.0.0-linux-x86_64.tar.gz.zip
 
       - run:
           name: upload zipped artifacts to cloud storage
