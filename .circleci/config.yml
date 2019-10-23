@@ -117,7 +117,7 @@ jobs:
               terraform workspace select $CIRCLE_BRANCH
 
               terraform plan -var "deploy_code_commit_hash=$CIRCLE_SHA1" -var "credentials_file=$GCLOUD_SERVICE_KEY"
-              terraform apply -auto-approve -var "credentials_file=$GCLOUD_SERVICE_KEY"
+              terraform apply -auto-approve -var "deploy_code_commit_hash=$CIRCLE_SHA1" -var "credentials_file=$GCLOUD_SERVICE_KEY"
             fi
 
       - save_cache:
