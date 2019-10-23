@@ -19,49 +19,48 @@ jobs:
     steps:
       - checkout
 
-#      - restore_cache:
-#          keys:
-#            - terraform_bin-{{ checksum "./terraform/terraform_version" }}
+      - restore_cache:
+          keys:
+            - terraform_bin-{{ checksum "./terraform/terraform_version" }}
 
       - restore_cache:
           keys:
             - google_cloud_sdk_zip
 
-#      - run:
-#          name: install node modules
-#          command: |
-#            cd $HOME/app/functions/javascript/fetch-from-big-query && npm install
-#            cd $HOME/app/functions/javascript/sns-to-pubsub && npm install
-#
-#      - run:
-#          name: Run linter
-#          command: |
-#            cd $HOME/app/functions/javascript/fetch-from-big-query && npm run lint
-#            cd $HOME/app/functions/javascript/sns-to-pubsub && npm run lint
-#
-#      - run:
-#          name: Run tests
-#          command: |
-#            cd $HOME/app/functions/javascript/fetch-from-big-query && npm test
-#            cd $HOME/app/functions/javascript/sns-to-pubsub && npm test
-#
-#
-#      - run:
-#          name: zip artifacts
-#          command: |
-#            if [ $CIRCLE_BRANCH = 'setup/circle_ci' ] || [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
-#               echo "On branch $CIRCLE_BRANCH, building artifacts."
-#
-#               cd $HOME/app/functions/javascript/fetch-from-big-query
-#               echo $CIRCLE_SHA1 > last_commit.txt
-#               zip -rq $HOME/fetch_from_big_query_$CIRCLE_SHA1.zip .
-#
-#
-#               cd $HOME/app/functions/javascript/sns-to-pubsub
-#               echo $CIRCLE_SHA1 > last_commit.txt
-#               zip -rq $HOME/sns_to_pubsub_$CIRCLE_SHA1.zip .
-#
-#            fi
+      - run:
+          name: install node modules
+          command: |
+            cd $HOME/app/functions/javascript/fetch-from-big-query && npm install
+            cd $HOME/app/functions/javascript/sns-to-pubsub && npm install
+
+      - run:
+          name: Run linter
+          command: |
+            cd $HOME/app/functions/javascript/fetch-from-big-query && npm run lint
+            cd $HOME/app/functions/javascript/sns-to-pubsub && npm run lint
+
+      - run:
+          name: Run tests
+          command: |
+            cd $HOME/app/functions/javascript/fetch-from-big-query && npm test
+            cd $HOME/app/functions/javascript/sns-to-pubsub && npm test
+
+      - run:
+          name: zip artifacts
+          command: |
+            if [ $CIRCLE_BRANCH = 'setup/circle_ci' ] || [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
+               echo "On branch $CIRCLE_BRANCH, building artifacts."
+
+               cd $HOME/app/functions/javascript/fetch-from-big-query
+               echo $CIRCLE_SHA1 > last_commit.txt
+               zip -rq $HOME/fetch_from_big_query_$CIRCLE_SHA1.zip .
+
+
+               cd $HOME/app/functions/javascript/sns-to-pubsub
+               echo $CIRCLE_SHA1 > last_commit.txt
+               zip -rq $HOME/sns_to_pubsub_$CIRCLE_SHA1.zip .
+
+            fi
 
       - run:
           name: install gcloud cli
@@ -92,8 +91,8 @@ jobs:
             if [ $CIRCLE_BRANCH = 'setup/circle_ci' ] || [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
               echo "On branch $CIRCLE_BRANCH, uploading artifacts."
               cd $HOME
-              ./app/google-cloud-sdk/bin/gsutil cp app/README.md gs://fetch-from-big-query-bucket
-              echo "upload completed"
+              ./app/google-cloud-sdk/bin/gsutil cp fetch_from_big_query_$CIRCLE_SHA1.zip gs://fetch-from-big-query-bucket
+              ./app/google-cloud-sdk/bin/gsutil cp sns_to_pubsub_$CIRCLE_SHA1.zip gs://sns-to-pubsub-bucket
             fi
 
             echo "completed success"
