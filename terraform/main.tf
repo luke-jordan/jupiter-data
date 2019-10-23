@@ -60,17 +60,17 @@ resource "google_cloudfunctions_function" "sns-to-pubsub-function" {
 //  source = "${path.root}/fetch-from-big-query.zip"
 //}
 
-//resource "google_cloudfunctions_function" "fetch-from-big-query-function" {
-//  name = "fetch-from-big-query"
-//  description = "fetch data from big query"
-//  available_memory_mb = 128
-//  source_archive_bucket = "fetch-from-big-query-bucket"
-//  source_archive_object = "fetch_from_big_query_${var.deploy_code_commit_hash}.zip"
-//  timeout = 60
-//  entry_point = "fetchFromBigQuery"
-//  trigger_http = true
-//  runtime = "nodejs10"
-//}
+resource "google_cloudfunctions_function" "fetch-from-big-query-function" {
+  name = "fetch-from-big-query"
+  description = "fetch data from big query"
+  available_memory_mb = 128
+  source_archive_bucket = "fetch-from-big-query-bucket"
+  source_archive_object = "fetch_from_big_query_${var.deploy_code_commit_hash}.zip"
+  timeout = 60
+  entry_point = "fetchFromBigQuery"
+  trigger_http = true
+  runtime = "nodejs10"
+}
 
 ############## fetch-from-big-query end: ###############
 
