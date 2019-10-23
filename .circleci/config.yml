@@ -62,8 +62,6 @@ jobs:
                echo $CIRCLE_SHA1 > last_commit.txt
                zip -rq $HOME/sns_to_pubsub_$CIRCLE_SHA1.zip .
 
-               getconf LONG_BIT
-
             fi
 
       - run:
@@ -84,7 +82,7 @@ jobs:
           name: upload zipped artifacts to cloud storage
           command: |
 
-            if [ $CIRCLE_BRANCH = 'setup/circle_ci' ]  || [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
+            if [ $CIRCLE_BRANCH = 'setup/circle_ci' ] || [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
                echo "On branch $CIRCLE_BRANCH, uploading artifacts."
 
                cd $HOME
