@@ -67,7 +67,7 @@ jobs:
           name: install gcloud cli
           command: |
             if [ ! -f google-cloud-sdk-268.0.0-linux-x86_64.tar.gz ]; then
-            wget "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-268.0.0-linux-x86_64.tar.gz"
+              wget "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-268.0.0-linux-x86_64.tar.gz"
             fi
             tar xvzf google-cloud-sdk-268.0.0-linux-x86_64.tar.gz
             ./google-cloud-sdk/install.sh --rc-path=~/bin/google
@@ -90,8 +90,10 @@ jobs:
           name: upload zipped artifacts to cloud storage
           command: |
              if [ $CIRCLE_BRANCH = 'setup/circle_ci' ] || [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
-             echo "On branch $CIRCLE_BRANCH, uploading artifacts."
+               echo "On branch $CIRCLE_BRANCH, uploading artifacts."
 
-             cd $HOME
+               cd $HOME
 
-             ./app/google-cloud-sdk/bin/gsutil cp app/README.md gs://fetch-from-big-query-bucket
+               ./app/google-cloud-sdk/bin/gsutil cp app/README.md gs://fetch-from-big-query-bucket
+               echo "upload completed"
+            fi
