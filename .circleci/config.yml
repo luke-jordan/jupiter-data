@@ -45,7 +45,6 @@ jobs:
             cd $HOME/app/functions/javascript/fetch-from-big-query && npm test
             cd $HOME/app/functions/javascript/sns-to-pubsub && npm test
 
-
       - run:
           name: zip artifacts
           command: |
@@ -66,16 +65,18 @@ jobs:
       - run:
           name: install gcloud cli
           command: |
-            if [ ! -f google-cloud-sdk-268.0.0-linux-x86_64.tar.gz ]; then
-            wget "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-268.0.0-linux-x86_64.tar.gz"
+            export GCLOUD_VERSION=$(cat $HOME/app/gcloud_version)
+
+            if [ ! -f $GCLOUD_VERSION ]; then
+            wget https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/$GCLOUD_VERSION
             fi
-            tar xvzf google-cloud-sdk-268.0.0-linux-x86_64.tar.gz
+            tar xvzf tar xvzf $GCLOUD_VERSION
             ./google-cloud-sdk/install.sh --rc-path=~/bin/google
 
       - save_cache:
           key: google_cloud_sdk_zip
           paths:
-            - google-cloud-sdk-268.0.0-linux-x86_64.tar.gz
+            - $GCLOUD_VERSION
 
       - run:
           name: upload zipped artifacts to cloud storage
@@ -86,5 +87,5 @@ jobs:
 
                cd $HOME
 
-               /home/circleci/bin/google gsutil --help
+               /home/circleci/bin/google gcloud --help
             fi
