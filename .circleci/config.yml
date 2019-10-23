@@ -89,11 +89,10 @@ jobs:
       - run:
           name: upload zipped artifacts to cloud storage
           command: |
-             if [ $CIRCLE_BRANCH = 'setup/circle_ci' ] || [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
-               echo "On branch $CIRCLE_BRANCH, uploading artifacts."
-
-               cd $HOME
-
-               ./app/google-cloud-sdk/bin/gsutil cp app/README.md gs://fetch-from-big-query-bucket
-               echo "upload completed"
-             fi
+            if [ $CIRCLE_BRANCH = 'setup/circle_ci' ] || [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
+              echo "On branch $CIRCLE_BRANCH, uploading artifacts."
+              cd $HOME
+              ./app/google-cloud-sdk/bin/gsutil cp app/README.md gs://fetch-from-big-query-bucket
+              echo "upload completed"
+            fi
+            echo "completed success"
