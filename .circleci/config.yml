@@ -91,8 +91,8 @@ jobs:
             if [ $CIRCLE_BRANCH = 'setup/circle_ci' ] || [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
               echo "On branch $CIRCLE_BRANCH, uploading artifacts."
               cd $HOME/app/google-cloud-sdk/bin
-              gsutil cp fetch_from_big_query_$CIRCLE_SHA1.zip gs://fetch-from-big-query-bucket
-              gsutil cp sns_to_pubsub_$CIRCLE_SHA1.zip gs://sns-to-pubsub-bucket
+              ./app/google-cloud-sdk/bin/gsutil cp fetch_from_big_query_$CIRCLE_SHA1.zip gs://fetch-from-big-query-bucket
+              ./app/google-cloud-sdk/bin/gsutil cp sns_to_pubsub_$CIRCLE_SHA1.zip gs://sns-to-pubsub-bucket
             fi
 
             echo "completed success"

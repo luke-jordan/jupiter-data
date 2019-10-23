@@ -7,11 +7,11 @@ provider "google" {
 
 ############## sns to pub-sub below: ###############
 # zip up our source code
-data "archive_file" "sns-to-pubsub-zip" {
-  type = "zip"
-  source_dir = "../functions/javascript/sns-to-pubsub"
-  output_path = "${path.root}/sns-to-pubsub.zip"
-}
+//data "archive_file" "sns-to-pubsub-zip" {
+//  type = "zip"
+//  source_dir = "../functions/javascript/sns-to-pubsub"
+//  output_path = "${path.root}/sns-to-pubsub.zip"
+//}
 
 # create the storage bucket
 resource "google_storage_bucket" "sns-to-pubsub-bucket" {
@@ -42,11 +42,11 @@ resource "google_cloudfunctions_function" "sns-to-pubsub-function" {
 
 ############## fetch-from-big-query below: ###############
 # zip up our source code
-data "archive_file" "fetch-from-big-query-zip" {
-  type = "zip"
-  source_dir = "../functions/javascript/fetch-from-big-query"
-  output_path = "${path.root}/fetch-from-big-query.zip"
-}
+//data "archive_file" "fetch-from-big-query-zip" {
+//  type = "zip"
+//  source_dir = "../functions/javascript/fetch-from-big-query"
+//  output_path = "${path.root}/fetch-from-big-query.zip"
+//}
 
 # create the storage bucket
 resource "google_storage_bucket" "fetch-from-big-query-bucket" {
@@ -76,11 +76,11 @@ resource "google_cloudfunctions_function" "fetch-from-big-query-function" {
 
 
 ############## sync-amplitude-data-to-big-query below: ###############
-data "archive_file" "sync-amplitude-data-to-big-query-zip" {
-  type = "zip"
-  source_dir = "../functions/python/sync-amplitude-data-to-big-query"
-  output_path = "${path.root}/sync-amplitude-data-to-big-query.zip"
-}
+//data "archive_file" "sync-amplitude-data-to-big-query-zip" {
+//  type = "zip"
+//  source_dir = "../functions/python/sync-amplitude-data-to-big-query"
+//  output_path = "${path.root}/sync-amplitude-data-to-big-query.zip"
+//}
 
 # create the storage bucket
 resource "google_storage_bucket" "sync-amplitude-data-to-big-query-bucket" {
