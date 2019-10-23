@@ -85,4 +85,4 @@ jobs:
 
              cd $HOME
 
-             /home/circleci/bin/google gsutil --help
+             /app/google-cloud-sdk/bin/gcloud/gsutil --help
