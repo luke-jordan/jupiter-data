@@ -116,8 +116,10 @@ jobs:
               terraform workspace new $CIRCLE_BRANCH
               terraform workspace select $CIRCLE_BRANCH
 
-              terraform plan -var "deploy_code_commit_hash=$CIRCLE_SHA1" -var "credentials_file=$GCLOUD_SERVICE_KEY"
-              terraform apply -auto-approve -var "deploy_code_commit_hash=$CIRCLE_SHA1" -var "credentials_file=$GCLOUD_SERVICE_KEY"
+              echo $GCLOUD_SERVICE_KEY >> jupiter_ml_ci_credentials.json
+              cat jupiter_ml_ci_credentials.json
+              terraform plan -var "deploy_code_commit_hash=$CIRCLE_SHA1" -var "credentials_file=jupiter_ml_ci_credentials.json"
+              terraform apply -auto-approve -var "deploy_code_commit_hash=$CIRCLE_SHA1" -var "credentials_file=jupiter_ml_ci_credentials.json"
             fi
 
       - save_cache:
