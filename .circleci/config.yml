@@ -19,6 +19,15 @@ jobs:
     steps:
       - checkout
 
+
+      - restore_cache:
+          keys:
+            - terraform_bin-{{ checksum "./terraform/terraform_version" }}
+
+      - restore_cache:
+          keys:
+            - google_cloud_sdk_zip
+
       - run:
           name: install node modules
           command: |
@@ -36,3 +45,46 @@ jobs:
           command: |
             cd $HOME/app/functions/javascript/fetch-from-big-query && npm test
             cd $HOME/app/functions/javascript/sns-to-pubsub && npm test
+
+
+      - run:
+          name: zip artifacts
+          command: |
+            if [ [$CIRCLE_BRANCH = 'setup/circle_ci '] || $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
+               echo "On branch $CIRCLE_BRANCH, building artifacts."
+
+               cd $HOME/app/functions/javascript/fetch-from-big-query
+               echo $CIRCLE_SHA1 > last_commit.txt
+               zip -rq $HOME/fetch_from_big_query_$CIRCLE_SHA1.zip .
+
+
+               cd $HOME/app/functions/javascript/sns-to-pubsub
+               echo $CIRCLE_SHA1 > last_commit.txt
+               zip -rq $HOME/sns_to_pubsub_$CIRCLE_SHA1.zip .
+
+            fi
+
+      - run:
+          name: install gcloud cli
+          command: |
+            if [ ! -f google-cloud-sdk-bundle.zip ]; then
+            wget "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-268.0.0-linux-x86_64.tar.gz"
+            fi
+            unzip google-cloud-sdk-bundle.zip
+            ./google-cloud-sdk/install -b ~/bin/google
+
+      - save_cache:
+          key: google_cloud_sdk_zip
+          paths:
+            - google-cloud-sdk-bundle.zip
+
+      - run:
+          name: upload zipped artifacts to cloud storage
+          command: |
+
+            if [ [$CIRCLE_BRANCH = 'setup/circle_ci ']  || $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
+               echo "On branch $CIRCLE_BRANCH, uploading artifacts."
+
+               cd $HOME
+
+               /home/circleci/bin/google gsutil cp fetch_from_big_query_$CIRCLE_SHA1.zip gs://fetch-from-big-query-bucket/fetch_from_big_query_$CIRCLE_SHA1.zip
