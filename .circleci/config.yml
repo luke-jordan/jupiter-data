@@ -68,7 +68,7 @@ jobs:
             export GCLOUD_VERSION=$(cat $HOME/app/gcloud_version)
 
             if [ ! -f $GCLOUD_VERSION ]; then
-            wget https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/$GCLOUD_VERSION
+            wget "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/$GCLOUD_VERSION"
             fi
             tar xvzf tar xvzf $GCLOUD_VERSION
             ./google-cloud-sdk/install.sh --rc-path=~/bin/google
