@@ -122,7 +122,6 @@ jobs:
               echo $GCLOUD_SERVICE_KEY >> jupiter-ml-alpha-credentials.json
               export GOOGLE_APPLICATION_CREDENTIALS="jupiter-ml-alpha-credentials.json"
               terraform init
-              terraform workspace new $CIRCLE_BRANCH
               terraform workspace select $CIRCLE_BRANCH
 
               echo $GCLOUD_SERVICE_KEY >> jupiter_ml_ci_credentials.json
