@@ -207,9 +207,6 @@ def final_clean_up():
 
 def fetch_data_from_amplitude():
     # Perform a CURL request to download the export from Amplitude
-    print(datetime.utcnow().date())
-    print(YESTERDAY)
-    exit()
     print('downloading data for ' + YESTERDAY + ' from amplitude')
     os.system("curl -u " + API_KEY + ":" + API_SECRET + " \
                  'https://amplitude.com/api/2/export?start=" + YESTERDAY + "T00&end="
