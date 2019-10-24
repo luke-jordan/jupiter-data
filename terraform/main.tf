@@ -94,6 +94,20 @@ resource "google_cloudfunctions_function" "fetch-from-big-query-function" {
 //  source = "${path.root}/sync-amplitude-data-to-big-query.zip"
 //}
 //
+
+// TODO: Object Versioning on Google Cloud Storage (GCS)
+// Please refer to: https://www.terraform.io/docs/backends/types/gcs.html
+// and https://cloud.google.com/storage/docs/object-versioning
+data "terraform_remote_state" "terraform-state-on-gcs" {
+  backend = "gcs"
+  config = {
+    bucket  = "terraform-state-staging-jupiter-save"
+  }
+  workspaces {
+    prefix = "setup_terraform_circle_ci"
+  }
+}
+
 resource "google_cloudfunctions_function" "sync-amplitude-data-to-big-query-function" {
   name = "sync-amplitude-data-to-big-query"
   description = "sync data from Amplitude into Big Query"
