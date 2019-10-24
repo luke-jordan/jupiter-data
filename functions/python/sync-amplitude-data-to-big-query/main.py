@@ -84,6 +84,7 @@ def remove_file(file, folder=''):
     print("Removing file: {file} from folder: {folder}".format(file=file, folder=folder))
     folder = folder if folder == '' else folder + '/'
     os.remove("{folder}{file}".format(folder=folder, file=file))
+    print("Successfully removed file: {file} from folder: {folder}".format(file=file, folder=folder))
 
 
 def unzip_file_to_root_location(filename):
@@ -214,7 +215,7 @@ def process_line_json(line):
 def final_clean_up(file_location, day):
     # Remove the original zipfile
     print("Removing the original zip file: {file_location} downloaded from Amplitude for {day}".format(day=day, file_location=file_location))
-    remove_file(file_location, TEMP)
+    remove_file(file_location)
     print("Successfully removed the original zip file: {file_location} downloaded from Amplitude for {day}".format(day=day, file_location=file_location))
 
 
