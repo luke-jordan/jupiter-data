@@ -119,6 +119,8 @@ jobs:
             cd $HOME/app/terraform
 
             if [ $CIRCLE_BRANCH = 'setup_terraform_circle_ci' ] || [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ] ; then
+              echo $GCLOUD_SERVICE_KEY >> jupiter-ml-alpha-credentials.json
+              export GOOGLE_APPLICATION_CREDENTIALS="jupiter-ml-alpha-credentials.json"
               terraform init
               terraform workspace new $CIRCLE_BRANCH
               terraform workspace select $CIRCLE_BRANCH
