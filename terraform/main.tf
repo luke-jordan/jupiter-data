@@ -103,9 +103,6 @@ data "terraform_remote_state" "terraform-state-on-gcs" {
   config = {
     bucket  = "terraform-state-staging-jupiter-save"
   }
-  workspaces {
-    prefix = "setup_terraform_circle_ci2"
-  }
 }
 
 resource "google_cloudfunctions_function" "sync-amplitude-data-to-big-query-function" {
