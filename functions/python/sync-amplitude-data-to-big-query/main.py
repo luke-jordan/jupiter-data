@@ -46,23 +46,24 @@ storage_client = storage.Client()
 
 def unzip_gzip(file, remove_original=True):
     path_to_file = ACCOUNT_ID_DIRECTORY + file
-    print("performing a gzip open of {path_to_file}".format(path_to_file=path_to_file))
+    print("Performing a gzip open of {path_to_file}".format(path_to_file=path_to_file))
 
     with io.TextIOWrapper(gzip.open(path_to_file, "r")) as f:
         lines = f.readlines()
     lines = [x.strip() for x in lines if x]
 
+    print("Successfully opened gzip of {path_to_file}".format(path_to_file=path_to_file))
+
     return lines
 
 def convert_text_to_json(filename, lines):
-    print("converting text to json files: {filename}".format(filename=filename))
-
     # Create a new JSON import file
-    path_to_events_file = UNZIPPED_FILE_ROOT_LOCATION + filename
-    path_to_properties_file = UNZIPPED_FILE_ROOT_LOCATION + "properties_" + filename
-    print("creating files at {path_event} and {path_properties}".format(path_event=path_to_events_file, path_properties=path_to_properties_file))
-    import_events_file = open(path_to_events_file, "w+")
-    import_properties_file = open(path_to_properties_file, "w+")
+    path_to_events_file_on_local = UNZIPPED_FILE_ROOT_LOCATION + filename
+    path_to_properties_file_on_local = UNZIPPED_FILE_ROOT_LOCATION + "properties_" + filename
+    print("Creating json files at {path_event} and {path_properties} for: {filename}".format(path_event=path_to_events_file_on_local, path_properties=path_to_properties_file_on_local, filename=filename))
+
+    import_events_file = open(path_to_events_file_on_local, "w+")
+    import_properties_file = open(path_to_properties_file_on_local, "w+")
 
     # Loop through the JSON lines
     for line in lines:
@@ -75,21 +76,24 @@ def convert_text_to_json(filename, lines):
     import_events_file.close()
     import_properties_file.close()
 
-    print("done creating json files event and properties for: {name}".format(name=file))
-    return [path_to_events_file, path_to_properties_file]
+    print("Successfully created json files at {path_event} and {path_properties} for: {filename}".format(path_event=path_to_events_file_on_local, path_properties=path_to_properties_file_on_local, filename=filename))
+    return [path_to_events_file_on_local, path_to_properties_file_on_local]
 
 
 def remove_file(file, folder=''):
+    print("Removing file: {file} from folder: {folder}".format(file=file, folder=folder))
     folder = folder if folder == '' else folder + '/'
     os.remove("{folder}{file}".format(folder=folder, file=file))
 
 
-def unzip_file(filename, extract_to):
-    print("unzipping file: {filename} to {extract_to}".format(filename=filename, extract_to=extract_to))
+def unzip_file_to_root_location(filename):
+    print("unzipping: {filename} to location: {extract_to}".format(filename=filename, extract_to=UNZIPPED_FILE_ROOT_LOCATION))
     zip_ref = zipfile.ZipFile(filename, 'r')
-    zip_ref.extractall(extract_to)
+    zip_ref.extractall(UNZIPPED_FILE_ROOT_LOCATION)
     zip_ref.close()
-    print("successfully unzipped {filename} to {extract_to}".format(filename=filename, extract_to=extract_to))
+    print("successfully unzipped: {filename} to location: {extract_to}".format(filename=filename, extract_to=UNZIPPED_FILE_ROOT_LOCATION))
+    print("===========================================================================")
+    print("===========================================================================")
 
 def file_list(extension):
     files = []
@@ -98,7 +102,9 @@ def file_list(extension):
         for filename in filenames:
             if filename.endswith(extension):
                 files.append(filename)
-    print("Files ending with extension: {extension} are: {files}".format(extension=extension, files=files))
+    print("Files found in {directory} ending with {extension} extension are: {files}".format(extension=extension, files=files, directory=ACCOUNT_ID_DIRECTORY))
+    print("===========================================================================")
+    print("===========================================================================")
     return files
 
 
@@ -106,13 +112,13 @@ def file_json(filename):
     return filename.replace('.gz', '')
 
 def upload_file_to_gcs(path_to_file, new_filename, folder=''):
-    print("uploading file: {name} to gcs folder: {folder}".format(name=path_to_file, folder=folder))
+    print("Uploading local file: {name} as {new_name} to gcs folder: {folder}".format(name=path_to_file, new_name=new_filename, folder=folder))
     folder = folder if folder == '' else folder + '/'
     bucket = storage_client.get_bucket(CLOUD_STORAGE_BUCKET)
     blob = bucket.blob('{folder}{file}'.format(folder=folder,
                                                file=new_filename))
     blob.upload_from_filename(path_to_file)
-    print("completed upload of file: {name} to gcs folder: {folder}".format(name=path_to_file, folder=folder))
+    print("Completed upload of file: {name} to gcs folder: {folder}".format(name=path_to_file, folder=folder))
 
 def import_json_url(filename):
     return "gs://{bucket}/{folder}/{name}".format(bucket=CLOUD_STORAGE_BUCKET, folder=FORMATTED_FILES_GCS_FOLDER, name=filename)
@@ -128,15 +134,16 @@ def value_paying(value):
     return value
 
 
-def load_into_bigquery(file, table):
-    print("loading json file into big query")
+def load_gcs_file_into_bigquery(path_to_file, table):
+    print("Loading json file: {name} from gcs into big query".format(name=path_to_file))
     job_config = bigquery.LoadJobConfig()
     job_config.autodetect = False
     job_config.max_bad_records = 25
     job_config.source_format = 'NEWLINE_DELIMITED_JSON'
-    job = bigquery_client.load_table_from_uri(import_json_url(file_json(file)),
+    job = bigquery_client.load_table_from_uri(path_to_file,
                                               dataset_ref.table(table),
                                               job_config=job_config)
+    print("Successfully loaded json file: {name} from gcs into big query".format(name=path_to_file))
     print(job.result())
     assert job.job_type == 'load'
     assert job.state == 'DONE'
@@ -204,86 +211,104 @@ def process_line_json(line):
     return json.dumps(data), properties
 
 
-def final_clean_up(file_location):
+def final_clean_up(file_location, day):
     # Remove the original zipfile
-    print("Removing the original zip file downloaded from Amplitude")
-    remove_file(file_location)
-    print("Successfully removed the original zip file: {file_location} downloaded from Amplitude".format(file_location=file_location))
+    print("Removing the original zip file: {file_location} downloaded from Amplitude for {day}".format(day=day, file_location=file_location))
+    remove_file(file_location, TEMP)
+    print("Successfully removed the original zip file: {file_location} downloaded from Amplitude for {day}".format(day=day, file_location=file_location))
 
 
 def fetch_data_from_amplitude(day):
-    storage_location = TEMP + "/amplitude.zip"
+    storage_location = TEMP + "amplitude.zip"
     # Perform a CURL request to download the export from Amplitude
     print("downloading data for {day} from amplitude".format(day=day))
     os.system("curl -u " + API_KEY + ":" + API_SECRET + " \
                  'https://amplitude.com/api/2/export?start=" + day + "T00&end="
                   + day + "T23'  >> " + storage_location)
     print("completed download from amplitude for {day} to {storage_location}".format(day=day, storage_location=storage_location))
+    print("===========================================================================")
+    print("===========================================================================")
     return storage_location
 
 # removes the local files that are generated when parsing a .gz file for loading into big query
 def remove_local_files_for_gz_extracts(file):
     # Remove JSON file
-    print("cleanup json.gz file locally")
     remove_file(file, ACCOUNT_ID_DIRECTORY)
-
-    print("cleanup json file locally")
     remove_file(file_json(file), UNZIPPED_FILE_ROOT_LOCATION)
-
-    print("cleanup properties file locally")
     remove_file("properties_" + file_json(file), UNZIPPED_FILE_ROOT_LOCATION)
+    print("===========================================================================")
+    print("===========================================================================")
 
 
-def process_gzip_files(day):
+def process_gzip_files_in_root_location(day):
     # Loop through all new files, unzip them & remove the .gz
-    print('processing .gz files')
+    print("Processing .gz files in root location: {name}".format(name=UNZIPPED_FILE_ROOT_LOCATION))
     for file in file_list('.gz'):
         print("Parsing file: {name}".format(name=file))
         lines = unzip_gzip(file)
 
         FILE_NAME_JSON = file_json(file)
-        [path_to_events_file, path_to_properties_file] = convert_text_to_json(FILE_NAME_JSON, lines)
+        [path_to_events_file_on_local, path_to_properties_file_on_local] = convert_text_to_json(FILE_NAME_JSON, lines)
 
-        upload_file_to_gcs(path_to_events_file, FILE_NAME_JSON, FORMATTED_FILES_GCS_FOLDER)
-        upload_file_to_gcs(path_to_properties_file, "properties_" + FILE_NAME_JSON, FORMATTED_FILES_GCS_FOLDER)
+        upload_file_to_gcs(path_to_events_file_on_local, FILE_NAME_JSON, FORMATTED_FILES_GCS_FOLDER)
+        upload_file_to_gcs(path_to_properties_file_on_local, "properties_" + FILE_NAME_JSON, FORMATTED_FILES_GCS_FOLDER)
 
         # Import data from Google Cloud Storage into Google BigQuery
-        load_into_bigquery(file, 'events$' + day)
-        load_into_bigquery("properties_" + file, 'events_properties$' + day)
-        print("================>Completed Import from Amplitude to Big Query for: {file}".format(file=FILE_NAME_JSON))
+        load_gcs_file_into_bigquery(import_json_url(FILE_NAME_JSON), 'events$' + day)
+        load_gcs_file_into_bigquery(import_json_url("properties_" + FILE_NAME_JSON), 'events_properties$' + day)
+        print("===========================================================================")
+        print("===========================================================================")
+        print("======Completed Import from Amplitude to Big Query for: {file}======".format(file=FILE_NAME_JSON))
+        print("===========================================================================")
+        print("===========================================================================")
 
         remove_local_files_for_gz_extracts(file)
 
 
 def retrieve_yesterdays_date():
-    print("getting yesterdays date")
+    print("Getting date for Yesterday")
     return (datetime.utcnow().date() - timedelta(days=1)).strftime("%Y%m%d")
 
-def store_raw_amplitude_download_in_cloud_storage(day):
-        print("uploading {day}.zip to {gcs_folder} folder in cloud storage".format(day=day, gcs_folder=RAW_DOWNLOAD_GCS_FOLDER))
-        upload_file_to_gcs(download_from_amplitude_location, day + '.zip', RAW_DOWNLOAD_GCS_FOLDER)
-        print("successfully uploaded {day}.zip to {gcs_folder} folder in cloud storage".format(day=day, gcs_folder=RAW_DOWNLOAD_GCS_FOLDER))
+def store_raw_amplitude_download_in_cloud_storage(day, raw_file_local):
+        print("storing raw amplitude data downloaded to cloud storage")
+        upload_file_to_gcs(raw_file_local, day + '.zip', RAW_DOWNLOAD_GCS_FOLDER)
+        print("===========================================================================")
+        print("===========================================================================")
+
+def signal_operation_complete(day):
+    print("===========================================================================")
+    print("===========================================================================")
+    print("===========================================================================")
+    print("===========================================================================")
+    print("===========================================================================")
+    print("===========================================================================")
+    print("===========================================================================")
+    print("===========================================================================")
+    print("===========================================================================")
+    print("===========================================================================")
+    print("===========ALL OPERATIONS COMPLETED for {day}! Gracias===========".format(day=day))
+    # the `return` signals that the function is complete and can be terminated by the system
+    return "Job Complete"
 
 ###############################################################################
 
 # `event` and `context` are parameters supplied when pub-sub calls this function, these parameters are not being used now
 def main(event, context):
-    print("trigger received from cloud scheduler")
+    print("Trigger received from cloud scheduler")
     YESTERDAY = retrieve_yesterdays_date()
     download_from_amplitude_location = fetch_data_from_amplitude(YESTERDAY)
 
     # backup the downloaded file because it might be needed in the future
-    store_raw_amplitude_download_in_cloud_storage(YESTERDAY)
+    store_raw_amplitude_download_in_cloud_storage(YESTERDAY, download_from_amplitude_location)
 
-    unzip_file(download_from_amplitude_location, UNZIPPED_FILE_ROOT_LOCATION)
+    # unzip file to root location => '/tmp/amplitude/'
+    unzip_file_to_root_location(download_from_amplitude_location)
 
-    # most of the procesing happens in this function: `process_gzip_files`
+    # most of the processing happens in this function: `process_gzip_files_in_root_location`
     # after unzipping file above, multiple '.json.gz' files are generated and we need to unravel that
     # each '.json.gz' file represents an hour of the day requested for e.g. '240333_2019-10-23_10#327.json.gz'
-    process_gzip_files(YESTERDAY)
+    process_gzip_files_in_root_location(YESTERDAY)
 
-    final_clean_up(download_from_amplitude_location)
+    final_clean_up(download_from_amplitude_location, YESTERDAY)
 
-    print("=====>ALL OPERATIONS COMPLETED! Gracias<===========")
-    # the `return` signals that the function is complete and can be terminated by the system
-    return "Job Complete"
+    signal_operation_complete(YESTERDAY)
