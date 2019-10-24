@@ -219,7 +219,7 @@ def final_clean_up(file_location, day):
 
 
 def fetch_data_from_amplitude(day):
-    storage_location = TEMP + "amplitude.zip"
+    storage_location = TEMP + "/amplitude.zip"
     # Perform a CURL request to download the export from Amplitude
     print("downloading data for {day} from amplitude".format(day=day))
     os.system("curl -u " + API_KEY + ":" + API_SECRET + " \
