@@ -267,6 +267,8 @@ def process_gzip_files_in_root_location(day):
 
 def retrieve_yesterdays_date():
     print("Getting date for Yesterday")
+    # this date must not be calculated as a global variable as cloud function global variables are set once deployed and do not change
+    # setting as a global variable would lead to bad data as only the data being fetched daily would be for the saame date
     return (datetime.utcnow().date() - timedelta(days=1)).strftime("%Y%m%d")
 
 def store_raw_amplitude_download_in_cloud_storage(day, raw_file_local):
