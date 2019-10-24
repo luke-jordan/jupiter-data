@@ -5,6 +5,12 @@ provider "google" {
   zone = var.zone
 }
 
+terraform {
+  backend "gcs" {
+    bucket  = "terraform-state-staging-jupiter-save"
+  }
+}
+
 ############## sns to pub-sub below: ###############
 # zip up our source code
 //data "archive_file" "sns-to-pubsub-zip" {
@@ -118,9 +124,6 @@ resource "google_cloudfunctions_function" "sync-amplitude-data-to-big-query-func
     resource = "projects/jupiter-ml-alpha/topics/daily-runs"
   }
   runtime = "python37"
-  backend "gcs" {
-    bucket  = "terraform-state-staging-jupiter-save"
-  }
 }
 
 ############## sync-amplitude-data-to-big-query end: ###############
