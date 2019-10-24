@@ -104,7 +104,7 @@ data "terraform_remote_state" "terraform-state-on-gcs" {
     bucket  = "terraform-state-staging-jupiter-save"
   }
   workspaces {
-    prefix = "setup_terraform_circle_ci"
+    prefix = "setup_terraform_circle_ci2"
   }
 }
 
