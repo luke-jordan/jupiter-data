@@ -7,31 +7,129 @@ jobs:
   build:
     docker:
       # specify the version you desire here
-      - image: circleci/node:7.10
+      - image: circleci/node:10
 
       # Specify service dependencies here if necessary
       # CircleCI maintains a library of pre-built images
       # documented at https://circleci.com/docs/2.0/circleci-images/
       # - image: circleci/mongo:3.4.4
 
-    working_directory: ~/repo
+    working_directory: ~/app
 
     steps:
       - checkout
 
-      # Download and cache dependencies
       - restore_cache:
           keys:
-            - v1-dependencies-{{ checksum "package.json" }}
-            # fallback to using the latest cache if no exact match is found
-            - v1-dependencies-
+            - terraform_bin-{{ checksum "./terraform/terraform_version" }}
 
-      - run: yarn install
+      - restore_cache:
+          keys:
+            - google_cloud_sdk_zip
+
+      - run:
+          name: install node modules
+          command: |
+            cd $HOME/app/functions/javascript/fetch-from-big-query && npm install
+            cd $HOME/app/functions/javascript/sns-to-pubsub && npm install
+            cd $HOME/app/functions/javascript/sns-to-pubsub/libs/auth-validator && npm install
+
+      - run:
+          name: Run linter
+          command: |
+            cd $HOME/app/functions/javascript/fetch-from-big-query && npm run lint
+            cd $HOME/app/functions/javascript/sns-to-pubsub && npm run lint
+
+      - run:
+          name: Run tests
+          command: |
+            cd $HOME/app/functions/javascript/fetch-from-big-query && npm test
+            cd $HOME/app/functions/javascript/sns-to-pubsub && npm test
+
+      - run:
+          name: zip artifacts
+          command: |
+            if [ $CIRCLE_BRANCH = 'setup_terraform_circle_ci' ] || [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
+               echo "On branch $CIRCLE_BRANCH, building artifacts."
+
+               cd $HOME/app/functions/javascript/fetch-from-big-query
+               echo $CIRCLE_SHA1 > last_commit.txt
+               zip -rq $HOME/fetch_from_big_query_$CIRCLE_SHA1.zip .
+
+               cd $HOME/app/functions/javascript/sns-to-pubsub
+               echo $CIRCLE_SHA1 > last_commit.txt
+               zip -rq $HOME/sns_to_pubsub_$CIRCLE_SHA1.zip .
+
+               cd $HOME/app/functions/python/sync-amplitude-data-to-big-query
+               echo $CIRCLE_SHA1 > last_commit.txt
+               echo $GCLOUD_SERVICE_KEY >> jupiter_ml_python_credentials.json
+               echo $GCLOUD_API_KEYS >> .env
+               zip -rq $HOME/sync_amplitude_data_to_big_query_$CIRCLE_SHA1.zip .
+
+            fi
+
+      - run:
+          name: install gcloud cli
+          command: |
+            if [ ! -f google-cloud-sdk-268.0.0-linux-x86_64.tar.gz ]; then
+              wget "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-268.0.0-linux-x86_64.tar.gz"
+            fi
+            tar xvzf google-cloud-sdk-268.0.0-linux-x86_64.tar.gz
+            ./google-cloud-sdk/install.sh --rc-path=~/bin/google
 
       - save_cache:
+          key: google_cloud_sdk_zip
           paths:
-            - node_modules
-          key: v1-dependencies-{{ checksum "package.json" }}
+            - google-cloud-sdk-268.0.0-linux-x86_64.tar.gz
 
-      # run tests!
-      - run: yarn test
+      - run:
+          name: set gcloud config
+          command: |
+            cd $HOME
+
+            echo $GCLOUD_SERVICE_KEY | ./app/google-cloud-sdk/bin/gcloud auth activate-service-account --key-file=-
+            ./app/google-cloud-sdk/bin/gcloud --quiet config set project ${GOOGLE_PROJECT_ID}
+            ./app/google-cloud-sdk/bin/gcloud --quiet config set compute/zone ${GOOGLE_COMPUTE_ZONE}
+
+      - run:
+          name: upload zipped artifacts to cloud storage
+          command: |
+            if [ $CIRCLE_BRANCH = 'setup_terraform_circle_ci' ] || [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
+              echo "On branch $CIRCLE_BRANCH, uploading artifacts."
+              cd $HOME
+              ./app/google-cloud-sdk/bin/gsutil cp fetch_from_big_query_$CIRCLE_SHA1.zip gs://fetch-from-big-query-bucket
+              ./app/google-cloud-sdk/bin/gsutil cp sns_to_pubsub_$CIRCLE_SHA1.zip gs://sns-to-pubsub-bucket
+              ./app/google-cloud-sdk/bin/gsutil cp sync_amplitude_data_to_big_query_$CIRCLE_SHA1.zip gs://sync-amplitude-data-to-big-query-bucket
+            fi
+
+      - run:
+          name: use terraform to deploy functions
+          command: |
+            export TF_VERSION=$(cat $HOME/app/terraform/terraform_version)
+            cd $HOME/app
+            chmod +x ./audit_iam.sh
+            ./audit_iam.sh
+
+            if [ ! -f /tmp/terraform/terraform ]; then
+              wget -O /tmp/terraform.zip https://releases.hashicorp.com/terraform/$TF_VERSION/terraform_$(echo "$TF_VERSION")_linux_amd64.zip
+              unzip /tmp/terraform.zip -d /tmp/terraform
+            fi
+
+            export PATH="/tmp/terraform:$PATH"
+            cd $HOME/app/terraform
+
+            if [ $CIRCLE_BRANCH = 'setup_terraform_circle_ci' ] || [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ] ; then
+              echo $GCLOUD_SERVICE_KEY >> jupiter-ml-alpha-credentials.json
+              export GOOGLE_APPLICATION_CREDENTIALS="jupiter-ml-alpha-credentials.json"
+              terraform init
+              terraform workspace select $CIRCLE_BRANCH
+
+              echo $GCLOUD_SERVICE_KEY >> jupiter_ml_ci_credentials.json
+              terraform plan -var "deploy_code_commit_hash=$CIRCLE_SHA1" -var "credentials_file=jupiter_ml_ci_credentials.json"
+              terraform apply -auto-approve -var "deploy_code_commit_hash=$CIRCLE_SHA1" -var "credentials_file=jupiter_ml_ci_credentials.json"
+            fi
+
+      - save_cache:
+          key: terraform_bin-{{ checksum "./terraform/terraform_version" }}
+          paths:
+            - /tmp/terraform

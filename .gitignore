@@ -62,6 +62,7 @@ typings/
 
 # google cloud credentials
 jupiter-ml-alpha-credentials.json
+jupiter_ml_python_credentials.json
 
 # temporary deployment bundles
 *.zip

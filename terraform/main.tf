@@ -5,32 +5,38 @@ provider "google" {
   zone = var.zone
 }
 
+terraform {
+  backend "gcs" {
+    bucket  = "terraform-state-staging-jupiter-save"
+  }
+}
+
 ############## sns to pub-sub below: ###############
 # zip up our source code
-data "archive_file" "sns-to-pubsub-zip" {
-  type = "zip"
-  source_dir = "../functions/javascript/sns-to-pubsub"
-  output_path = "${path.root}/sns-to-pubsub.zip"
-}
+//data "archive_file" "sns-to-pubsub-zip" {
+//  type = "zip"
+//  source_dir = "../functions/javascript/sns-to-pubsub"
+//  output_path = "${path.root}/sns-to-pubsub.zip"
+//}
 
 # create the storage bucket
-resource "google_storage_bucket" "sns-to-pubsub-bucket" {
-  name = "sns-to-pubsub-bucket"
-}
+//resource "google_storage_bucket" "sns-to-pubsub-bucket" {
+//  name = "sns-to-pubsub-bucket"
+//}
 
-# place the zip-ed code in the bucket
-resource "google_storage_bucket_object" "sns-to-pubsub-zip" {
-  name = "sns-to-pubsub.zip"
-  bucket = google_storage_bucket.sns-to-pubsub-bucket.name
-  source = "${path.root}/sns-to-pubsub.zip"
-}
+//# place the zip-ed code in the bucket
+//resource "google_storage_bucket_object" "sns-to-pubsub-zip" {
+//  name = "sns-to-pubsub.zip"
+//  bucket = "sns-to-pubsub-bucket"
+//  source = "${path.root}/sns-to-pubsub.zip"
+//}
 
 resource "google_cloudfunctions_function" "sns-to-pubsub-function" {
   name = "sns-to-pubsub"
   description = "receive from sns and send to pub sub"
   available_memory_mb = 128
-  source_archive_bucket = google_storage_bucket.sns-to-pubsub-bucket.name
-  source_archive_object = google_storage_bucket_object.sns-to-pubsub-zip.name
+  source_archive_bucket = "sns-to-pubsub-bucket"
+  source_archive_object = "sns_to_pubsub_${var.deploy_code_commit_hash}.zip"
   timeout = 60
   entry_point = "receiveNotification"
   trigger_http = true
@@ -42,30 +48,30 @@ resource "google_cloudfunctions_function" "sns-to-pubsub-function" {
 
 ############## fetch-from-big-query below: ###############
 # zip up our source code
-data "archive_file" "fetch-from-big-query-zip" {
-  type = "zip"
-  source_dir = "../functions/javascript/fetch-from-big-query"
-  output_path = "${path.root}/fetch-from-big-query.zip"
-}
+//data "archive_file" "fetch-from-big-query-zip" {
+//  type = "zip"
+//  source_dir = "../functions/javascript/fetch-from-big-query"
+//  output_path = "${path.root}/fetch-from-big-query.zip"
+//}
 
 # create the storage bucket
-resource "google_storage_bucket" "fetch-from-big-query-bucket" {
-  name = "fetch-from-big-query-bucket"
-}
+//resource "google_storage_bucket" "fetch-from-big-query-bucket" {
+//  name = "fetch-from-big-query-bucket"
+//}
 
 # place the zip-ed code in the bucket
-resource "google_storage_bucket_object" "fetch-from-big-query-zip" {
-  name = "fetch-from-big-query.zip"
-  bucket = google_storage_bucket.fetch-from-big-query-bucket.name
-  source = "${path.root}/fetch-from-big-query.zip"
-}
+//resource "google_storage_bucket_object" "fetch-from-big-query-zip" {
+//  name = "fetch-from-big-query.zip"
+//  bucket = "fetch-from-big-query-bucket"
+//  source = "${path.root}/fetch-from-big-query.zip"
+//}
 
 resource "google_cloudfunctions_function" "fetch-from-big-query-function" {
   name = "fetch-from-big-query"
   description = "fetch data from big query"
   available_memory_mb = 128
-  source_archive_bucket = google_storage_bucket.fetch-from-big-query-bucket.name
-  source_archive_object = google_storage_bucket_object.fetch-from-big-query-zip.name
+  source_archive_bucket = "fetch-from-big-query-bucket"
+  source_archive_object = "fetch_from_big_query_${var.deploy_code_commit_hash}.zip"
   timeout = 60
   entry_point = "fetchFromBigQuery"
   trigger_http = true
@@ -76,30 +82,41 @@ resource "google_cloudfunctions_function" "fetch-from-big-query-function" {
 
 
 ############## sync-amplitude-data-to-big-query below: ###############
-data "archive_file" "sync-amplitude-data-to-big-query-zip" {
-  type = "zip"
-  source_dir = "../functions/python/sync-amplitude-data-to-big-query"
-  output_path = "${path.root}/sync-amplitude-data-to-big-query.zip"
-}
+//data "archive_file" "sync-amplitude-data-to-big-query-zip" {
+//  type = "zip"
+//  source_dir = "../functions/python/sync-amplitude-data-to-big-query"
+//  output_path = "${path.root}/sync-amplitude-data-to-big-query.zip"
+//}
+//
+//# create the storage bucket
+//resource "google_storage_bucket" "sync-amplitude-data-to-big-query-bucket" {
+//  name = "sync-amplitude-data-to-big-query-bucket"
+//}
+//
+//# place the zip-ed code in the bucket
+//resource "google_storage_bucket_object" "sync-amplitude-data-to-big-query-zip" {
+//  name = "sync-amplitude-data-to-big-query.zip"
+//  bucket = "sync-amplitude-data-to-big-query-bucket"
+//  source = "${path.root}/sync-amplitude-data-to-big-query.zip"
+//}
+//
 
-# create the storage bucket
-resource "google_storage_bucket" "sync-amplitude-data-to-big-query-bucket" {
-  name = "sync-amplitude-data-to-big-query-bucket"
-}
-
-# place the zip-ed code in the bucket
-resource "google_storage_bucket_object" "sync-amplitude-data-to-big-query-zip" {
-  name = "sync-amplitude-data-to-big-query.zip"
-  bucket = google_storage_bucket.sync-amplitude-data-to-big-query-bucket.name
-  source = "${path.root}/sync-amplitude-data-to-big-query.zip"
+// TODO: Object Versioning on Google Cloud Storage (GCS)
+// Please refer to: https://www.terraform.io/docs/backends/types/gcs.html
+// and https://cloud.google.com/storage/docs/object-versioning
+data "terraform_remote_state" "terraform-state-on-gcs" {
+  backend = "gcs"
+  config = {
+    bucket  = "terraform-state-staging-jupiter-save"
+  }
 }
 
 resource "google_cloudfunctions_function" "sync-amplitude-data-to-big-query-function" {
   name = "sync-amplitude-data-to-big-query"
   description = "sync data from Amplitude into Big Query"
   available_memory_mb = 128
-  source_archive_bucket = google_storage_bucket.sync-amplitude-data-to-big-query-bucket.name
-  source_archive_object = google_storage_bucket_object.sync-amplitude-data-to-big-query-zip.name
+  source_archive_bucket = "sync-amplitude-data-to-big-query-bucket"
+  source_archive_object = "sync_amplitude_data_to_big_query_${var.deploy_code_commit_hash}.zip"
   timeout = 360
   entry_point = "main"
   event_trigger {

@@ -25,3 +25,6 @@ variable "machine_types" {
 }
 
 variable "cidrs" { type = list }
+
+variable "deploy_code_commit_hash" {
+}
