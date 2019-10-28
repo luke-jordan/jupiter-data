@@ -14,19 +14,25 @@ const topicName = 'sns-events';
 
 const authValidator = require('./libs/auth-validator');
 
-
 async function processMessageBasedOnType(message, res) {
     if (message && message.eventType) {
-        const attributes = {
-            context: (message.context ? JSON.stringify(message.context) : '')
-        };
         try {
             console.log('converting message to buffer');
-            const msgData = Buffer.from(`userid: ${message.userId} performed event type: ${message.eventType} at timestamp: ${message.timestamp}`);
+            /**
+             * `neededParams` is sent as array as the function that would load the data into big query expects an array
+             * The keys: `user_id`, `event_type`, `timestamp` and `context match the schema of `sns_events` table in big query
+             * Please do not change the key names in `neededParams` without updating the schema of sns_events table in big query
+            */
+            const neededParams = [{
+                user_id: message.userId,
+                event_type: message.eventType,
+                timestamp: message.timestamp,
+                context: (message.context ? JSON.stringify(message.context) : ''),
+            }];
+            const msgData = Buffer.from(JSON.stringify(neededParams));
 
             console.log('sending message to pub/sub. Buffered message:', msgData);
-            const messageId = await pubsub.topic(topicName).publish(msgData, attributes);
-
+            const messageId = await pubsub.topic(topicName).publish(msgData);
             console.log(`message published with id: ${messageId}`);
             res.status(200).end(messageId);
             return;
