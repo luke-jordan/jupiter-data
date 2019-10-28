@@ -1,3 +1,9 @@
+# Overview - How it works
+This cloud function is triggered by a cloud scheduler (`fire-amplitude-to-big-query-sync`) which runs at 3am UTC every day.
+The cloud scheduler sends a message to pub/sub topic (`daily-runs`), our function `sync-amplitude-data-to-big-query` has a 
+subscription to `daily-runs` and is triggered when the message arrives from `fire-amplitude-to-big-query-sync`.
+
+
 # This documentation was written by Martijn Scheijbeler: https://github.com/martijnsch/amplitude-bigquery 
 
 # Amplitude > Google Cloud Storage > Google BigQuery
