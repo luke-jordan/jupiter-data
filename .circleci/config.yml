@@ -66,6 +66,10 @@ jobs:
                echo $GCLOUD_API_KEYS >> .env
                zip -rq $HOME/sync_amplitude_data_to_big_query_$CIRCLE_SHA1.zip .
 
+               cd $HOME/app/functions/python/pubsub-to-big-query-for-sns
+               echo $CIRCLE_SHA1 > last_commit.txt
+               zip -rq $HOME/pubsub_to_big_query_for_sns_$CIRCLE_SHA1.zip .
+
             fi
 
       - run:
@@ -100,6 +104,7 @@ jobs:
               ./app/google-cloud-sdk/bin/gsutil cp fetch_from_big_query_$CIRCLE_SHA1.zip gs://fetch-from-big-query-bucket
               ./app/google-cloud-sdk/bin/gsutil cp sns_to_pubsub_$CIRCLE_SHA1.zip gs://sns-to-pubsub-bucket
               ./app/google-cloud-sdk/bin/gsutil cp sync_amplitude_data_to_big_query_$CIRCLE_SHA1.zip gs://sync-amplitude-data-to-big-query-bucket
+              ./app/google-cloud-sdk/bin/gsutil cp pubsub_to_big_query_for_sns_$CIRCLE_SHA1.zip gs://pubsub-to-big-query-for-sns-bucket
             fi
 
       - run:
