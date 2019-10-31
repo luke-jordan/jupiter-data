@@ -2,12 +2,20 @@ variable "project" { }
 
 variable "credentials_file" { }
 
-variable "region" {
-  default = "us-central1"
+variable "gcp_default_region" {
+  type = "map"
+  default = {
+    "staging" = "us-central1"
+    "master" = "europe-west1"
+  }
 }
 
-variable "zone" {
-  default = "us-central1-c"
+variable "gcp_default_zone" {
+  type = "map"
+  default = {
+    "staging" = "us-central1"
+    "master" = "europe-west1"
+  }
 }
 
 variable "environment" {
