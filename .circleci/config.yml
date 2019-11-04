@@ -49,7 +49,7 @@ jobs:
       - run:
           name: zip artifacts
           command: |
-            if [ $CIRCLE_BRANCH = 'setup_terraform_circle_ci' ] || [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
+            if [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
                echo "On branch $CIRCLE_BRANCH, building artifacts."
 
                cd $HOME/app/functions/javascript/fetch-from-big-query
@@ -98,7 +98,7 @@ jobs:
       - run:
           name: upload zipped artifacts to cloud storage
           command: |
-            if [ $CIRCLE_BRANCH = 'setup_terraform_circle_ci' ] || [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
+            if [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
               echo "On branch $CIRCLE_BRANCH, uploading artifacts."
               cd $HOME
               ./app/google-cloud-sdk/bin/gsutil cp fetch_from_big_query_$CIRCLE_SHA1.zip gs://fetch-from-big-query-bucket
@@ -123,7 +123,7 @@ jobs:
             export PATH="/tmp/terraform:$PATH"
             cd $HOME/app/terraform
 
-            if [ $CIRCLE_BRANCH = 'setup_terraform_circle_ci' ] || [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ] ; then
+            if [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ] ; then
               echo $GCLOUD_SERVICE_KEY >> jupiter-ml-alpha-credentials.json
               export GOOGLE_APPLICATION_CREDENTIALS="jupiter-ml-alpha-credentials.json"
               terraform init
