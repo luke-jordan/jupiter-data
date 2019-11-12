@@ -19,117 +19,117 @@ jobs:
     steps:
       - checkout
 
-#      - restore_cache:
-#          keys:
-#            - terraform_bin-{{ checksum "./terraform/terraform_version" }}
-#
-#      - restore_cache:
-#          keys:
-#            - google_cloud_sdk_zip
-#
-#      - run:
-#          name: install node modules
-#          command: |
-#            cd $HOME/app/functions/javascript/fetch-from-big-query && npm install
-#            cd $HOME/app/functions/javascript/sns-to-pubsub && npm install
-#            cd $HOME/app/functions/javascript/sns-to-pubsub/libs/auth-validator && npm install
-#
-#      - run:
-#          name: Run linter
-#          command: |
-#            cd $HOME/app/functions/javascript/fetch-from-big-query && npm run lint
-#            cd $HOME/app/functions/javascript/sns-to-pubsub && npm run lint
-#
-#      - run:
-#          name: Run tests
-#          command: |
-#            cd $HOME/app/functions/javascript/fetch-from-big-query && npm test
-#            cd $HOME/app/functions/javascript/sns-to-pubsub && npm test
-#
-#      - run:
-#          name: zip artifacts
-#          command: |
-#            if [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
-#               echo "On branch $CIRCLE_BRANCH, building artifacts."
-#
-#               cd $HOME/app/functions/javascript/fetch-from-big-query
-#               echo $CIRCLE_SHA1 > last_commit.txt
-#               zip -rq $HOME/fetch_from_big_query_$CIRCLE_SHA1.zip .
-#
-#               cd $HOME/app/functions/javascript/sns-to-pubsub
-#               echo $CIRCLE_SHA1 > last_commit.txt
-#               zip -rq $HOME/sns_to_pubsub_$CIRCLE_SHA1.zip .
-#
-#               cd $HOME/app/functions/python/sync-amplitude-data-to-big-query
-#               echo $CIRCLE_SHA1 > last_commit.txt
-#               if [ $CIRCLE_BRANCH == 'master' ]; then
-#                echo $PRODUCTION_GCLOUD_SERVICE_KEY >> jupiter_ml_python_credentials.json
-#                echo $PRODUCTION_AMPLITUDE_SECRETS >> .env
-#               fi
-#
-#               if [ $CIRCLE_BRANCH == 'staging' ]; then
-#                echo $STAGING_GCLOUD_SERVICE_KEY >> jupiter_ml_python_credentials.json
-#                echo $STAGING_AMPLITUDE_SECRETS >> .env
-#               fi
-#               zip -rq $HOME/sync_amplitude_data_to_big_query_$CIRCLE_SHA1.zip .
-#
-#               cd $HOME/app/functions/python/pubsub-to-big-query-for-sns
-#               echo $CIRCLE_SHA1 > last_commit.txt
-#               zip -rq $HOME/pubsub_to_big_query_for_sns_$CIRCLE_SHA1.zip .
-#
-#            fi
-#
-#      - run:
-#          name: install gcloud cli
-#          command: |
-#            if [ ! -f google-cloud-sdk-268.0.0-linux-x86_64.tar.gz ]; then
-#              wget "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-268.0.0-linux-x86_64.tar.gz"
-#            fi
-#            tar xvzf google-cloud-sdk-268.0.0-linux-x86_64.tar.gz
-#            ./google-cloud-sdk/install.sh --rc-path=~/bin/google
-#
-#      - save_cache:
-#          key: google_cloud_sdk_zip
-#          paths:
-#            - google-cloud-sdk-268.0.0-linux-x86_64.tar.gz
-#
-#      - run:
-#          name: set gcloud config
-#          command: |
-#            cd $HOME
-#
-#            if [ $CIRCLE_BRANCH == 'master' ]; then
-#              echo $PRODUCTION_GCLOUD_SERVICE_KEY | ./app/google-cloud-sdk/bin/gcloud auth activate-service-account --key-file=-
-#              ./app/google-cloud-sdk/bin/gcloud --quiet config set project ${PRODUCTION_GOOGLE_PROJECT_ID}
-#              ./app/google-cloud-sdk/bin/gcloud --quiet config set compute/zone ${PRODUCTION_GOOGLE_COMPUTE_ZONE}
-#            fi
-#
-#            if [ $CIRCLE_BRANCH == 'staging' ]; then
-#              echo $STAGING_GCLOUD_SERVICE_KEY | ./app/google-cloud-sdk/bin/gcloud auth activate-service-account --key-file=-
-#              ./app/google-cloud-sdk/bin/gcloud --quiet config set project ${STAGING_GOOGLE_PROJECT_ID}
-#              ./app/google-cloud-sdk/bin/gcloud --quiet config set compute/zone ${STAGING_GOOGLE_COMPUTE_ZONE}
-#            fi
-#
-#      - run:
-#          name: upload zipped artifacts to cloud storage
-#          command: |
-#            if [ $CIRCLE_BRANCH == 'master' ]; then
-#              echo "On branch $CIRCLE_BRANCH, uploading artifacts."
-#              cd $HOME
-#              ./app/google-cloud-sdk/bin/gsutil cp fetch_from_big_query_$CIRCLE_SHA1.zip gs://prod-fetch-from-big-query-bucket
-#              ./app/google-cloud-sdk/bin/gsutil cp sns_to_pubsub_$CIRCLE_SHA1.zip gs://prod-sns-to-pubsub-bucket
-#              ./app/google-cloud-sdk/bin/gsutil cp sync_amplitude_data_to_big_query_$CIRCLE_SHA1.zip gs://prod-sync-amplitude-data-to-big-query-bucket
-#              ./app/google-cloud-sdk/bin/gsutil cp pubsub_to_big_query_for_sns_$CIRCLE_SHA1.zip gs://prod-pubsub-to-big-query-for-sns-bucket
-#            fi
-#
-#            if [ $CIRCLE_BRANCH == 'staging' ]; then
-#              echo "On branch $CIRCLE_BRANCH, uploading artifacts."
-#              cd $HOME
-#              ./app/google-cloud-sdk/bin/gsutil cp fetch_from_big_query_$CIRCLE_SHA1.zip gs://fetch-from-big-query-bucket
-#              ./app/google-cloud-sdk/bin/gsutil cp sns_to_pubsub_$CIRCLE_SHA1.zip gs://sns-to-pubsub-bucket
-#              ./app/google-cloud-sdk/bin/gsutil cp sync_amplitude_data_to_big_query_$CIRCLE_SHA1.zip gs://sync-amplitude-data-to-big-query-bucket
-#              ./app/google-cloud-sdk/bin/gsutil cp pubsub_to_big_query_for_sns_$CIRCLE_SHA1.zip gs://pubsub-to-big-query-for-sns-bucket
-#            fi
+      - restore_cache:
+          keys:
+            - terraform_bin-{{ checksum "./terraform/terraform_version" }}
+
+      - restore_cache:
+          keys:
+            - google_cloud_sdk_zip
+
+      - run:
+          name: install node modules
+          command: |
+            cd $HOME/app/functions/javascript/fetch-from-big-query && npm install
+            cd $HOME/app/functions/javascript/sns-to-pubsub && npm install
+            cd $HOME/app/functions/javascript/sns-to-pubsub/libs/auth-validator && npm install
+
+      - run:
+          name: Run linter
+          command: |
+            cd $HOME/app/functions/javascript/fetch-from-big-query && npm run lint
+            cd $HOME/app/functions/javascript/sns-to-pubsub && npm run lint
+
+      - run:
+          name: Run tests
+          command: |
+            cd $HOME/app/functions/javascript/fetch-from-big-query && npm test
+            cd $HOME/app/functions/javascript/sns-to-pubsub && npm test
+
+      - run:
+          name: zip artifacts
+          command: |
+            if [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ]; then
+               echo "On branch $CIRCLE_BRANCH, building artifacts."
+
+               cd $HOME/app/functions/javascript/fetch-from-big-query
+               echo $CIRCLE_SHA1 > last_commit.txt
+               zip -rq $HOME/fetch_from_big_query_$CIRCLE_SHA1.zip .
+
+               cd $HOME/app/functions/javascript/sns-to-pubsub
+               echo $CIRCLE_SHA1 > last_commit.txt
+               zip -rq $HOME/sns_to_pubsub_$CIRCLE_SHA1.zip .
+
+               cd $HOME/app/functions/python/sync-amplitude-data-to-big-query
+               echo $CIRCLE_SHA1 > last_commit.txt
+               if [ $CIRCLE_BRANCH == 'master' ]; then
+                echo $PRODUCTION_GCLOUD_SERVICE_KEY >> jupiter_ml_python_credentials.json
+                echo $PRODUCTION_AMPLITUDE_SECRETS >> .env
+               fi
+
+               if [ $CIRCLE_BRANCH == 'staging' ]; then
+                echo $STAGING_GCLOUD_SERVICE_KEY >> jupiter_ml_python_credentials.json
+                echo $STAGING_AMPLITUDE_SECRETS >> .env
+               fi
+               zip -rq $HOME/sync_amplitude_data_to_big_query_$CIRCLE_SHA1.zip .
+
+               cd $HOME/app/functions/python/pubsub-to-big-query-for-sns
+               echo $CIRCLE_SHA1 > last_commit.txt
+               zip -rq $HOME/pubsub_to_big_query_for_sns_$CIRCLE_SHA1.zip .
+
+            fi
+
+      - run:
+          name: install gcloud cli
+          command: |
+            if [ ! -f google-cloud-sdk-268.0.0-linux-x86_64.tar.gz ]; then
+              wget "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-268.0.0-linux-x86_64.tar.gz"
+            fi
+            tar xvzf google-cloud-sdk-268.0.0-linux-x86_64.tar.gz
+            ./google-cloud-sdk/install.sh --rc-path=~/bin/google
+
+      - save_cache:
+          key: google_cloud_sdk_zip
+          paths:
+            - google-cloud-sdk-268.0.0-linux-x86_64.tar.gz
+
+      - run:
+          name: set gcloud config
+          command: |
+            cd $HOME
+
+            if [ $CIRCLE_BRANCH == 'master' ]; then
+              echo $PRODUCTION_GCLOUD_SERVICE_KEY | ./app/google-cloud-sdk/bin/gcloud auth activate-service-account --key-file=-
+              ./app/google-cloud-sdk/bin/gcloud --quiet config set project ${PRODUCTION_GOOGLE_PROJECT_ID}
+              ./app/google-cloud-sdk/bin/gcloud --quiet config set compute/zone ${PRODUCTION_GOOGLE_COMPUTE_ZONE}
+            fi
+
+            if [ $CIRCLE_BRANCH == 'staging' ]; then
+              echo $STAGING_GCLOUD_SERVICE_KEY | ./app/google-cloud-sdk/bin/gcloud auth activate-service-account --key-file=-
+              ./app/google-cloud-sdk/bin/gcloud --quiet config set project ${STAGING_GOOGLE_PROJECT_ID}
+              ./app/google-cloud-sdk/bin/gcloud --quiet config set compute/zone ${STAGING_GOOGLE_COMPUTE_ZONE}
+            fi
+
+      - run:
+          name: upload zipped artifacts to cloud storage
+          command: |
+            if [ $CIRCLE_BRANCH == 'master' ]; then
+              echo "On branch $CIRCLE_BRANCH, uploading artifacts."
+              cd $HOME
+              ./app/google-cloud-sdk/bin/gsutil cp fetch_from_big_query_$CIRCLE_SHA1.zip gs://prod-fetch-from-big-query-bucket
+              ./app/google-cloud-sdk/bin/gsutil cp sns_to_pubsub_$CIRCLE_SHA1.zip gs://prod-sns-to-pubsub-bucket
+              ./app/google-cloud-sdk/bin/gsutil cp sync_amplitude_data_to_big_query_$CIRCLE_SHA1.zip gs://prod-sync-amplitude-data-to-big-query-bucket
+              ./app/google-cloud-sdk/bin/gsutil cp pubsub_to_big_query_for_sns_$CIRCLE_SHA1.zip gs://prod-pubsub-to-big-query-for-sns-bucket
+            fi
+
+            if [ $CIRCLE_BRANCH == 'staging' ]; then
+              echo "On branch $CIRCLE_BRANCH, uploading artifacts."
+              cd $HOME
+              ./app/google-cloud-sdk/bin/gsutil cp fetch_from_big_query_$CIRCLE_SHA1.zip gs://fetch-from-big-query-bucket
+              ./app/google-cloud-sdk/bin/gsutil cp sns_to_pubsub_$CIRCLE_SHA1.zip gs://sns-to-pubsub-bucket
+              ./app/google-cloud-sdk/bin/gsutil cp sync_amplitude_data_to_big_query_$CIRCLE_SHA1.zip gs://sync-amplitude-data-to-big-query-bucket
+              ./app/google-cloud-sdk/bin/gsutil cp pubsub_to_big_query_for_sns_$CIRCLE_SHA1.zip gs://pubsub-to-big-query-for-sns-bucket
+            fi
 
       - run:
           name: use terraform to deploy functions
