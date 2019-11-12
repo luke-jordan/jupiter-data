@@ -5,11 +5,11 @@ provider "google" {
   zone = "${var.gcp_default_zone[terraform.workspace]}"
 }
 
-terraform {
-  backend "gcs" {
-    bucket  = "production-terraform-state-bucket"
-  }
-}
+//terraform {
+//  backend "gcs" {
+//    bucket  = "production-terraform-state-bucket"
+//  }
+//}
 
 // TODO: Object Versioning on Google Cloud Storage (GCS)
 // Please refer to: https://www.terraform.io/docs/backends/types/gcs.html
