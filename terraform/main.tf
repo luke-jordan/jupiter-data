@@ -7,7 +7,7 @@ provider "google" {
 
 terraform {
   backend "gcs" {
-    bucket  = "terraform-state-staging-jupiter-save"
+    bucket  = "${var.terraform_state_bucket[terraform.workspace]}"
   }
 }
 

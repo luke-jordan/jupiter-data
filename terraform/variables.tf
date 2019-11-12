@@ -18,6 +18,14 @@ variable "gcp_default_zone" {
   }
 }
 
+variable "terraform_state_bucket" {
+  type = "map"
+  default = {
+    "staging" = "staging-terraform-state-bucket"
+    "master" = "production-terraform-state-bucket"
+  }
+}
+
 variable "environment" {
   type = string
   default = "dev"
