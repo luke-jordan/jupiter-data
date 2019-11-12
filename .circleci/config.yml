@@ -160,7 +160,7 @@ jobs:
             if [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ] ; then
               terraform init
 
-              terraform workspce new staging
+              terraform workspace new staging
               terraform workspace select $CIRCLE_BRANCH
 
               terraform plan -var "deploy_code_commit_hash=$CIRCLE_SHA1" -var "credentials_file=jupiter_ml_ci_credentials.json"
