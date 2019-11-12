@@ -147,8 +147,6 @@ jobs:
             export PATH="/tmp/terraform:$PATH"
             cd $HOME/app/terraform
 
-
-
             if [ $CIRCLE_BRANCH == 'master' ]; then
               echo $PRODUCTION_GCLOUD_SERVICE_KEY >> jupiter-ml-alpha-credentials.json && export GOOGLE_APPLICATION_CREDENTIALS="jupiter-ml-alpha-credentials.json"
               echo $PRODUCTION_GCLOUD_SERVICE_KEY >> jupiter_ml_ci_credentials.json
@@ -161,8 +159,6 @@ jobs:
 
             if [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ] ; then
               terraform init
-              terraform workspace new staging
-              terraform workspace new master
 
               terraform workspace select $CIRCLE_BRANCH
 
