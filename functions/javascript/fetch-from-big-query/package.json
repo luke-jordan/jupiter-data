@@ -1,0 +1,15 @@
+{
+  "name": "fetch-from-big-query",
+  "version": "0.0.1",
+  "description": "fetch amplitude data from big query",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 0",
+    "lint": "echo \"Error: no linter specified\" && exit 0"
+  },
+  "keywords": [],
+  "author": "Bolu Ajibawo",
+  "dependencies": {
+    "@google-cloud/bigquery": "^4.3.0"
+  }
+}

@@ -62,13 +62,10 @@ typings/
 
 # google cloud credentials
 jupiter-ml-alpha-credentials.json
+jupiter_ml_python_credentials.json
 
 # temporary deployment bundles
 *.zip
-
-# ignore terraform's state file
-*.tfstate
-./terraform
 
 package-lock.json
 
@@ -77,3 +74,16 @@ atlassian-ide-plugin.xml
 /.idea
 cache.properties
 .DS_Store
+
+
+*.dll
+*.exe
+terraform.tfplan
+terraform.tfstate
+*.backup
+./*.tfstate
+.terraform/
+*.log
+
+tmp/
+.terraform.tfstate.lock.info
