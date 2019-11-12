@@ -12,11 +12,11 @@ load_dotenv()
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="jupiter-ml-alpha-credentials.json"
 
-ACCOUNT_ID = os.getenv("ACCOUNT_ID")
-API_KEY = os.getenv("API_KEY")
-API_SECRET = os.getenv("API_SECRET")
-PROJECT_ID = os.getenv("PROJECT_ID")
-CLOUD_STORAGE_BUCKET = os.getenv("CLOUD_STORAGE_BUCKET")
+ACCOUNT_ID = os.getenv("AMPLITUDE_ACCOUNT_ID")
+API_KEY = os.getenv("AMPLITUDE_API_KEY")
+API_SECRET = os.getenv("AMPLITUDE_API_SECRET")
+PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID")
+CLOUD_STORAGE_BUCKET = os.getenv("AMPLITUDE_SYNC_CLOUD_STORAGE_BUCKET")
 PROPERTIES = ["event_properties", "data", "groups", "group_properties",
               "user_properties"]
 
