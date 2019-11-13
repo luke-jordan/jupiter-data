@@ -157,6 +157,7 @@ jobs:
             cd $HOME/app/terraform
 
             if [ $CIRCLE_BRANCH == 'master' ]; then
+              echo "creating credentials file to be used by terraform to access GCP from Circle CI variables"
               echo $PRODUCTION_GCLOUD_SERVICE_KEY >> google_credentials_for_terraform.json
             fi
 
