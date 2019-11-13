@@ -148,23 +148,21 @@ jobs:
             cd $HOME/app/terraform
 
             if [ $CIRCLE_BRANCH == 'master' ]; then
-              echo $PRODUCTION_GCLOUD_SERVICE_KEY >> jupiter_ml_ci_credentials.json
+              echo $PRODUCTION_GCLOUD_SERVICE_KEY >> google_credentials_for_terraform.json
             fi
 
             if [ $CIRCLE_BRANCH == 'staging' ]; then
-              echo $STAGING_GCLOUD_SERVICE_KEY >> jupiter_ml_ci_credentials.json
+              echo $STAGING_GCLOUD_SERVICE_KEY >> google_credentials_for_terraform.json
             fi
 
             if [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ] ; then
-              export GOOGLE_APPLICATION_CREDENTIALS="jupiter_ml_ci_credentials.json"
+              export GOOGLE_APPLICATION_CREDENTIALS="google_credentials_for_terraform.json"
               terraform init
 
-              terraform workspace new staging
-              terraform workspace new master
               terraform workspace select $CIRCLE_BRANCH
 
-              terraform plan -var "deploy_code_commit_hash=$CIRCLE_SHA1" -var "credentials_file=jupiter_ml_ci_credentials.json"
-              terraform apply -auto-approve -var "deploy_code_commit_hash=$CIRCLE_SHA1" -var "credentials_file=jupiter_ml_ci_credentials.json"
+              terraform plan -var "deploy_code_commit_hash=$CIRCLE_SHA1" -var "credentials_file=google_credentials_for_terraform.json"
+              terraform apply -auto-approve -var "deploy_code_commit_hash=$CIRCLE_SHA1" -var "credentials_file=google_credentials_for_terraform.json"
             fi
 
       - save_cache:
