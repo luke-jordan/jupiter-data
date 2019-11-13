@@ -1,4 +1,10 @@
-variable "project" { }
+variable "project" {
+  type = "map"
+  default = {
+    "staging" = "jupiter-ml-alpha"
+    "master" = "jupiter-production-258809"
+  }
+}
 
 variable "credentials_file" { }
 
