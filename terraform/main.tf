@@ -7,7 +7,7 @@ provider "google" {
 
 terraform {
   backend "gcs" {
-    bucket  = "production-terraform-state-bucket"
+    bucket  = "staging-terraform-state-bucket"
   }
 }
 
@@ -17,6 +17,6 @@ terraform {
 data "terraform_remote_state" "terraform-state-on-gcs" {
   backend = "gcs"
   config = {
-    bucket  = "${var.terraform_state_bucket[terraform.workspace]}"
+    bucket  = "staging-terraform-state-bucket"
   }
 }
