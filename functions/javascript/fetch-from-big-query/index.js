@@ -4,7 +4,7 @@ const bigqueryClient = new BigQuery();
 const dotenv = require('dotenv');
 dotenv.config();
 const GOOGLE_PROJECT_ID = process.env.GOOGLE_PROJECT_ID;
-const BIG_QUERY_DATASET_LOCATION = process.env.PRODUCTION_BIG_QUERY_DATASET_LOCATION;
+const BIG_QUERY_DATASET_LOCATION = process.env.BIG_QUERY_DATASET_LOCATION;
 
 function confirmRequiredParameters(parameters) {
     return !parameters.startDate || !parameters.endDate
