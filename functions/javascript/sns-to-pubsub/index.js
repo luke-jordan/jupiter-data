@@ -91,19 +91,3 @@ exports.receiveNotification  = function receiveNotification (req, res) {
         res.status(400).end('invalid SNS message => authentication or processing error');
     }
 };
-
-
-
-export GOOGLE_APPLICATION_CREDENTIALS="jupiter-ml-alpha-credentials.json"
-terraform init && terraform workspace select staging
-
-terraform plan -var "deploy_code_commit_hash=587d9d40655d5a2e9fc7ebfc1f751f4d6bbfe3e5" -var "credentials_file=jupiter-ml-alpha-credentials.json"
-terraform apply -auto-approve -var "deploy_code_commit_hash=587d9d40655d5a2e9fc7ebfc1f751f4d6bbfe3e5" -var "credentials_file=jupiter-ml-alpha-credentials.json"
-
-
-
-export GOOGLE_APPLICATION_CREDENTIALS="production-credentials.json"
-terraform init && terraform workspace select master
-
-terraform plan -var "deploy_code_commit_hash=432c336a06ea0bb97835002e0765773f49a45c5c" -var "credentials_file=production-credentials.json"
-terraform apply -auto-approve -var "deploy_code_commit_hash=432c336a06ea0bb97835002e0765773f49a45c5c" -var "credentials_file=production-credentials.json"
