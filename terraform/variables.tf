@@ -1,4 +1,10 @@
-variable "project" { }
+variable "project" {
+  type = "map"
+  default = {
+    "staging" = "jupiter-ml-alpha"
+    "master" = "jupiter-production-258809"
+  }
+}
 
 variable "credentials_file" { }
 
@@ -15,14 +21,6 @@ variable "gcp_default_zone" {
   default = {
     "staging" = "us-central1"
     "master" = "europe-west1"
-  }
-}
-
-variable "terraform_state_bucket" {
-  type = "map"
-  default = {
-    "staging" = "staging-terraform-state-bucket"
-    "master" = "production-terraform-state-bucket"
   }
 }
 
