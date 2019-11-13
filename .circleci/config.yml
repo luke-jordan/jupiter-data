@@ -54,6 +54,16 @@ jobs:
 
                cd $HOME/app/functions/javascript/fetch-from-big-query
                echo $CIRCLE_SHA1 > last_commit.txt
+               echo "setting environment variables for fetch from big query"
+               if [ $CIRCLE_BRANCH == 'master' ]; then
+                echo GOOGLE_PROJECT_ID=$PRODUCTION_GOOGLE_PROJECT_ID >> .env
+                echo BIG_QUERY_DATASET_LOCATION=$PRODUCTION_BIG_QUERY_DATASET_LOCATION >> .env
+               fi
+
+               if [ $CIRCLE_BRANCH == 'staging' ]; then
+                echo GOOGLE_PROJECT_ID=$PRODUCTION_GOOGLE_PROJECT_ID >> .env
+                echo BIG_QUERY_DATASET_LOCATION=$STAGING_BIG_QUERY_DATASET_LOCATION >> .env
+               fi
                zip -rq $HOME/fetch_from_big_query_$CIRCLE_SHA1.zip .
 
                cd $HOME/app/functions/javascript/sns-to-pubsub
