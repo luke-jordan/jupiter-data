@@ -3,8 +3,10 @@ import json
 import base64
 
 from google.cloud import bigquery
+from dotenv import load_dotenv
+load_dotenv()
 
-project_id = "jupiter-ml-alpha"
+project_id = os.getenv("GOOGLE_PROJECT_ID")
 
 client = bigquery.Client()
 dataset_id = 'ops'

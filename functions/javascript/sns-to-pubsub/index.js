@@ -91,5 +91,3 @@ exports.receiveNotification  = function receiveNotification (req, res) {
         res.status(400).end('invalid SNS message => authentication or processing error');
     }
 };
-
-

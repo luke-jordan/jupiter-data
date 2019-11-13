@@ -1,6 +1,10 @@
 // Import the Google Cloud client library
 const {BigQuery} = require('@google-cloud/bigquery');
 const bigqueryClient = new BigQuery();
+const dotenv = require('dotenv');
+dotenv.config();
+const GOOGLE_PROJECT_ID = process.env.GOOGLE_PROJECT_ID;
+const BIG_QUERY_DATASET_LOCATION = process.env.BIG_QUERY_DATASET_LOCATION;
 
 function confirmRequiredParameters(parameters) {
     return !parameters.startDate || !parameters.endDate
@@ -40,7 +44,7 @@ exports.fetchFromBigQuery = async function fetchFromBigQuery(req, res) {
         console.log('constructing sql query');
         // The SQL query to run
         const sqlQuery = `SELECT event_type, COUNT(event_type) as event_count
-                    FROM \`jupiter-ml-alpha.amplitude.events\`
+                    FROM \`${GOOGLE_PROJECT_ID}.amplitude.events\`
                     where DATE(client_event_time) BETWEEN @start_date and @end_date and event_type in `
                     +  eventTypesInSQLFormat + ` GROUP BY event_type`;
 
@@ -49,7 +53,7 @@ exports.fetchFromBigQuery = async function fetchFromBigQuery(req, res) {
         const options = {
             query: sqlQuery,
             // Location must match that of the dataset(s) referenced in the query.
-            location: 'US',
+            location: BIG_QUERY_DATASET_LOCATION,
             params: { start_date: startDate, end_date: endDate },
         };
 

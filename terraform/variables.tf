@@ -1,6 +1,28 @@
-variable "project" { }
+variable "project" {
+  type = "map"
+  default = {
+    "staging" = "jupiter-ml-alpha"
+    "master" = "jupiter-production-258809"
+  }
+}
 
 variable "credentials_file" { }
+
+variable "gcp_bucket_prefix" {
+  type = "map"
+  default = {
+    "staging" = "staging"
+    "master" = "prod"
+  }
+}
+
+variable "gcp_pub_sub_topic" {
+  type = "map"
+  default = {
+    "daily_runs_at_3am" = "daily-runs"
+    "events_from_sns" = "sns-events"
+  }
+}
 
 variable "gcp_default_region" {
   type = "map"
