@@ -62,6 +62,7 @@ jobs:
 
                cd $HOME/app/functions/python/sync-amplitude-data-to-big-query
                echo $CIRCLE_SHA1 > last_commit.txt
+               echo "setting environment variables for sync amplitude data to big query"
                if [ $CIRCLE_BRANCH == 'master' ]; then
                 echo $PRODUCTION_GCLOUD_SERVICE_KEY >> jupiter_ml_python_credentials.json
                 echo $PRODUCTION_AMPLITUDE_SECRETS >> .env
@@ -75,6 +76,14 @@ jobs:
 
                cd $HOME/app/functions/python/pubsub-to-big-query-for-sns
                echo $CIRCLE_SHA1 > last_commit.txt
+               echo "setting environment variables for pubsub to big query"
+               if [ $CIRCLE_BRANCH == 'master' ]; then
+                echo GOOGLE_PROJECT_ID=$PRODUCTION_GOOGLE_PROJECT_ID >> .env
+               fi
+
+               if [ $CIRCLE_BRANCH == 'staging' ]; then
+                echo GOOGLE_PROJECT_ID=$STAGING_GOOGLE_PROJECT_ID >> .env
+               fi
                zip -rq $HOME/pubsub_to_big_query_for_sns_$CIRCLE_SHA1.zip .
 
             fi
