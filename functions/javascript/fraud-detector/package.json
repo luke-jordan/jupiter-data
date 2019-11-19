@@ -1,0 +1,15 @@
+{
+  "name": "fraud-detector",
+  "version": "0.0.1",
+  "description": "flags users that are considered dodgy based on specific rules",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"No test specified\" && exit 0"
+  },
+  "author": "Bolu Ajibawo",
+  "dependencies": {
+    "@google-cloud/bigquery": "^4.4.0",
+    "dotenv": "^8.2.0",
+    "json-rules-engine": "^5.0.0-alpha3"
+  }
+}

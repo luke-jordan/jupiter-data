@@ -5,6 +5,8 @@ const dotenv = require('dotenv');
 dotenv.config();
 const GOOGLE_PROJECT_ID = process.env.GOOGLE_PROJECT_ID;
 const BIG_QUERY_DATASET_LOCATION = process.env.BIG_QUERY_DATASET_LOCATION;
+const DATASET = 'amplitude';
+const TABLE = 'events';
 
 function confirmRequiredParameters(parameters) {
     return !parameters.startDate || !parameters.endDate
@@ -44,7 +46,7 @@ exports.fetchFromBigQuery = async function fetchFromBigQuery(req, res) {
         console.log('constructing sql query');
         // The SQL query to run
         const sqlQuery = `SELECT event_type, COUNT(event_type) as event_count
-                    FROM \`${GOOGLE_PROJECT_ID}.amplitude.events\`
+                    FROM \`${GOOGLE_PROJECT_ID}.${DATASET}.${TABLE}\`
                     where DATE(client_event_time) BETWEEN @start_date and @end_date and event_type in `
                     +  eventTypesInSQLFormat + ` GROUP BY event_type`;
 
