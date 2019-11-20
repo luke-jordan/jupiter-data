@@ -1,3 +1,5 @@
+'use strict';
+
 const dotenv = require('dotenv');
 dotenv.config();
 
@@ -15,4 +17,4 @@ module.exports = {
         from: `"Jupyter Save 👻" ${process.env.EMAIL_ADDRESS}`,
         subject: `Notification`
     }
-}
+};
