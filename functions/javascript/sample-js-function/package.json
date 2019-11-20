@@ -2,7 +2,7 @@
   "name": "sample-js-function",
   "version": "0.0.1",
   "description": "Serves as the template for javascript functions in jupiter data repo",
-  "main": "index.js",
+  "main": "sample-js-function",
   "scripts": {
     "test": "echo \"No test specified\" && exit 0",
     "generate-coverage": "nyc report --reporter=text-lcov > coverage.lcov",

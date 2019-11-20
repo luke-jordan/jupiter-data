@@ -1,6 +1,6 @@
 'use strict';
 
-const emailClientService = require('./email_client');
+const emailClientService = require('./email-client');
 const logger = require('./lib/logger');
 const shortid = require('shortid');
 const constants = require('./config/constants');
@@ -55,3 +55,5 @@ const handleSendNotificationRequest = async (req, res) => {
         res.status(400).end('Unable to send notification request');
     }
 };
+
+// TODO: deploy service => add to circle ci and terraform

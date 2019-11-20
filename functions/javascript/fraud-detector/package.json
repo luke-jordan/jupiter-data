@@ -2,7 +2,7 @@
   "name": "fraud-detector",
   "version": "0.0.1",
   "description": "flags users that are considered dodgy based on specific rules",
-  "main": "index.js",
+  "main": "fraud-detector.js",
   "scripts": {
     "test": "echo \"No test specified\" && exit 0",
     "lint": "eslint .",

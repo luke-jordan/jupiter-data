@@ -4,9 +4,10 @@
     // saves to table `user_behaviour`: table contains user transactions: deposits and withdrawals
     // Then retrieve properties to be used by rules engine. Properties include: last_transaction_amount
 
+const EMAIL_TYPE = 'EMAIL';
 
-// 3. Runs rules engine (https://www.npmjs.com/package/json-rules-engine) 
-
+// 3. Run rules engine (https://www.npmjs.com/package/json-rules-engine) 
+// TODO: define proper rules
 const Engine = require('json-rules-engine').Engine;
 const {BigQuery} = require('@google-cloud/bigquery');
 const bigqueryClient = new BigQuery();
@@ -33,7 +34,7 @@ const customRule1 = {
       type: 'flaggedAsFraudulent',
       params: {
         message: 'User has been flagged as fraudulent, please check the user out',
-        reason: `user's last deposit was greater than 100000 rands`
+        reasonForFlaggingUser: `user's last deposit was greater than 100000 rands`
       }
     }
 };
@@ -52,7 +53,7 @@ const customRule2 = {
       type: 'flaggedAsFraudulent',
       params: {
         message: 'User has been flagged as fraudulent, please check the user out',
-        reason: `user has deposited 50000 rands 3 or more times in the last 6 months`
+        reasonForFlaggingUser: `user has deposited 50000 rands 3 or more times in the last 6 months`
       }
     }
 };
@@ -81,44 +82,49 @@ const accuracyStates = {
 
 async function processSuccessResultOfRulesEngine (event) {
     // 'results' is an object containing successful events, and an Almanac instance containing facts
-    const reason = event.params.reason;
+    const reasonForFlaggingUser = event.params.reasonForFlaggingUser;
     const userId = facts.userId;
-    console.log(reason);
+    console.log(reasonForFlaggingUser);
     // 4. If Flagged 
     // log to `user_flagged_as_fradulent`
     try {
-        await logUserFlag(userId, reason);
+        await logUserFlag(userId, reasonForFlaggingUser);
     } catch (error) {
         console.log('error occured while logging user flag', error);
     }
         
+    const notificationPayload = {
+      notificationType: EMAIL_TYPE, 
+      contacts: ['avish@plutosave.com', 'luke@plutosave.com'], 
+      message: `${event.params.message}. Reason for flagging User: ${reasonForFlaggingUser}`
+    };
     // tell Avish => email function accepts (email address and message)
-    // TODO: Write notification function (primarily email)
+    // TODO: send post request to notification-service
 
-    console.log(event.params.message);
+    console.log('sending notification request with payload: ', notificationPayload);
 }
 
-async function logUserFlag (userId, reason) {
-    const timestampNow = new Date().toISOString().slice(0, 19).replace('T', ' '); // courtesy: https://stackoverflow.com/questions/5129624/convert-js-date-time-to-mysql-datetime
+async function logUserFlag (userId, reasonForFlaggingUser) {
+    const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' '); // courtesy: https://stackoverflow.com/questions/5129624/convert-js-date-time-to-mysql-datetime
     const payloadForFlaggedTable = {
         user_id: userId,
-        reason,
+        reasonForFlaggingUser,
         accuracy: accuracyStates.pending,
-        created_at: timestampNow,
-        updated_at: timestampNow
+        created_at: timestamp,
+        updated_at: timestamp
     };
 
-    const rows = [
+    const row = [
         payloadForFlaggedTable
       ];
-      console.log(`Inserting user flag: ${rows} into database`);
+      console.log(`Inserting user flag: ${row} into database`);
   
       // Insert data into a table
       await bigqueryClient.
         dataset(DATASET_ID).
         table(TABLE_ID).
-        insert(rows);
-        console.log(`Successfully inserted user flag: ${rows} into database`);
+        insert(row);
+        console.log(`Successfully inserted user flag: ${row} into database`);
 }
  
 // Run the engine to evaluate
