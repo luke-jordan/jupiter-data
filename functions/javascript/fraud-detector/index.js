@@ -18,7 +18,7 @@ const TABLE_ID = process.env.BIG_QUERY_TABLE_ID;
 /**
  * Setup a new engine
  */
-const engine = new Engine()
+const engine = new Engine();
 const customRule1 = {
     conditions: {
       any: [
@@ -29,7 +29,7 @@ const customRule1 = {
           }
         ]
     },
-    event: {  // define the event to fire when the conditions evaluate truthy
+    event: { // define the event to fire when the conditions evaluate truthy
       type: 'flaggedAsFraudulent',
       params: {
         message: 'User has been flagged as fraudulent, please check the user out',
@@ -48,7 +48,7 @@ const customRule2 = {
           }
     ]
     },
-    event: {  // define the event to fire when the conditions evaluate truthy
+    event: { // define the event to fire when the conditions evaluate truthy
       type: 'flaggedAsFraudulent',
       params: {
         message: 'User has been flagged as fraudulent, please check the user out',
@@ -71,15 +71,15 @@ const facts = {
   userId: 3,
   lastDeposit: 10000,
   depositsLargerThanBaseIn6months: 4
-}
+};
 
 const accuracyStates = {
     pending: 'PENDING_CONFIRMATION',
     falseAlarm: 'FALSE_ALARM',
     accuratePrediction: 'ACCURATE_PREDICTION'
-}
+};
 
-async function processSuccessResultOfRulesEngine(event) {
+async function processSuccessResultOfRulesEngine (event) {
     // 'results' is an object containing successful events, and an Almanac instance containing facts
     const reason = event.params.reason;
     const userId = facts.userId;
@@ -87,8 +87,8 @@ async function processSuccessResultOfRulesEngine(event) {
     // 4. If Flagged 
     // log to `user_flagged_as_fradulent`
     try {
-        await logUserFlag(userId, reason)
-    } catch(error) {
+        await logUserFlag(userId, reason);
+    } catch (error) {
         console.log('error occured while logging user flag', error);
     }
         
@@ -98,7 +98,7 @@ async function processSuccessResultOfRulesEngine(event) {
     console.log(event.params.message);
 }
 
-async function logUserFlag(userId, reason) {
+async function logUserFlag (userId, reason) {
     const timestampNow = new Date().toISOString().slice(0, 19).replace('T', ' '); // courtesy: https://stackoverflow.com/questions/5129624/convert-js-date-time-to-mysql-datetime
     const payloadForFlaggedTable = {
         user_id: userId,
@@ -114,14 +114,14 @@ async function logUserFlag(userId, reason) {
       console.log(`Inserting user flag: ${rows} into database`);
   
       // Insert data into a table
-      await bigqueryClient
-        .dataset(DATASET_ID)
-        .table(TABLE_ID)
-        .insert(rows);
+      await bigqueryClient.
+        dataset(DATASET_ID).
+        table(TABLE_ID).
+        insert(rows);
         console.log(`Successfully inserted user flag: ${rows} into database`);
 }
  
 // Run the engine to evaluate
-engine
-  .run(facts)
-  .then(results => results.events.map(event => processSuccessResultOfRulesEngine(event)));
+engine.
+  run(facts).
+  then((results) => results.events.map((event) => processSuccessResultOfRulesEngine(event)));
