@@ -1,8 +1,8 @@
 {
-  "name": "sample-js-function",
+  "name": "user-behaviour",
   "version": "0.0.1",
-  "description": "Serves as the template for javascript functions in jupiter data repo",
-  "main": "sample-js-function.js",
+  "description": "Manages User Behavioural Patterns",
+  "main": "user-behaviour.js",
   "scripts": {
     "test": "echo \"No test specified\" && exit 0",
     "generate-coverage": "nyc report --reporter=text-lcov > coverage.lcov",
