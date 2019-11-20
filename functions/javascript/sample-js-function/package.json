@@ -1,0 +1,17 @@
+{
+  "name": "sample-js-function",
+  "version": "1.0.0",
+  "description": "",
+  "main": ".eslintrc.js",
+  "scripts": {
+    "test": "echo \"No test specified\" && exit 0",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "keywords": [],
+  "author": "",
+  "devDependencies": {
+    "eslint": "^6.6.0",
+    "eslint-plugin-chai-friendly": "^0.5.0"
+  }
+}
