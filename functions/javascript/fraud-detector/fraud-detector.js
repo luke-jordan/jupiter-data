@@ -131,3 +131,5 @@ async function logUserFlag (userId, reasonForFlaggingUser) {
 engine.
   run(facts).
   then((results) => results.events.map((event) => processSuccessResultOfRulesEngine(event)));
+
+// TODO: deploy service => add to circle ci and terraform
