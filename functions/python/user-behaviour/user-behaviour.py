@@ -1,6 +1,8 @@
 import os
 import json
 import base64
+import constant
+import datetime
 
 from google.cloud import bigquery
 from dotenv import load_dotenv
@@ -11,6 +13,7 @@ dataset_id = 'ops'
 table_id = 'user_behaviour'
 table_ref = client.dataset(dataset_id).table(table_id)
 table = client.get_table(table_ref)
+
 
 def missingParameterInPayload (payload): 
   if ("context" not in payload):
@@ -44,6 +47,59 @@ def extractAmountAndCurrency(savedAmount):
         "currency": amountBrokenIntoParts[2],
     }
 
+def retrieve_user_latest_deposit():
+    # select amount as latestDeposit
+    # from `jupiter-ml-alpha.ops.user_behaviour` 
+    # where transaction_type=constant.DEPOSIT_TRANSACTION_TYPE 
+    # and user_id="1a"
+    # order by "time_transaction_occurred" DESC
+    # limit 1
+    return
+
+def calculate_date_n_months_ago(num):
+    print("calculating date: {n} months before today".format(n=num))
+    return (datetime.date.today() - datetime.timedelta(num * constant.TOTAL_DAYS_IN_A_YEAR / constant.MONTHS_IN_A_YEAR))    
+
+def retrieve_user_average_deposit_within_months_period(userId, periodInMonths):
+    # 6 month average deposit
+    
+    # select AVG(amount) as averageDepositDuringPeriodInMonths
+    # from `jupiter-ml-alpha.ops.user_behaviour` 
+    # where transaction_type=constant.DEPOSIT_TRANSACTION_TYPE
+    # and user_id="1a"
+    # and time_transaction_occurred >= {periodInMonths}
+    return
+
+def retrieve_count_of_user_deposits_larger_than_benchmark_within_months_period(userId, periodInMonths, benchmark):
+    # More than 3 deposits larger than R50 000 within a 6 month period
+
+    # select count(*) as countOfDepositsGreaterThanSecondBenchmark
+    # from `jupiter-ml-alpha.ops.user_behaviour` 
+    # where amount > {benchmark} and transaction_type=constant.DEPOSIT_TRANSACTION_TYPE
+    # and user_id="1a"
+    return
+
+def retrieve_count_of_user_deposits_larger_than_benchmark(userId, benchmark):
+    # Single deposit larger than R100 000
+
+    # select count(*) as countOfDepositsGreaterThanFirstBenchmar
+    # from `jupiter-ml-alpha.ops.user_behaviour` 
+    # where amount > {benchmark} and transaction_type=constant.DEPOSIT_TRANSACTION_TYPE
+    # and user_id = "1a"
+    return
+
+
+
+
+def retrieveUserBehaviourBasedOnRules(userId):
+    return
+    # Single deposit larger than R100 000
+
+    # More than 3 deposits larger than R50 000 within a 6 month period
+
+    # If latest inward transfer > 10x past 6 month average transfer
+
+
 def formatPayloadForUserBehaviourTable(payloadList):
     formattedPayloadList = []
     for eventMessage in payloadList:
@@ -57,7 +113,7 @@ def formatPayloadForUserBehaviourTable(payloadList):
         singleFormattedPayload = {
             "user_id": eventMessage["user_id"],
             "account_id": context["accountId"],
-            "transaction_type": "deposit",
+            "transaction_type": constant.DEPOSIT_TRANSACTION_TYPE,
             "amount": amountAndCurrency["amount"],
             "currency": amountAndCurrency["currency"],
             "time_transaction_occurred": context["timeInMillis"]
