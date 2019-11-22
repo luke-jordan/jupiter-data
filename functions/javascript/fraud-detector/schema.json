@@ -1,7 +1,7 @@
 [
     {
       "mode": "REQUIRED",
-      "name": "user_id",
+      "name": "account_id",
       "type": "STRING"
     },
     {

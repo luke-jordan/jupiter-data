@@ -20,8 +20,8 @@ def logUserTransaction(event, context):
         message = eval(base64.b64decode(event['data']).decode('utf-8'))
         print("successfully decoded message: {msg}".format(msg=message))
 
-
         # TODO 2a) define schema for user-behaviour and create table in big query
+
         # TODO 2b) format message for user-behaviour table
         errors = client.insert_rows(table, message)
         print("successfully inserted message: {msg} into table: {table} of big query".format(msg=message, table=table_id))

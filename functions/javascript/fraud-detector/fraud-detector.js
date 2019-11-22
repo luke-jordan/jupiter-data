@@ -69,7 +69,7 @@ engine.addRule(customRule2);
  * Facts may also be loaded asynchronously at runtime; see the advanced example below
  */
 const facts = {
-  userId: 3,
+  accountId: 3,
   lastDeposit: 10000,
   depositsLargerThanBaseIn6months: 4
 };
@@ -83,12 +83,12 @@ const accuracyStates = {
 async function processSuccessResultOfRulesEngine (event) {
     // 'results' is an object containing successful events, and an Almanac instance containing facts
     const reasonForFlaggingUser = event.params.reasonForFlaggingUser;
-    const userId = facts.userId;
+    const accountId = facts.accountId;
     console.log(reasonForFlaggingUser);
     // 4. If Flagged 
     // log to `user_flagged_as_fradulent`
     try {
-        await logUserFlag(userId, reasonForFlaggingUser);
+        await logUserFlag(accountId, reasonForFlaggingUser);
     } catch (error) {
         console.log('error occured while logging user flag', error);
     }
@@ -104,10 +104,10 @@ async function processSuccessResultOfRulesEngine (event) {
     console.log('sending notification request with payload: ', notificationPayload);
 }
 
-async function logUserFlag (userId, reasonForFlaggingUser) {
+async function logUserFlag (accountId, reasonForFlaggingUser) {
     const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' '); // courtesy: https://stackoverflow.com/questions/5129624/convert-js-date-time-to-mysql-datetime
     const payloadForFlaggedTable = {
-        user_id: userId,
+        account_id: accountId,
         reasonForFlaggingUser,
         accuracy: accuracyStates.pending,
         created_at: timestamp,
