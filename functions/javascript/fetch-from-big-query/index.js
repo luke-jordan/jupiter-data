@@ -3,6 +3,10 @@ const {BigQuery} = require('@google-cloud/bigquery');
 const bigqueryClient = new BigQuery();
 const dotenv = require('dotenv');
 dotenv.config();
+
+// TODO: replace `dotenv` with `config`, this requires updating circle ci environment variables and the `config.yml`
+// TODO: change name of this file from `index.js` to `fetch-from-amplitude` this requires changing the terraform file
+
 const GOOGLE_PROJECT_ID = process.env.GOOGLE_PROJECT_ID;
 const BIG_QUERY_DATASET_LOCATION = process.env.BIG_QUERY_DATASET_LOCATION;
 const DATASET = 'amplitude';

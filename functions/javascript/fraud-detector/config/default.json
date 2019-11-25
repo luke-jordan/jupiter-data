@@ -1,0 +1,4 @@
+{
+  "BIG_QUERY_DATASET_ID": "ops",
+  "BIG_QUERY_TABLE_ID": "user_flagged_as_fradulent"
+}

@@ -6,13 +6,13 @@
 
 // 3. Run rules engine (https://www.npmjs.com/package/json-rules-engine) 
 // TODO: define proper rules
-const Engine = require('json-rules-engine').Engine;
+const config = require('config');
 const {BigQuery} = require('@google-cloud/bigquery');
+const Engine = require('json-rules-engine').Engine;
 const bigqueryClient = new BigQuery();
-const dotenv = require('dotenv');
-dotenv.config();
-const DATASET_ID = process.env.BIG_QUERY_DATASET_ID;
-const TABLE_ID = process.env.BIG_QUERY_TABLE_ID;
+
+const DATASET_ID = config.get("BIG_QUERY_DATASET_ID");
+const TABLE_ID = config.get("process.env.BIG_QUERY_TABLE_ID");
 
 const EMAIL_TYPE = 'EMAIL';
 

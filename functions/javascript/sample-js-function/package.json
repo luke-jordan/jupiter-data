@@ -23,6 +23,7 @@
     "sinon-chai": "^3.3.0"
   },
   "dependencies": {
+    "config": "^3.2.4",
     "debug": "^4.1.1"
   }
 }
