@@ -12,8 +12,8 @@
   "keywords": [],
   "author": "Bolu Ajibawo",
   "dependencies": {
+    "config": "^3.2.4",
     "debug": "^4.1.1",
-    "dotenv": "^8.2.0",
     "http-status": "^1.4.1",
     "nodemailer": "^6.3.1",
     "shortid": "^2.2.15"

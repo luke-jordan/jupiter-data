@@ -3,7 +3,7 @@
 const emailClientService = require('./email-client');
 const logger = require('debug')('notification-service:notification-service');
 const shortid = require('shortid');
-const constants = require('./config/constants');
+const constants = require('./constants');
 const httpStatus = require('http-status');
 
 const { EMAIL_TYPE } = constants.notificationTypes;

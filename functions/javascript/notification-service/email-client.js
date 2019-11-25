@@ -1,15 +1,15 @@
 'use strict';
 
 const nodemailer = require('nodemailer');
-const config = require('./config/config');
+const config = require('config');
 const logger = require('debug')('notification-service:email-client');
-const mailTransporterConfig = config.mailTransporter;
+const mailTransporterConfig = config.get("mailTransporter");
 const transporter = nodemailer.createTransport(mailTransporterConfig);
 
 const {
     from,
     subject
-} = config.mailFormat;
+} = config.get("mailFormat");
 
 /**
  * @param email

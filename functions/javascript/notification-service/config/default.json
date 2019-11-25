@@ -1,0 +1,15 @@
+{
+  "mailTransporter": {
+    "host": "server.example.com",
+    "port": 465,
+    "secure": "true",
+    "auth": {
+      "user": "foo@example.com",
+      "pass": "xxxxxxxxx"
+    }
+  },
+  "mailFormat": {
+    "from": "Jupyter Save",
+    "subject": "Notification"
+  }
+}
