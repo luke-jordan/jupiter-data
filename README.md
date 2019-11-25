@@ -50,6 +50,10 @@ This entire flow is best explained with the diagram below:
 
 Amazon SNS => `javascript/sns-to-pubsub` => Pub/Sub => `python/pubsub-to-big-query-for-sns` => Big Query
 
+Endpoints for `javascript/sns-to-pubsub` (which are the endpoints that SNS pushes to) are:
+Staging Endpoint: [https://us-central1-jupiter-ml-alpha.cloudfunctions.net/sns-to-pubsub](https://us-central1-jupiter-ml-alpha.cloudfunctions.net/sns-to-pubsub)
+Production Endpoint:  [https://europe-west1-jupiter-production-258809.cloudfunctions.net/sns-to-pubsub](https://europe-west1-jupiter-production-258809.cloudfunctions.net/sns-to-pubsub)
+
 Diagram of Data flow from Amazon
 
 ![Diagram showcasing Data flow from Amazon](/docs/diagram_of_data_flow_from_amazon.png)
@@ -82,6 +86,9 @@ We now have data from Amazon and Amplitude in Google's Big Query. Here in comes 
 which helps us interact with the data in Big Query. `javascript/fetch-from-big-query` serves to fetch data from big query.
 At the moment it fetches only Amplitude data, but it could be extended to fetch more diverse data.
 
+Endpoints for `javascript/fetch-from-big-query` are:
+Staging Endpoint: [https://us-central1-jupiter-ml-alpha.cloudfunctions.net/fetch-from-big-query](https://us-central1-jupiter-ml-alpha.cloudfunctions.net/fetch-from-big-query )
+Production Endpoint:  [https://europe-west1-jupiter-production-258809.cloudfunctions.net/fetch-from-big-query](https://europe-west1-jupiter-production-258809.cloudfunctions.net/fetch-from-big-query)
 
 ## Google and Amplitude Credentials
 

@@ -36,3 +36,8 @@ A sample response is below:
 
 The sample response showcases the event count that the `event type` has during the specified intervals: 
 `startDate` and `endDate`
+
+
+Endpoints for `javascript/fetch-from-big-query` are:
+Staging Endpoint: [https://us-central1-jupiter-ml-alpha.cloudfunctions.net/fetch-from-big-query](https://us-central1-jupiter-ml-alpha.cloudfunctions.net/fetch-from-big-query )
+Production Endpoint:  [https://europe-west1-jupiter-production-258809.cloudfunctions.net/fetch-from-big-query](https://europe-west1-jupiter-production-258809.cloudfunctions.net/fetch-from-big-query)
