@@ -1,5 +1,5 @@
 'use strict';
 
-const logger = require('./lib/logger');
+const logger = require('debug')('sample-js-function');
 
-logger.info('New function created successfully');
+logger('New function created successfully');

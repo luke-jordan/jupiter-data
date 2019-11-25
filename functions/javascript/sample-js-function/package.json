@@ -23,6 +23,6 @@
     "sinon-chai": "^3.3.0"
   },
   "dependencies": {
-    "winston": "^3.2.1"
+    "debug": "^4.1.1"
   }
 }

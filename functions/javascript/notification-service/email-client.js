@@ -2,7 +2,7 @@
 
 const nodemailer = require('nodemailer');
 const config = require('./config/config');
-const logger = require('./lib/logger');
+const logger = require('debug')('notification-service:email-client');
 const mailTransporterConfig = config.mailTransporter;
 const transporter = nodemailer.createTransport(mailTransporterConfig);
 
@@ -18,7 +18,7 @@ const {
  * @returns {Promise<T | never>}
  */
 const sendEmail = (email, message, reqId) => {
-    logger.info(`Request ID: ${reqId} - sending message to email: ${email}`);
+    logger(`Request ID: ${reqId} - sending message to email: ${email}`);
     return transporter.sendMail({
         from,
         to: email,
@@ -27,9 +27,9 @@ const sendEmail = (email, message, reqId) => {
         html: message
     }).
         then(() => {
-            logger.info(`Request ID: ${reqId} - successfully sent message to email: ${email}`);
+            logger(`Request ID: ${reqId} - successfully sent message to email: ${email}`);
         }).catch((error) => {
-            logger.error(`Request ID: ${reqId} - error sending message to email: ${email}. Error: ${error}`);
+            logger(`Request ID: ${reqId} - error sending message to email: ${email}. Error: ${error}`);
         });
 };
 

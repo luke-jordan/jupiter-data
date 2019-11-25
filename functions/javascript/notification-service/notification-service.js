@@ -1,7 +1,7 @@
 'use strict';
 
 const emailClientService = require('./email-client');
-const logger = require('./lib/logger');
+const logger = require('debug')('notification-service:notification-service');
 const shortid = require('shortid');
 const constants = require('./config/constants');
 const httpStatus = require('http-status');
@@ -13,7 +13,7 @@ const sendMessageToContact = async (payload, reqId) => {
         notificationType, contacts, message
     } = payload;
 
-    logger.info(`Request ID : ${reqId} - sending message: ${message} to contacts: ${JSON.stringify(contacts)}`);
+    logger(`Request ID : ${reqId} - sending message: ${message} to contacts: ${JSON.stringify(contacts)}`);
 
     switch (notificationType) {
     case EMAIL_TYPE:
@@ -32,26 +32,26 @@ const handleSendNotificationRequest = async (req, res) => {
         return;
     }
     const reqId = shortid.generate();    
-    logger.info(`Request ID : ${reqId} - handling send notification request with raw payload: ${JSON.stringify(req.body)}`);
+    logger(`Request ID : ${reqId} - handling send notification request with raw payload: ${JSON.stringify(req.body)}`);
     try {
         const payload = JSON.parse(JSON.stringify(req.body));
 
-        logger.info(`Request ID : ${reqId} - successfully parsed received payload`);
+        logger(`Request ID : ${reqId} - successfully parsed received payload`);
 
         if (missingParameter(payload)) {
             res.status(httpStatus.BAD_REQUEST).end(`invalid payload => 'notificationType', 'contacts' and 'message' are required`);
-            logger.info(`Request ID : ${reqId} - request to send notification failed because of invalid parameters in received payload: ${JSON.stringify(payload)}`
+            logger(`Request ID : ${reqId} - request to send notification failed because of invalid parameters in received payload: ${JSON.stringify(payload)}`
             );
             return;
         }
 
         await sendMessageToContact(payload, reqId);
 
-        logger.info(`Request ID : ${reqId} - successfully handled send notification request`);
+        logger(`Request ID : ${reqId} - successfully handled send notification request`);
         res.status(httpStatus.OK).json('Successfully sent notification request');
         return;
     } catch (error) {
-        logger.error(`Request ID : ${reqId} - error occurred while handling send notification request. Error: ${JSON.stringify(error)}`);
+        logger(`Request ID : ${reqId} - error occurred while handling send notification request. Error: ${JSON.stringify(error)}`);
         res.status(400).end('Unable to send notification request');
     }
 };

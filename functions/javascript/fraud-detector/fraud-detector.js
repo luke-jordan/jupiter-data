@@ -4,8 +4,6 @@
     // saves to table `user_behaviour`: table contains user transactions: deposits and withdrawals
     // Then retrieve properties to be used by rules engine. Properties include: last_transaction_amount
 
-const EMAIL_TYPE = 'EMAIL';
-
 // 3. Run rules engine (https://www.npmjs.com/package/json-rules-engine) 
 // TODO: define proper rules
 const Engine = require('json-rules-engine').Engine;
@@ -15,6 +13,8 @@ const dotenv = require('dotenv');
 dotenv.config();
 const DATASET_ID = process.env.BIG_QUERY_DATASET_ID;
 const TABLE_ID = process.env.BIG_QUERY_TABLE_ID;
+
+const EMAIL_TYPE = 'EMAIL';
 
 /**
  * Setup a new engine
