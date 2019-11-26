@@ -9,7 +9,7 @@
     }
   },
   "mailFormat": {
-    "from": "Jupyter Save",
+    "from": "Jupiter Save",
     "subject": "Notification"
   }
 }

@@ -19,7 +19,7 @@ const sendMessageToContact = async (payload, reqId) => {
     case EMAIL_TYPE:
         return contacts.map((contact) => emailClientService.sendEmail(contact, message, reqId));
     default:
-        throw new Error('Notifiation Type not supported at the moment');
+        throw new Error('Notification Type not supported at the moment');
     }
 };
 

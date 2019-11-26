@@ -42,7 +42,7 @@ def missingParameterInPayload (payload):
 
   if ("timeInMillis" not in extractedContext):
     print("timeInMillis not in extracted context")
-    return True 
+    return True
 
   return False
 
@@ -145,7 +145,7 @@ def retrieve_count_of_user_transactions_larger_than_benchmark(userId, benchmark,
     return fetch_data_from_user_behaviour_table(QUERY)
     
 
-def retrieveUserBehaviourBasedOnRules(userId):    
+def retrieveUserBehaviourBasedOnRules(userId, accountId):
     # Single deposit larger than R100 000
     countOfDepositsGreaterThanHundredThousand = retrieve_count_of_user_transactions_larger_than_benchmark(userId, FIRST_BENCHMARK_DEPOSIT, DEPOSIT_TRANSACTION_TYPE)
     
@@ -164,6 +164,10 @@ def retrieveUserBehaviourBasedOnRules(userId):
 
     # TODO: pass values from big query result to variables
     return {
+       "userAccountInfo": {
+           userId: userId,
+           accountId: accountId
+       },
         countOfDepositsGreaterThanHundredThousand,
         countOfDepositssGreaterThanBenchmarkWithinSixMonthPeriod,
         latestDeposit,
@@ -215,7 +219,7 @@ def decodePubSubMessage(event):
     return msg
 
 
-def formatPayloadAndLogAccountAccountTransaction(event, context):
+def formatPayloadAndLogAccountTransaction(event, context):
     print("message received from pubsub")
 
     try:
@@ -228,6 +232,8 @@ def formatPayloadAndLogAccountAccountTransaction(event, context):
     except Exception as e:
         print('error decoding message on {}' .format(e))
 
+
+# TODO: filter events to be logged by: SAVING_PAYMENT_SUCCESSFUL / WITHDRAWAL_EVENT_CONFIRMED
 
 # TODO 4) trigger fraud detection
 
