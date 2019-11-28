@@ -106,8 +106,6 @@ const handleSendNotificationRequest = async (req, res) => {
     }
 };
 
-// TODO: deploy service => add to circle ci and terraform
-
 module.exports = {
     sendEmailNotifications,
     sendMessageBasedOnType,
@@ -115,3 +113,5 @@ module.exports = {
     missingParameterInReceivedPayload,
     handleSendNotificationRequest
 };
+
+// TODO: deploy service => add to circle ci and terraform (supply with working email config)

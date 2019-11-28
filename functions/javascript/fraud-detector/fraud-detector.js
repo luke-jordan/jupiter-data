@@ -9,7 +9,7 @@
 const config = require('config');
 const {BigQuery} = require('@google-cloud/bigquery');
 const Engine = require('json-rules-engine').Engine;
-const bigqueryClient = new BigQuery();
+const bigQueryClient = new BigQuery();
 
 const DATASET_ID = config.get("BIG_QUERY_DATASET_ID");
 const TABLE_ID = config.get("process.env.BIG_QUERY_TABLE_ID");
@@ -133,7 +133,7 @@ async function logUserFlag (userAccountInfo, reasonForFlaggingUser) {
       console.log(`Inserting user flag: ${JSON.stringify(row)} into database`);
   
       // Insert data into a table
-      await bigqueryClient.
+      await bigQueryClient.
         dataset(DATASET_ID).
         table(TABLE_ID).
         insert(row);

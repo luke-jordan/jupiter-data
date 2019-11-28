@@ -232,8 +232,8 @@ def formatPayloadAndLogAccountTransaction(event, context):
     except Exception as e:
         print('error decoding message on {}' .format(e))
 
+# TODO: Factor in units 'HUNDREDTH_CENT' and 'WHOLE_CURRENCY'
 # TODO: filter events to be logged by: SAVING_PAYMENT_SUCCESSFUL / WITHDRAWAL_EVENT_CONFIRMED
-
-# TODO 4) trigger fraud detection
+# TODO: abstract out the `fetch user behaviour` to an endpoint
 
 # TODO: 5) deploy service => add to circle ci and terraform

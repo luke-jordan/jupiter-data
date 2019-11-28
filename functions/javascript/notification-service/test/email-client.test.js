@@ -31,7 +31,7 @@ const resetStubs = () => {
     transporterSendMailStub.reset();
 };
 
-describe('Notification Service', () => {
+describe('Email Client', () => {
     beforeEach(() => {
         resetStubs();
     });

@@ -4,18 +4,27 @@
   "description": "flags users that are considered dodgy based on specific rules",
   "main": "fraud-detector.js",
   "scripts": {
-    "test": "echo \"No test specified\" && exit 0",
+    "test": "DEBUG=* nyc mocha",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },
   "author": "Bolu Ajibawo",
   "dependencies": {
     "@google-cloud/bigquery": "^4.4.0",
-    "dotenv": "^8.2.0",
-    "json-rules-engine": "^5.0.0-alpha3"
+    "config": "^3.2.4",
+    "debug": "^4.1.1",
+    "json-rules-engine": "^5.0.0-alpha3",
+    "shortid": "^2.2.15"
   },
   "devDependencies": {
+    "chai": "^4.2.0",
+    "chai-as-promised": "^7.1.1",
     "eslint": "^6.6.0",
-    "eslint-plugin-chai-friendly": "^0.5.0"
+    "eslint-config-airbnb-base": "^13.1.0",
+    "eslint-plugin-chai-friendly": "^0.5.0",
+    "mocha": "^6.1.4",
+    "nyc": "^14.1.1",
+    "sinon": "^7.4.1",
+    "sinon-chai": "^3.3.0"
   }
 }
