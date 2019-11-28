@@ -1,9 +1,10 @@
 'use strict';
 
-const notificationTypes = {
-    EMAIL_TYPE: 'EMAIL'
-};
-
 module.exports = {
-    notificationTypes
+    notificationTypes:{
+        EMAIL_TYPE: 'EMAIL'
+    },
+    httpMethods: {
+        POST: 'POST'
+    }
 };

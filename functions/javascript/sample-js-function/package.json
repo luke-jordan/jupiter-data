@@ -4,7 +4,7 @@
   "description": "Serves as the template for javascript functions in jupiter data repo",
   "main": "sample-js-function.js",
   "scripts": {
-    "test": "echo \"No test specified\" && exit 0",
+    "test": "DEBUG=* nyc mocha",
     "generate-coverage": "nyc report --reporter=text-lcov > coverage.lcov",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"

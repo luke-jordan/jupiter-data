@@ -145,4 +145,6 @@ engine.
   run(facts).
   then((results) => results.events.map((event) => processSuccessResultOfRulesEngine(event)));
 
+
+// TODO: Add verbose mode to config (if ON => send notification that says it ran)
 // TODO: deploy service => add to circle ci and terraform

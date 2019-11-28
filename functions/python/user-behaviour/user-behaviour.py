@@ -232,7 +232,6 @@ def formatPayloadAndLogAccountTransaction(event, context):
     except Exception as e:
         print('error decoding message on {}' .format(e))
 
-
 # TODO: filter events to be logged by: SAVING_PAYMENT_SUCCESSFUL / WITHDRAWAL_EVENT_CONFIRMED
 
 # TODO 4) trigger fraud detection
