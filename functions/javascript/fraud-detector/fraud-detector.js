@@ -1,25 +1,36 @@
-// 1. TODO: takes user's transaction from Pub/Sub `sns-events`
-
-// 2. TODO: Runs user-behaviour 
-    // saves to table `user_behaviour`: table contains user transactions: deposits and withdrawals
+// 2. TODO: fetch properties from user-behaviour 
     // Then retrieve properties to be used by rules engine. Properties include: last_transaction_amount
+'use strict';
 
 // 3. Run rules engine (https://www.npmjs.com/package/json-rules-engine) 
 // TODO: define proper rules
 const config = require('config');
 const {BigQuery} = require('@google-cloud/bigquery');
 const Engine = require('json-rules-engine').Engine;
-const bigQueryClient = new BigQuery();
+const logger = require('debug')('jupiter:notification-service');
+const requestRetry = require('requestretry');
 
 const DATASET_ID = config.get("BIG_QUERY_DATASET_ID");
-const TABLE_ID = config.get("process.env.BIG_QUERY_TABLE_ID");
+const TABLE_ID = config.get("BIG_QUERY_TABLE_ID");
 
-const EMAIL_TYPE = 'EMAIL';
+const {
+    createTimestampForSQLDatabase
+} = require('./utils');
+const {
+    accuracyStates,
+    httpMethods,
+    notificationTypes,
+    delayForHttpRequestRetries,
+    requestTitle
+} = require('./constants');
 
-/**
- * Setup a new engine
- */
-const engine = new Engine();
+const { EMAIL_TYPE } = notificationTypes;
+const { POST } = httpMethods;
+const { NOTIFICATION } = requestTitle;
+const CONTACTS_TO_BE_NOTIFIED = config.get('contactsToBeNotified');
+const bigQueryClient = new BigQuery();
+
+
 const customRule1 = {
     conditions: {
       any: [
@@ -55,68 +66,66 @@ const customRule2 = {
       }
     }
 };
- 
-// define a rule for detecting the player has exceeded foul limits.  Foul out any player who:
-// (has committed 5 fouls AND game is 40 minutes) OR (has committed 6 fouls AND game is 48 minutes)
-engine.addRule(customRule1);
-engine.addRule(customRule2);
 
- 
-/**
- * Define facts the engine will use to evaluate the conditions above.
- * Facts may also be loaded asynchronously at runtime; see the advanced example below
- */
-const facts = {
-  userAccountInfo: {
-    userId: "1a",
-    accountId: "3b43",
-  },
-  lastDeposit: 10000,
-  depositsLargerThanBaseIn6months: 4
+const constructNewEngineAndAddRules = (rules) => {
+    /**
+     * Setup a new engine
+     */
+    const engine = new Engine();
+    rules.forEach(rule => engine.addRule(rule));
+    return engine;
 };
 
-const accuracyStates = {
-    pending: 'PENDING_CONFIRMATION',
-    falseAlarm: 'FALSE_ALARM',
-    accuratePrediction: 'ACCURATE_PREDICTION'
-};
-
-async function processSuccessResultOfRulesEngine (event) {
-    // 'results' is an object containing successful events, and an Almanac instance containing facts
-    const reasonForFlaggingUser = event.params.reasonForFlaggingUser;
-    const {
-      userAccountInfo
-    } = facts;
-    console.log(reasonForFlaggingUser);
-    // 4. If Flagged 
-    // log to `user_flagged_as_fradulent`
+const notifyAdminsOfNewlyFlaggedUser = async (payload) => {
+    logger('notifying admins of newly flagged user');
     try {
-        await logUserFlag(userAccountInfo, reasonForFlaggingUser);
+        logger(`sending '${NOTIFICATION}' request with payload: ${JSON.stringify(payload)}`);
+        const response = await requestRetry({
+            url: `{base_url}/helloHttp`,
+            method: POST,
+            body: payload,
+            retryDelay: delayForHttpRequestRetries,
+            json: true,
+        });
+
+        logger(`response from ${NOTIFICATION} request with payload: ${payload}. Response: ${JSON.stringify(response)}`);
     } catch (error) {
-        console.log('error occured while logging user flag', error);
+        logger('error occurred while logging user flag', error);
     }
+};
+
+const constructNotificationPayload = (userAccountInfo, reasonForFlaggingUser) => {
+    return {
+        notificationType: EMAIL_TYPE,
+        contacts: CONTACTS_TO_BE_NOTIFIED,
+        message: `User: ${userAccountInfo.userId} with account: ${userAccountInfo.accountId} has been flagged as fraudulent. Reason for flagging User: ${reasonForFlaggingUser}`
+    }
+};
+
+const extractReasonForFlaggingUserFromEvent =  (event) => event.params.reasonForFlaggingUser;
+
+const logFraudulentUserAndNotifyAdmins = async (event, userAccountInfo) => {
+    logger(`Processing success result of rules engines with event: ${JSON.stringify(event)}`);
+    // 'results' is an object containing successful events, and an Almanac instance containing facts
+    const reasonForFlaggingUser = extractReasonForFlaggingUserFromEvent(event);
+    
+    // log to `user_flagged_as_fraudulent`
+    await logFraudulentUserFlag(userAccountInfo, reasonForFlaggingUser);
         
-    const notificationPayload = {
-      notificationType: EMAIL_TYPE, 
-      contacts: ['avish@plutosave.com', 'luke@plutosave.com'], 
-      message: `User: ${userAccountInfo.userId} with account: ${userAccountInfo.accountId} has been flagged as fraudulent. Reason for flagging User: ${reasonForFlaggingUser}`
-    };
+    const notificationPayload = constructNotificationPayload(userAccountInfo, reasonForFlaggingUser);
+
     // tell Avish => email function accepts (email address and message)
-    // TODO: send post request to notification-service
+    await notifyAdminsOfNewlyFlaggedUser(notificationPayload, NOTIFICATION);
+    return;
+};
 
-    console.log('sending notification request with payload: ', notificationPayload);
-}
 
-function createTimestampForSQLDatabase() {
-  // courtesy: https://stackoverflow.com/questions/5129624/convert-js-date-time-to-mysql-datetime
-  return new Date().toISOString().slice(0, 19).replace('T', ' ');
-}
-
-async function logUserFlag (userAccountInfo, reasonForFlaggingUser) {
+const logFraudulentUserFlag = async (userAccountInfo, reasonForFlaggingUser) => {
+    logger(`save new fraudulent flag for user with info: ${userAccountInfo} for reason: ${reasonForFlaggingUser}`)
     const {
       userId, 
       accountId 
-    } = userAccountInfo
+    } = userAccountInfo;
     const timestamp = createTimestampForSQLDatabase();
     const payloadForFlaggedTable = {
         user_id: userId,
@@ -130,20 +139,49 @@ async function logUserFlag (userAccountInfo, reasonForFlaggingUser) {
     const row = [
         payloadForFlaggedTable
       ];
-      console.log(`Inserting user flag: ${JSON.stringify(row)} into database`);
-  
-      // Insert data into a table
-      await bigQueryClient.
+      logger(`Inserting user flag: ${JSON.stringify(row)} into database`);
+
+    try {
+        // Insert data into a table
+        await bigQueryClient.
         dataset(DATASET_ID).
         table(TABLE_ID).
         insert(row);
-        console.log(`Successfully inserted user flag: ${JSON.stringify(row)} into database`);
-}
- 
-// Run the engine to evaluate
-engine.
-  run(facts).
-  then((results) => results.events.map((event) => processSuccessResultOfRulesEngine(event)));
+
+        logger(`Successfully inserted user flag: ${JSON.stringify(row)} into database`);
+    } catch (error) {
+        logger('error occurred while logging user flag', error);
+    }
+};
+
+/**
+ * Define facts the engine will use to evaluate the conditions above.
+ * Facts may also be loaded asynchronously at runtime; see the advanced example below
+ */
+const exampleFacts = {
+    userAccountInfo: {
+        userId: "1a",
+        accountId: "3b43",
+    },
+    lastDeposit: 10000,
+    depositsLargerThanBaseIn6months: 4
+};
+const exampleRules = [customRule1, customRule2];
+
+// Run the engine to evaluate facts against the rules
+const runEngine = (facts, rules) => {
+    const engine = constructNewEngineAndAddRules(rules);
+
+    console.log('engine', engine);
+    engine.
+    run(facts).
+    then((resultsOfPassedRules) => resultsOfPassedRules.events.forEach((event) => logFraudulentUserAndNotifyAdmins(event, facts.userAccountInfo)));
+};
+
+module.exports = {
+    logFraudulentUserAndNotifyAdmins,
+    runEngine
+};
 
 
 // TODO: Add verbose mode to config (if ON => send notification that says it ran)

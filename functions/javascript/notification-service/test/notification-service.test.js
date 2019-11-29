@@ -22,19 +22,15 @@ const { POST } = httpMethods;
 const {
     sendEmailNotifications,
     sendMessageBasedOnType,
-    sendMessageToContacts,
     missingParameterInReceivedPayload,
     handleSendNotificationRequest
 } = notificationService;
 
 const sendEmailStub = sinon.stub(emailClientService, 'sendEmail');
-const sendMessageBasedOnTypeStub = sinon.stub(notificationService, 'sendMessageBasedOnType');
 
 const resetStubs = () => {
     sendEmailStub.reset();
-    sendMessageBasedOnTypeStub.reset();
 };
-
 
 const sampleMessage = 'Winter is coming';
 const sampleContacts = ['johnsnow@gmail.com', 'tyrion@gmail.com'];
@@ -78,15 +74,6 @@ describe('Notification Service', () => {
         }
     });
 
-    // sendMessageToContacts
-    // it(`should handle sending message to contacts`, async () => {
-    //     sendMessageBasedOnTypeStub.withArgs(samplePayload, sampleOptions).returns();
-    //     const result = await sendMessageToContacts(samplePayload, sampleRequestId);
-    //     expect(result).to.be.undefined;
-    //     expect(sendMessageBasedOnTypeStub).to.have.been.calledWith(samplePayload, sampleOptions);
-    // });
-
-    // missingParameterInReceivedPayload
     it(`should return 'false' as all required parameter are present`, async () => {
         let result = await missingParameterInReceivedPayload(samplePayload);
         expect(result).to.exist;
@@ -192,6 +179,4 @@ describe('Notification Service', () => {
         expect(endResponseStub).to.have.been.calledOnce;
         expect(res.status().end.firstCall.args[0]).to.equal('Unable to send notification request');
     });
-
-    // test email client
 });
