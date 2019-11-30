@@ -8,10 +8,15 @@ module.exports = {
         EMAIL_TYPE: 'EMAIL'
     },
     httpMethods: {
-        POST: 'POST'
+        POST: 'POST',
+        GET: 'GET'
     },
     requestTitle: {
-        NOTIFICATION: 'notification'
+        NOTIFICATION: 'notification',
+        FETCH_USER_BEHAVIOUR: 'fetch user behaviour'
     },
-    delayForHttpRequestRetries: 200
+    baseConfigForRequestRetry: {
+        retryDelay: 200,
+        json: true,
+    }
 };

@@ -7,6 +7,7 @@ chai.use(require('sinon-chai'));
 const proxyquire = require('proxyquire').noCallThru();
 const config = require('config');
 const utils = require('../utils');
+const uuid = require('uuid/v4');
 
 const bigQueryTableInsertStub = sinon.stub();
 const requestRetryStub = sinon.stub();
@@ -64,24 +65,33 @@ const {
     logFraudulentUserAndNotifyAdmins,
     extractReasonForFlaggingUserFromEvent,
     logFraudulentUserFlag,
-    runEngine,
     constructNotificationPayload,
     notifyAdminsOfNewlyFlaggedUser,
     constructPayloadForUserFlagTable,
-    insertUserFlagIntoTable
+    insertUserFlagIntoTable,
+    fetchFactsAboutUserAndRunEngine,
+    sendNotificationForVerboseMode
 } = fraud_detector;
 const {
     accuracyStates,
     httpMethods,
     notificationTypes,
-    delayForHttpRequestRetries,
+    baseConfigForRequestRetry,
     requestTitle
 } = require('../constants');
 
 const { EMAIL_TYPE } = notificationTypes;
-const { POST } = httpMethods;
+const {
+    POST,
+    GET
+} = httpMethods;
 const { NOTIFICATION } = requestTitle;
 const CONTACTS_TO_BE_NOTIFIED = config.get('contactsToBeNotified');
+const serviceUrls = config.get('serviceUrls');
+const {
+    NOTIFICATION_SERVICE_URL,
+    USER_BEHAVIOUR_URL
+}= serviceUrls;
 
 const sampleUserAccountInfo = {
     userId: "1a",
@@ -134,10 +144,10 @@ const sampleRule2 = {
     }
 };
 const sampleRules = [sampleRule1, sampleRule2];
-const sampleFacts = {
+const sampleFactsFromUserBehaviour = {
     userAccountInfo: sampleUserAccountInfo,
-    lastDeposit: 10000,
-    depositsLargerThanBaseIn6months: 4
+    countOfDepositsGreaterThanHundredThousand: 1,
+    countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod: 4
 };
 const sampleEvents = {
     events: [sampleEvent, sampleEvent]
@@ -153,6 +163,9 @@ const sampleRow = [
         updated_at: sampleTimestamp
     }
 ];
+const samplePayloadFromFetchFactsTrigger = {
+  userId: 'bkc-3a'  
+};
 
 describe('Utils for Fraud Detector', () => {
     it('should create timestamp for database successfully', async () => {
@@ -229,8 +242,113 @@ describe('Fraud Detector', () => {
         expect(result).to.deep.equal(sampleRow);
     });
 
-    // TODO: entry point => implement and test 'retrieve facts from user-behaviour'
-    // then proceed to run engine and send notification or not
+    it(`should 'fetch facts about user and run engine' successfully`, async () => {
+        requestRetryStub.onFirstCall().resolves();
+        requestRetryStub.onSecondCall().resolves(sampleFactsFromUserBehaviour);
+
+        const payload = {
+            message: 'Just so you know, fraud detector ran',
+            contacts: CONTACTS_TO_BE_NOTIFIED,
+            notificationType: EMAIL_TYPE
+        };
+        const extraConfigForVerbose = {
+            url: `${NOTIFICATION_SERVICE_URL}`,
+            method: POST,
+            body: payload,
+        };
+
+        const req = {
+            method: POST,
+            body: { ...samplePayloadFromFetchFactsTrigger },
+        };
+        const jsonResponseStub = sinon.stub();
+        const res = {
+            status: () => ({
+                json: jsonResponseStub
+            })
+        };
+
+        const result = await fetchFactsAboutUserAndRunEngine(req, res);
+        expect(result).to.be.undefined;
+        expect(requestRetryStub).to.have.been.calledTwice;
+        expect(requestRetryStub).to.have.been.calledWith({
+            ...baseConfigForRequestRetry,
+            ...extraConfigForVerbose
+        });
+    });
+
+    it(`should 'fetch facts about user and run engine' only accepts http method: ${POST}`, async () => {
+        const req = {
+            method: uuid(),
+            body: { ...samplePayloadFromFetchFactsTrigger },
+        };
+        const endResponseStub = sinon.stub();
+        const res = {
+            status: () => ({
+                end: endResponseStub,
+            })
+        };
+
+        const result = await fetchFactsAboutUserAndRunEngine(req, res);
+        expect(result).to.be.undefined;
+        expect(endResponseStub).to.have.been.calledOnce;
+        expect(res.status().end.firstCall.args[0]).to.equal(`only ${POST} http method accepted`);
+    });
+
+    it(`should 'fetch facts about user and run engine' checks for missing parameters in payload`, async () => {
+        const req = {
+            method: POST,
+            body:  { userId: null }
+        };
+        const endResponseStub = sinon.stub();
+        const res = {
+            status: () => ({
+                end: endResponseStub,
+            })
+        };
+
+        const result = await fetchFactsAboutUserAndRunEngine(req, res);
+        expect(result).to.be.undefined;
+        expect(endResponseStub).to.have.been.calledOnce;
+        expect(res.status().end.firstCall.args[0]).to.equal('invalid payload => \'userId\' is required');
+    });
+
+    it(`should send failure response when an error is thrown during the request`, async () => {
+        const req = {
+            method: POST,
+            body:  null
+        };
+        const endResponseStub = sinon.stub();
+        const res = {
+            status: () => ({
+                end: endResponseStub,
+            })
+        };
+
+        const result = await fetchFactsAboutUserAndRunEngine(req, res);
+        expect(result).to.be.undefined;
+        expect(endResponseStub).to.have.been.calledOnce;
+        expect(res.status().end.firstCall.args[0]).to.equal('Unable to check for fraudulent user');
+    });
 
     // test verbose mode
+    it(`should send notification for verbose mode when 'verbose mode' is ON`, async () => {
+        const payload = {
+            message: 'Just so you know, fraud detector ran',
+            contacts: CONTACTS_TO_BE_NOTIFIED,
+            notificationType: EMAIL_TYPE
+        };
+        const extraConfig = {
+            url: `${NOTIFICATION_SERVICE_URL}`,
+            method: POST,
+            body: payload,
+        };
+        requestRetryStub.resolves();
+        const result = await sendNotificationForVerboseMode();
+        expect(result).to.be.undefined;
+        expect(requestRetryStub).to.have.been.calledWith({
+            ...baseConfigForRequestRetry,
+            ...extraConfig
+        });
+    });
 });

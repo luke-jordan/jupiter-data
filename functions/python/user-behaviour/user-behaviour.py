@@ -155,7 +155,7 @@ def retrieveUserBehaviourBasedOnRules(userId, accountId):
         "transactionType": DEPOSIT_TRANSACTION_TYPE
     }
     # More than 3 deposits larger than R50 000 within a 6 month period
-    countOfDepositssGreaterThanBenchmarkWithinSixMonthPeriod = retrieve_count_of_user_transactions_larger_than_benchmark_within_months_period(userId, config)
+    countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod = retrieve_count_of_user_transactions_larger_than_benchmark_within_months_period(userId, config)
     
     # If latest inward deposit > 10x past 6 month average deposit
     latestDeposit = retrieve_user_latest_transaction(userId, DEPOSIT_TRANSACTION_TYPE)
@@ -169,7 +169,7 @@ def retrieveUserBehaviourBasedOnRules(userId, accountId):
            accountId: accountId
        },
         countOfDepositsGreaterThanHundredThousand,
-        countOfDepositssGreaterThanBenchmarkWithinSixMonthPeriod,
+        countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod,
         latestDeposit,
         sixMonthAverageDeposit
     }
@@ -235,5 +235,6 @@ def formatPayloadAndLogAccountTransaction(event, context):
 # TODO: Factor in units 'HUNDREDTH_CENT' and 'WHOLE_CURRENCY'
 # TODO: filter events to be logged by: SAVING_PAYMENT_SUCCESSFUL / WITHDRAWAL_EVENT_CONFIRMED
 # TODO: abstract out the `fetch user behaviour` to an endpoint
+# TODO: trigger fraud detection and send `userId` in the payload of the request
 
 # TODO: 5) deploy service => add to circle ci and terraform

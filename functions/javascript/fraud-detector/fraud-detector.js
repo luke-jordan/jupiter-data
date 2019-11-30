@@ -1,70 +1,54 @@
-// 2. TODO: fetch properties from user-behaviour 
-    // Then retrieve properties to be used by rules engine. Properties include: last_transaction_amount
 'use strict';
-
-// 3. Run rules engine (https://www.npmjs.com/package/json-rules-engine) 
-// TODO: define proper rules
 const config = require('config');
 const {BigQuery} = require('@google-cloud/bigquery');
 const Engine = require('json-rules-engine').Engine;
 const logger = require('debug')('jupiter:notification-service');
 const requestRetry = require('requestretry');
-
+const httpStatus = require('http-status');
 const DATASET_ID = config.get("BIG_QUERY_DATASET_ID");
 const TABLE_ID = config.get("BIG_QUERY_TABLE_ID");
-
+const CUSTOM_RULES = require('./custom-rules').allRules;
+const serviceUrls = config.get('serviceUrls');
 const {
     createTimestampForSQLDatabase
 } = require('./utils');
+
+const {
+    NOTIFICATION_SERVICE_URL,
+    USER_BEHAVIOUR_URL
+}= serviceUrls;
+
 const {
     accuracyStates,
     httpMethods,
     notificationTypes,
-    delayForHttpRequestRetries,
+    baseConfigForRequestRetry,
     requestTitle
 } = require('./constants');
 
 const { EMAIL_TYPE } = notificationTypes;
-const { POST } = httpMethods;
-const { NOTIFICATION } = requestTitle;
+const {
+    POST,
+    GET
+} = httpMethods;
+const {
+    NOTIFICATION,
+    FETCH_USER_BEHAVIOUR
+} = requestTitle;
 const CONTACTS_TO_BE_NOTIFIED = config.get('contactsToBeNotified');
+const VERBOSE_MODE = config.get('verboseMode');
 const bigQueryClient = new BigQuery();
 
+const sendHttpRequest = async (extraConfig, requestTitle) => {
+    logger(`sending '${requestTitle}' request with extra config: ${JSON.stringify(extraConfig)}`);
 
-const customRule1 = {
-    conditions: {
-      any: [
-          {
-            fact: 'lastDeposit',
-            operator: 'greaterThan',
-            value: 100000
-          }
-        ]
-    },
-    event: { // define the event to fire when the conditions evaluate truthy
-      type: 'flaggedAsFraudulent',
-      params: {
-        reasonForFlaggingUser: `User's last deposit was greater than 100,000 rands`
-      }
-    }
-};
+    const response = await requestRetry({
+        ...baseConfigForRequestRetry,
+        ...extraConfig
+    });
 
-const customRule2 = {
-    conditions: {
-      any: [
-          {
-            fact: 'depositsLargerThanBaseIn6months',
-            operator: 'greaterThanInclusive',
-            value: 3
-          }
-    ]
-    },
-    event: { // define the event to fire when the conditions evaluate truthy
-      type: 'flaggedAsFraudulent',
-      params: {
-        reasonForFlaggingUser: `User has deposited 50,000 rands 3 or more times in the last 6 months`
-      }
-    }
+    logger(`response from '${requestTitle}' request with extra config: ${JSON.stringify(extraConfig)}. Response: ${JSON.stringify(response)}`);
+    return response;
 };
 
 const constructNewEngineAndAddRules = (rules) => {
@@ -80,17 +64,13 @@ const constructNewEngineAndAddRules = (rules) => {
 const notifyAdminsOfNewlyFlaggedUser = async (payload) => {
     logger('notifying admins of newly flagged user');
     try {
-        logger(`sending '${NOTIFICATION}' request with payload: ${JSON.stringify(payload)}`);
         // TODO: replace url with that of notifications service
-        const response = await requestRetry({
-            url: `{base_url}/helloHttp`,
+        const extraConfig = {
+            url: `${NOTIFICATION_SERVICE_URL}`,
             method: POST,
             body: payload,
-            retryDelay: delayForHttpRequestRetries,
-            json: true,
-        });
-
-        logger(`response from ${NOTIFICATION} request with payload: ${payload}. Response: ${JSON.stringify(response)}`);
+        };
+        await sendHttpRequest(extraConfig, NOTIFICATION);
     } catch (error) {
         logger(`Error occurred while notifying admins of newly flagged user. Error: ${JSON.stringify(error)}`);
     }
@@ -154,23 +134,24 @@ const insertUserFlagIntoTable = async (row) => {
 
         logger(`Successfully inserted user flag: ${JSON.stringify(row)} into database`);
     } catch (error) {
-        logger('error occurred while saving user flag to big query', error);
+        logger(`Error occurred while saving user flag to big query. Error: ${JSON.stringify(error)}`);
     }
 };
 
 const logFraudulentUserFlag = async (userAccountInfo, reasonForFlaggingUser) => {
-    logger(`save new fraudulent flag for user with info: ${userAccountInfo} for reason: ${reasonForFlaggingUser}`)
+    logger(`save new fraudulent flag for user with info: ${JSON.stringify(userAccountInfo)} for reason: '${reasonForFlaggingUser}'`)
     const row = constructPayloadForUserFlagTable(userAccountInfo, reasonForFlaggingUser);
 
     await insertUserFlagIntoTable(row);
 };
 
 // Run the engine to evaluate facts against the rules
-const runEngine = (facts, rules) => {
-    logger(`Running engine with facts: ${JSON.stringify(facts)} and rules: ${JSON.stringify(rules)}`);
-    const engine = constructNewEngineAndAddRules(rules);
+const createEngineAndRunFactsAgainstRules = (facts, rules) => {
+    const engineWithRules = constructNewEngineAndAddRules(CUSTOM_RULES);
 
-    engine.
+    logger(`Running facts: ${JSON.stringify(facts)} against rules: ${JSON.stringify(rules)}`);
+
+    engineWithRules.
     run(facts).
     then((resultsOfPassedRules) => resultsOfPassedRules.events.forEach(async (event) => {
         await logFraudulentUserAndNotifyAdmins(event, facts.userAccountInfo);
@@ -179,17 +160,110 @@ const runEngine = (facts, rules) => {
         });
 };
 
+const fetchFactsFromUserBehaviourService = async (userId) => {
+    logger(`fetching facts from user behaviour service for user id: ${userId}`);
+    try {
+        // TODO: replace url with that of 'fetch user_behaviour'
+        const extraConfig = {
+            url: `${USER_BEHAVIOUR_URL}/${userId}`,
+            method: GET,
+        };
+        const facts = await sendHttpRequest(extraConfig, FETCH_USER_BEHAVIOUR);
+        logger(`Successfully fetched facts from user behaviour. Facts: ${JSON.stringify(facts)}`);
+        return facts;
+    } catch (error) {
+        logger(`Error occurred while fetching facts from user behaviour service for user id: ${userId}. Error: ${JSON.stringify(error)}`);
+    }
+};
+
+const sendFailureResponse = (res, error) => {
+    logger(`Error occurred while handling 'check for fraudulent user' request. Error: ${JSON.stringify(error)}`);
+    res.status(httpStatus.BAD_REQUEST).end('Unable to check for fraudulent user');
+    return;
+};
+
+const handleNotSupportedHttpMethod = (res) => {
+    res.status(httpStatus.METHOD_NOT_ALLOWED).end(`only ${POST} http method accepted`);
+    return;
+};
+
+const missingParameterInReceivedPayload = (parameters) => !parameters.userId;
+
+const handleMissingParameterInReceivedPayload = (payload, res) => {
+    res.status(httpStatus.BAD_REQUEST).end(`invalid payload => 'userId' is required`);
+    logger(
+        `Request to 'check for fraudulent user' failed because of invalid parameters in received payload. Received payload: ${JSON.stringify(payload)}`
+    );
+    return null;
+};
+
+const validateRequestAndExtractParams = (req, res) => {
+    if (req.method !== POST) {
+        return handleNotSupportedHttpMethod(res);
+    }
+
+    try {
+        const payload = JSON.parse(JSON.stringify(req.body));
+        if (missingParameterInReceivedPayload(payload)){
+            return handleMissingParameterInReceivedPayload(payload, res);
+        }
+        return payload;
+    } catch (error) {
+        sendFailureResponse(res, error);
+    }
+};
+
+const sendNotificationForVerboseMode = () => {
+    logger('Verbose Mode - notifying admins that fraud detector ran');
+    const payload = {
+        message: 'Just so you know, fraud detector ran',
+        contacts: CONTACTS_TO_BE_NOTIFIED,
+        notificationType: EMAIL_TYPE
+    };
+    try {
+        // TODO: replace url with that of notifications service
+        const extraConfig = {
+            url: `${NOTIFICATION_SERVICE_URL}`,
+            method: POST,
+            body: payload,
+        };
+        sendHttpRequest(extraConfig, NOTIFICATION);
+    } catch (error) {
+        logger(`Error occurred while notifying admins that fraud detector ran (Verbose Mode). Error: ${JSON.stringify(error)}`);
+    }
+};
+
+const fetchFactsAboutUserAndRunEngine = async (req, res) => {
+    if (VERBOSE_MODE) {
+        sendNotificationForVerboseMode()
+    }
+
+    const payload = validateRequestAndExtractParams(req, res);
+    if (!payload) {
+        return;
+    }
+
+    const factsAboutUser = await fetchFactsFromUserBehaviourService(payload.userId);
+    if (!factsAboutUser) {
+        return;
+    }
+
+    await createEngineAndRunFactsAgainstRules(factsAboutUser, CUSTOM_RULES);
+};
+
+// TODO: Add verbose mode to config (if ON => send notification that says it ran)
+
 module.exports = {
     logFraudulentUserAndNotifyAdmins,
     extractReasonForFlaggingUserFromEvent,
     logFraudulentUserFlag,
-    runEngine,
+    createEngineAndRunFactsAgainstRules,
     constructNotificationPayload,
     notifyAdminsOfNewlyFlaggedUser,
     constructPayloadForUserFlagTable,
-    insertUserFlagIntoTable
+    insertUserFlagIntoTable,
+    fetchFactsAboutUserAndRunEngine,
+    sendNotificationForVerboseMode
 };
 
-
-// TODO: Add verbose mode to config (if ON => send notification that says it ran)
 // TODO: deploy service => add to circle ci and terraform

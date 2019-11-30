@@ -79,7 +79,7 @@ const sendSuccessResponse = (res, reqId) => {
 
 const sendFailureResponse = (res, error, reqId) => {
     logger(`Request ID: ${reqId} - error occurred while handling send notification request. Error: ${JSON.stringify(error)}`);
-    res.status(400).end('Unable to send notification request');
+    res.status(httpStatus.BAD_REQUEST).end('Unable to send notification request');
     return;
 };
 
