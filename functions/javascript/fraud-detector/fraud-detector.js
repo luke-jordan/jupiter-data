@@ -1,12 +1,13 @@
 'use strict';
+
 const config = require('config');
 const {BigQuery} = require('@google-cloud/bigquery');
 const Engine = require('json-rules-engine').Engine;
 const logger = require('debug')('jupiter:notification-service');
 const requestRetry = require('requestretry');
 const httpStatus = require('http-status');
-const DATASET_ID = config.get("BIG_QUERY_DATASET_ID");
-const TABLE_ID = config.get("BIG_QUERY_TABLE_ID");
+const DATASET_ID = config.get('BIG_QUERY_DATASET_ID');
+const TABLE_ID = config.get('BIG_QUERY_TABLE_ID');
 const CUSTOM_RULES = require('./custom-rules').allRules;
 const serviceUrls = config.get('serviceUrls');
 const {
@@ -16,7 +17,7 @@ const {
 const {
     NOTIFICATION_SERVICE_URL,
     USER_BEHAVIOUR_URL
-}= serviceUrls;
+} = serviceUrls;
 
 const {
     accuracyStates,
@@ -39,67 +40,17 @@ const CONTACTS_TO_BE_NOTIFIED = config.get('contactsToBeNotified');
 const VERBOSE_MODE = config.get('verboseMode');
 const bigQueryClient = new BigQuery();
 
-const sendHttpRequest = async (extraConfig, requestTitle) => {
-    logger(`sending '${requestTitle}' request with extra config: ${JSON.stringify(extraConfig)}`);
+const sendHttpRequest = async (extraConfig, specifiedRequestTitle) => {
+    logger(`sending '${specifiedRequestTitle}' request with extra config: ${JSON.stringify(extraConfig)}`);
 
     const response = await requestRetry({
         ...baseConfigForRequestRetry,
         ...extraConfig
     });
 
-    logger(`response from '${requestTitle}' request with extra config: ${JSON.stringify(extraConfig)}. Response: ${JSON.stringify(response)}`);
+    logger(`Response from '${specifiedRequestTitle}' request with extra config: ${JSON.stringify(extraConfig)}. 
+    Response: ${JSON.stringify(response)}`);
     return response;
-};
-
-const constructNewEngineAndAddRules = (rules) => {
-    logger(`constructing new engine and adding new rules to the engine. Rules: ${JSON.stringify(rules)}`);
-    /**
-     * Setup a new engine
-     */
-    const engine = new Engine();
-    rules.forEach(rule => engine.addRule(rule));
-    return engine;
-};
-
-const notifyAdminsOfNewlyFlaggedUser = async (payload) => {
-    logger('notifying admins of newly flagged user');
-    try {
-        // TODO: replace url with that of notifications service
-        const extraConfig = {
-            url: `${NOTIFICATION_SERVICE_URL}`,
-            method: POST,
-            body: payload,
-        };
-        await sendHttpRequest(extraConfig, NOTIFICATION);
-    } catch (error) {
-        logger(`Error occurred while notifying admins of newly flagged user. Error: ${JSON.stringify(error)}`);
-    }
-};
-
-const constructNotificationPayload = (userAccountInfo, reasonForFlaggingUser) => {
-    return {
-        notificationType: EMAIL_TYPE,
-        contacts: CONTACTS_TO_BE_NOTIFIED,
-        message: `User: ${userAccountInfo.userId} with account: ${userAccountInfo.accountId} has been flagged as fraudulent. Reason for flagging User: ${reasonForFlaggingUser}`
-    }
-};
-
-const extractReasonForFlaggingUserFromEvent =  (event) => event.params.reasonForFlaggingUser;
-
-const logFraudulentUserAndNotifyAdmins = async (event, userAccountInfo) => {
-    logger(`Processing success result of rules engines with event: ${JSON.stringify(event)}`);
-    logger(`log fraudulent user and notify admins. User Info: ${JSON.stringify(userAccountInfo)}`);
-    // 'results' is an object containing successful events, and an Almanac instance containing facts
-    const reasonForFlaggingUser = extractReasonForFlaggingUserFromEvent(event);
-    
-    // log to `user_flagged_as_fraudulent`
-    await logFraudulentUserFlag(userAccountInfo, reasonForFlaggingUser);
-        
-    const notificationPayload = constructNotificationPayload(userAccountInfo, reasonForFlaggingUser);
-
-    // tell Avish => email function accepts (email address and message)
-    await notifyAdminsOfNewlyFlaggedUser(notificationPayload, NOTIFICATION);
-    return;
 };
 
 const constructPayloadForUserFlagTable = (userAccountInfo, reasonForFlaggingUser) => {
@@ -109,6 +60,12 @@ const constructPayloadForUserFlagTable = (userAccountInfo, reasonForFlaggingUser
         accountId
     } = userAccountInfo;
     const timestamp = createTimestampForSQLDatabase();
+
+    /*eslint-disable */
+    /**
+     * eslint disable is needed to turn off the eslint rule: 'camelcase'
+     * The below values represent the columns of the user_flag tables and the column names are not in camelcase
+     */
     const payloadForFlaggedTable = {
         user_id: userId,
         account_id: accountId,
@@ -117,10 +74,36 @@ const constructPayloadForUserFlagTable = (userAccountInfo, reasonForFlaggingUser
         created_at: timestamp,
         updated_at: timestamp
     };
+    /* eslint-enable */
 
     return [
         payloadForFlaggedTable
     ];
+};
+
+const constructNewEngineAndAddRules = (rules) => {
+    logger(`constructing new engine and adding new rules to the engine. Rules: ${JSON.stringify(rules)}`);
+
+    /**
+     * Setup a new engine
+     */
+    const engine = new Engine();
+    rules.forEach((rule) => engine.addRule(rule));
+    return engine;
+};
+
+const notifyAdminsOfNewlyFlaggedUser = async (payload) => {
+    logger('notifying admins of newly flagged user');
+    try {
+        const extraConfig = {
+            url: `${NOTIFICATION_SERVICE_URL}`,
+            method: POST,
+            body: payload
+        };
+        await sendHttpRequest(extraConfig, NOTIFICATION);
+    } catch (error) {
+        logger(`Error occurred while notifying admins of newly flagged user. Error: ${JSON.stringify(error)}`);
+    }
 };
 
 const insertUserFlagIntoTable = async (row) => {
@@ -139,10 +122,34 @@ const insertUserFlagIntoTable = async (row) => {
 };
 
 const logFraudulentUserFlag = async (userAccountInfo, reasonForFlaggingUser) => {
-    logger(`save new fraudulent flag for user with info: ${JSON.stringify(userAccountInfo)} for reason: '${reasonForFlaggingUser}'`)
+    logger(`save new fraudulent flag for user with info: ${JSON.stringify(userAccountInfo)} for reason: '${reasonForFlaggingUser}'`);
     const row = constructPayloadForUserFlagTable(userAccountInfo, reasonForFlaggingUser);
 
     await insertUserFlagIntoTable(row);
+};
+
+const constructNotificationPayload = (userAccountInfo, reasonForFlaggingUser) => ({
+        notificationType: EMAIL_TYPE,
+        contacts: CONTACTS_TO_BE_NOTIFIED,
+        message: `User: ${userAccountInfo.userId} with account: ${userAccountInfo.accountId} has been flagged as fraudulent. Reason for flagging User: ${reasonForFlaggingUser}`
+    });
+
+const extractReasonForFlaggingUserFromEvent = (event) => event.params.reasonForFlaggingUser;
+
+const logFraudulentUserAndNotifyAdmins = async (event, userAccountInfo) => {
+    logger(`Processing success result of rules engines with event: ${JSON.stringify(event)}`);
+    logger(`log fraudulent user and notify admins. User Info: ${JSON.stringify(userAccountInfo)}`);
+    // 'results' is an object containing successful events, and an Almanac instance containing facts
+    const reasonForFlaggingUser = extractReasonForFlaggingUserFromEvent(event);
+    
+    // log to `user_flagged_as_fraudulent`
+    await logFraudulentUserFlag(userAccountInfo, reasonForFlaggingUser);
+        
+    const notificationPayload = constructNotificationPayload(userAccountInfo, reasonForFlaggingUser);
+
+    // tell Avish => email function accepts (email address and message)
+    await notifyAdminsOfNewlyFlaggedUser(notificationPayload, NOTIFICATION);
+    
 };
 
 // Run the engine to evaluate facts against the rules
@@ -155,7 +162,7 @@ const createEngineAndRunFactsAgainstRules = (facts, rules) => {
     run(facts).
     then((resultsOfPassedRules) => resultsOfPassedRules.events.forEach(async (event) => {
         await logFraudulentUserAndNotifyAdmins(event, facts.userAccountInfo);
-    })).catch(error => {
+    })).catch((error) => {
        logger(`Error occurred while Running engine with facts: ${JSON.stringify(facts)} and rules: ${JSON.stringify(rules)}. Error: ${JSON.stringify(error)}`);
         });
 };
@@ -163,10 +170,9 @@ const createEngineAndRunFactsAgainstRules = (facts, rules) => {
 const fetchFactsFromUserBehaviourService = async (userId) => {
     logger(`fetching facts from user behaviour service for user id: ${userId}`);
     try {
-        // TODO: replace url with that of 'fetch user_behaviour'
         const extraConfig = {
             url: `${USER_BEHAVIOUR_URL}/${userId}`,
-            method: GET,
+            method: GET
         };
         const facts = await sendHttpRequest(extraConfig, FETCH_USER_BEHAVIOUR);
         logger(`Successfully fetched facts from user behaviour. Facts: ${JSON.stringify(facts)}`);
@@ -179,12 +185,12 @@ const fetchFactsFromUserBehaviourService = async (userId) => {
 const sendFailureResponse = (res, error) => {
     logger(`Error occurred while handling 'check for fraudulent user' request. Error: ${JSON.stringify(error)}`);
     res.status(httpStatus.BAD_REQUEST).end('Unable to check for fraudulent user');
-    return;
+    
 };
 
 const handleNotSupportedHttpMethod = (res) => {
     res.status(httpStatus.METHOD_NOT_ALLOWED).end(`only ${POST} http method accepted`);
-    return;
+    
 };
 
 const missingParameterInReceivedPayload = (parameters) => !parameters.userId;
@@ -204,7 +210,7 @@ const validateRequestAndExtractParams = (req, res) => {
 
     try {
         const payload = JSON.parse(JSON.stringify(req.body));
-        if (missingParameterInReceivedPayload(payload)){
+        if (missingParameterInReceivedPayload(payload)) {
             return handleMissingParameterInReceivedPayload(payload, res);
         }
         return payload;
@@ -221,11 +227,10 @@ const sendNotificationForVerboseMode = () => {
         notificationType: EMAIL_TYPE
     };
     try {
-        // TODO: replace url with that of notifications service
         const extraConfig = {
             url: `${NOTIFICATION_SERVICE_URL}`,
             method: POST,
-            body: payload,
+            body: payload
         };
         sendHttpRequest(extraConfig, NOTIFICATION);
     } catch (error) {
@@ -235,7 +240,7 @@ const sendNotificationForVerboseMode = () => {
 
 const fetchFactsAboutUserAndRunEngine = async (req, res) => {
     if (VERBOSE_MODE) {
-        sendNotificationForVerboseMode()
+        sendNotificationForVerboseMode();
     }
 
     const payload = validateRequestAndExtractParams(req, res);
@@ -251,8 +256,6 @@ const fetchFactsAboutUserAndRunEngine = async (req, res) => {
     await createEngineAndRunFactsAgainstRules(factsAboutUser, CUSTOM_RULES);
 };
 
-// TODO: Add verbose mode to config (if ON => send notification that says it ran)
-
 module.exports = {
     logFraudulentUserAndNotifyAdmins,
     extractReasonForFlaggingUserFromEvent,
@@ -266,4 +269,5 @@ module.exports = {
     sendNotificationForVerboseMode
 };
 
+// TODO: replace serviceUrls in config
 // TODO: deploy service => add to circle ci and terraform

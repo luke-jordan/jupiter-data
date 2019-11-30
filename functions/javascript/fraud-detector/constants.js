@@ -1,10 +1,12 @@
+'use strict';
+
 module.exports = {
     accuracyStates: {
         pending: 'PENDING_CONFIRMATION',
         falseAlarm: 'FALSE_ALARM',
         accuratePrediction: 'ACCURATE_PREDICTION'
     },
-    notificationTypes:{
+    notificationTypes: {
         EMAIL_TYPE: 'EMAIL'
     },
     httpMethods: {
@@ -17,6 +19,6 @@ module.exports = {
     },
     baseConfigForRequestRetry: {
         retryDelay: 200,
-        json: true,
+        json: true
     }
 };
