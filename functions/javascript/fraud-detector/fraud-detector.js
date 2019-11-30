@@ -68,6 +68,7 @@ const customRule2 = {
 };
 
 const constructNewEngineAndAddRules = (rules) => {
+    logger(`constructing new engine and adding new rules to the engine. Rules: ${JSON.stringify(rules)}`);
     /**
      * Setup a new engine
      */
@@ -80,6 +81,7 @@ const notifyAdminsOfNewlyFlaggedUser = async (payload) => {
     logger('notifying admins of newly flagged user');
     try {
         logger(`sending '${NOTIFICATION}' request with payload: ${JSON.stringify(payload)}`);
+        // TODO: replace url with that of notifications service
         const response = await requestRetry({
             url: `{base_url}/helloHttp`,
             method: POST,
@@ -90,7 +92,7 @@ const notifyAdminsOfNewlyFlaggedUser = async (payload) => {
 
         logger(`response from ${NOTIFICATION} request with payload: ${payload}. Response: ${JSON.stringify(response)}`);
     } catch (error) {
-        logger('error occurred while logging user flag', error);
+        logger(`Error occurred while notifying admins of newly flagged user. Error: ${JSON.stringify(error)}`);
     }
 };
 
@@ -106,6 +108,7 @@ const extractReasonForFlaggingUserFromEvent =  (event) => event.params.reasonFor
 
 const logFraudulentUserAndNotifyAdmins = async (event, userAccountInfo) => {
     logger(`Processing success result of rules engines with event: ${JSON.stringify(event)}`);
+    logger(`log fraudulent user and notify admins. User Info: ${JSON.stringify(userAccountInfo)}`);
     // 'results' is an object containing successful events, and an Almanac instance containing facts
     const reasonForFlaggingUser = extractReasonForFlaggingUserFromEvent(event);
     
@@ -119,12 +122,11 @@ const logFraudulentUserAndNotifyAdmins = async (event, userAccountInfo) => {
     return;
 };
 
-
-const logFraudulentUserFlag = async (userAccountInfo, reasonForFlaggingUser) => {
-    logger(`save new fraudulent flag for user with info: ${userAccountInfo} for reason: ${reasonForFlaggingUser}`)
+const constructPayloadForUserFlagTable = (userAccountInfo, reasonForFlaggingUser) => {
+    logger(`constructing payload for user flag table with user info: ${JSON.stringify(userAccountInfo)}`);
     const {
-      userId, 
-      accountId 
+        userId,
+        accountId
     } = userAccountInfo;
     const timestamp = createTimestampForSQLDatabase();
     const payloadForFlaggedTable = {
@@ -136,13 +138,15 @@ const logFraudulentUserFlag = async (userAccountInfo, reasonForFlaggingUser) => 
         updated_at: timestamp
     };
 
-    const row = [
+    return [
         payloadForFlaggedTable
-      ];
-      logger(`Inserting user flag: ${JSON.stringify(row)} into database`);
+    ];
+};
 
+const insertUserFlagIntoTable = async (row) => {
     try {
-        // Insert data into a table
+        logger(`Inserting user flag: ${JSON.stringify(row)} into database`);
+
         await bigQueryClient.
         dataset(DATASET_ID).
         table(TABLE_ID).
@@ -150,37 +154,40 @@ const logFraudulentUserFlag = async (userAccountInfo, reasonForFlaggingUser) => 
 
         logger(`Successfully inserted user flag: ${JSON.stringify(row)} into database`);
     } catch (error) {
-        logger('error occurred while logging user flag', error);
+        logger('error occurred while saving user flag to big query', error);
     }
 };
 
-/**
- * Define facts the engine will use to evaluate the conditions above.
- * Facts may also be loaded asynchronously at runtime; see the advanced example below
- */
-const exampleFacts = {
-    userAccountInfo: {
-        userId: "1a",
-        accountId: "3b43",
-    },
-    lastDeposit: 10000,
-    depositsLargerThanBaseIn6months: 4
+const logFraudulentUserFlag = async (userAccountInfo, reasonForFlaggingUser) => {
+    logger(`save new fraudulent flag for user with info: ${userAccountInfo} for reason: ${reasonForFlaggingUser}`)
+    const row = constructPayloadForUserFlagTable(userAccountInfo, reasonForFlaggingUser);
+
+    await insertUserFlagIntoTable(row);
 };
-const exampleRules = [customRule1, customRule2];
 
 // Run the engine to evaluate facts against the rules
 const runEngine = (facts, rules) => {
+    logger(`Running engine with facts: ${JSON.stringify(facts)} and rules: ${JSON.stringify(rules)}`);
     const engine = constructNewEngineAndAddRules(rules);
 
-    console.log('engine', engine);
     engine.
     run(facts).
-    then((resultsOfPassedRules) => resultsOfPassedRules.events.forEach((event) => logFraudulentUserAndNotifyAdmins(event, facts.userAccountInfo)));
+    then((resultsOfPassedRules) => resultsOfPassedRules.events.forEach(async (event) => {
+        await logFraudulentUserAndNotifyAdmins(event, facts.userAccountInfo);
+    })).catch(error => {
+       logger(`Error occurred while Running engine with facts: ${JSON.stringify(facts)} and rules: ${JSON.stringify(rules)}. Error: ${JSON.stringify(error)}`);
+        });
 };
 
 module.exports = {
     logFraudulentUserAndNotifyAdmins,
-    runEngine
+    extractReasonForFlaggingUserFromEvent,
+    logFraudulentUserFlag,
+    runEngine,
+    constructNotificationPayload,
+    notifyAdminsOfNewlyFlaggedUser,
+    constructPayloadForUserFlagTable,
+    insertUserFlagIntoTable
 };
 
 
