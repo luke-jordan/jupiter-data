@@ -21,10 +21,15 @@ const emailClientService = proxyquire('../email-client', {
 
 const sampleMessage = 'Winter is coming';
 const sampleEmail = ['johnsnow@gmail.com'];
+const sampleSubject = 'Fraud Alert';
+const samplePayloadForEachEmail = {
+    email: sampleEmail,
+    message: sampleMessage,
+    subject: sampleSubject
+};
 const sampleRequestId = shortid.generate();
 const {
-    from,
-    subject
+    from
 } = config.get('mailFormat');
 
 const ENVIRONMENT = config.get('environment');
@@ -42,12 +47,12 @@ describe('Email Client', () => {
         const params = {
             from,
             to: sampleEmail,
-            subject: `${ENVIRONMENT} - ${subject}`,
+            subject: `${ENVIRONMENT} - ${sampleSubject}`,
             text: sampleMessage,
             html: sampleMessage
         };
-        transporterSendMailStub.withArgs().resolves(params);
-        const result = await emailClientService.sendEmail(sampleEmail, sampleMessage, sampleRequestId);
+        transporterSendMailStub.withArgs(params).resolves();
+        const result = await emailClientService.sendEmail(samplePayloadForEachEmail, sampleRequestId);
         expect(result).to.be.undefined;
         expect(transporterSendMailStub).to.have.been.calledWith(params);
     });
@@ -56,12 +61,12 @@ describe('Email Client', () => {
         const params = {
             from,
             to: sampleEmail,
-            subject: `${ENVIRONMENT} - ${subject}`,
+            subject: `${ENVIRONMENT} - ${sampleSubject}`,
             text: sampleMessage,
             html: sampleMessage
         };
-        transporterSendMailStub.withArgs().rejects('Error while sending email');
-        const result = await emailClientService.sendEmail(sampleEmail, sampleMessage, sampleRequestId);
+        transporterSendMailStub.withArgs(params).rejects('Error while sending email');
+        const result = await emailClientService.sendEmail(samplePayloadForEachEmail, sampleRequestId);
         expect(result).to.be.undefined;
         expect(transporterSendMailStub).to.have.been.calledWith(params);
     });

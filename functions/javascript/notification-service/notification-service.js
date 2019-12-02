@@ -16,13 +16,20 @@ const { POST } = httpMethods;
 
 const sendEmailNotifications = (payload, options) => {
     const {
-        contacts, message
+        contacts, message, subject
     } = payload;
     const {
         reqId
     } = options;
     logger(`Request ID: ${reqId} - send message: ${message} via email to contacts: ${JSON.stringify(contacts)}`);
-    contacts.forEach((contact) => emailClientService.sendEmail(contact, message, reqId));
+    contacts.forEach((contact) => {
+        const payloadForEachEmail = {
+            email: contact,
+            message,
+            subject
+        };
+        emailClientService.sendEmail(payloadForEachEmail, reqId)
+    });
 };
 
 const sendMessageBasedOnType = async (payload, options) => {
@@ -56,14 +63,13 @@ const sendMessageToContacts = async (payload, reqId) => {
 };
 
 const missingParameterInReceivedPayload = (parameters) => !parameters.notificationType || !parameters.contacts ||
-    !parameters.message || !Array.isArray(parameters.contacts) || parameters.contacts.length === 0;
+    !parameters.message || !Array.isArray(parameters.contacts) || parameters.contacts.length === 0 || !parameters.subject;
 
 const handleMissingParameterInReceivedPayload = (payload, res, reqId) => {
-    res.status(httpStatus.BAD_REQUEST).end(`invalid payload => 'notificationType', 'contacts' and 'message' are required`);
+    res.status(httpStatus.BAD_REQUEST).end(`invalid payload => 'notificationType', 'contacts', 'subject, and 'message' are required`);
     logger(
         `Request ID: ${reqId} - request to send notification failed because of invalid parameters in received payload. Received payload: ${JSON.stringify(payload)}`
     );
-    
 };
 
 const handleNotSupportedHttpMethod = (res) => {

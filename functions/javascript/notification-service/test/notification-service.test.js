@@ -35,11 +35,12 @@ const resetStubs = () => {
 const sampleMessage = 'Winter is coming';
 const sampleContacts = ['johnsnow@gmail.com', 'tyrion@gmail.com'];
 const sampleRequestId = shortid.generate();
-
+const sampleSubject = 'Fraud Alert';
 const samplePayload = {
     contacts: sampleContacts,
     notificationType: EMAIL_TYPE,
-    message: sampleMessage
+    message: sampleMessage,
+    subject: sampleSubject
 };
 
 const sampleOptions = {
@@ -159,7 +160,9 @@ describe('Notification Service', () => {
         const result = await handleSendNotificationRequest(req, res);
         expect(result).to.be.undefined;
         expect(endResponseStub).to.have.been.calledOnce;
-        expect(res.status().end.firstCall.args[0]).to.equal('invalid payload => \'notificationType\', \'contacts\' and \'message\' are required');
+        expect(res.status().end.firstCall.args[0]).to.equal(
+            `invalid payload => 'notificationType', 'contacts', 'subject, and 'message' are required`
+        );
     });
 
     it(`send failure response when an error is thrown during the request`, async () => {

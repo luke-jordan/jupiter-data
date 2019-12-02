@@ -7,8 +7,7 @@ const mailTransporterConfig = config.get('mailTransporter');
 const transporter = nodemailer.createTransport(mailTransporterConfig);
 
 const {
-    from,
-    subject
+    from
 } = config.get('mailFormat');
 
 const ENVIRONMENT = config.get('environment');
@@ -19,7 +18,12 @@ const ENVIRONMENT = config.get('environment');
  * @param reqId
  * @returns {Promise<T | never>}
  */
-const sendEmail = (email, message, reqId) => {
+const sendEmail = (payload, reqId) => {
+    const {
+        email,
+        message,
+        subject
+    } = payload;
     logger(`Request ID: ${reqId} - sending message to email: ${email}`);
     return transporter.sendMail({
         from,
