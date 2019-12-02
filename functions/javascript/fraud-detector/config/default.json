@@ -1,6 +1,6 @@
 {
   "BIG_QUERY_DATASET_ID": "ops",
-  "BIG_QUERY_TABLE_ID": "user_flagged_as_fradulent",
+  "BIG_QUERY_TABLE_ID": "user_flagged_as_fraudulent",
   "contactsToBeNotified": ["avish@plutosave.com", "luke@plutosave.com"],
   "verboseMode": true,
   "serviceUrls": {
