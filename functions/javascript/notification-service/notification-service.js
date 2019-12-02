@@ -28,7 +28,7 @@ const sendEmailNotifications = (payload, options) => {
             message,
             subject
         };
-        emailClientService.sendEmail(payloadForEachEmail, reqId)
+        emailClientService.sendEmail(payloadForEachEmail, reqId);
     });
 };
 
