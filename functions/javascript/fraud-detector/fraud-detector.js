@@ -185,7 +185,11 @@ const fetchFactsFromUserBehaviourService = async (userId) => {
 const sendFailureResponse = (res, error) => {
     logger(`Error occurred while handling 'check for fraudulent user' request. Error: ${JSON.stringify(error)}`);
     res.status(httpStatus.BAD_REQUEST).end('Unable to check for fraudulent user');
-    
+};
+
+const sendSuccessResponse = (req, res) => {
+    logger(`Received request to 'check for fraudulent user' request. Payload: ${JSON.stringify(req.body)}`);
+    res.status(httpStatus.OK).end(`Received request to 'check for fraudulent user'`);
 };
 
 const handleNotSupportedHttpMethod = (res) => {
@@ -238,7 +242,10 @@ const sendNotificationForVerboseMode = () => {
     }
 };
 
+
 const fetchFactsAboutUserAndRunEngine = async (req, res) => {
+    sendSuccessResponse(req, res);
+
     if (VERBOSE_MODE) {
         sendNotificationForVerboseMode();
     }

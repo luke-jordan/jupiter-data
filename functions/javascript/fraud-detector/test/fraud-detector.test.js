@@ -198,15 +198,18 @@ describe('Fraud Detector', () => {
             method: POST,
             body: { ...samplePayloadFromFetchFactsTrigger }
         };
+        const endResponseStub = sinon.stub();
         const jsonResponseStub = sinon.stub();
         const res = {
             status: () => ({
-                json: jsonResponseStub
-            })
+                json: jsonResponseStub,
+                end: endResponseStub
+            }),
         };
 
         const result = await fetchFactsAboutUserAndRunEngine(req, res);
         expect(result).to.be.undefined;
+        expect(endResponseStub).to.have.been.calledOnce;
         expect(requestRetryStub).to.have.been.calledTwice;
         expect(requestRetryStub).to.have.been.calledWith({
             ...baseConfigForRequestRetry,
@@ -228,8 +231,9 @@ describe('Fraud Detector', () => {
 
         const result = await fetchFactsAboutUserAndRunEngine(req, res);
         expect(result).to.be.undefined;
-        expect(endResponseStub).to.have.been.calledOnce;
-        expect(res.status().end.firstCall.args[0]).to.equal(`only ${POST} http method accepted`);
+        expect(endResponseStub).to.have.been.calledTwice;
+        expect(res.status().end.firstCall.args[0]).to.equal(`Received request to 'check for fraudulent user'`);
+        expect(res.status().end.secondCall.args[0]).to.equal(`only ${POST} http method accepted`);
     });
 
     it(`should 'fetch facts about user and run engine' checks for missing parameters in payload`, async () => {
@@ -246,11 +250,12 @@ describe('Fraud Detector', () => {
 
         const result = await fetchFactsAboutUserAndRunEngine(req, res);
         expect(result).to.be.undefined;
-        expect(endResponseStub).to.have.been.calledOnce;
-        expect(res.status().end.firstCall.args[0]).to.equal('invalid payload => \'userId\' is required');
+        expect(endResponseStub).to.have.been.calledTwice;
+        expect(res.status().end.firstCall.args[0]).to.equal(`Received request to 'check for fraudulent user'`);
+        expect(res.status().end.secondCall.args[0]).to.equal('invalid payload => \'userId\' is required');
     });
 
-    it(`should send failure response when an error is thrown during the request`, async () => {
+    it(`should send failure response when the 'body' of the request does not exist`, async () => {
         const req = {
             method: POST,
             body: null
@@ -264,11 +269,32 @@ describe('Fraud Detector', () => {
 
         const result = await fetchFactsAboutUserAndRunEngine(req, res);
         expect(result).to.be.undefined;
-        expect(endResponseStub).to.have.been.calledOnce;
-        expect(res.status().end.firstCall.args[0]).to.equal('Unable to check for fraudulent user');
+        expect(endResponseStub).to.have.been.calledTwice;
+        expect(res.status().end.firstCall.args[0]).to.equal(`Received request to 'check for fraudulent user'`);
+        expect(res.status().end.secondCall.args[0]).to.equal('Unable to check for fraudulent user');
     });
 
-    // test verbose mode
+    it(`should exit gracefully  when it cannot 'fetch facts from user behaviour service'`, async () => {
+        const req = {
+            method: POST,
+            body: { ...samplePayloadFromFetchFactsTrigger }
+        };
+        const endResponseStub = sinon.stub();
+        const res = {
+            status: () => ({
+                end: endResponseStub
+            })
+        };
+        requestRetryStub.onFirstCall().resolves();
+        requestRetryStub.onSecondCall().rejects();
+
+        const result = await fetchFactsAboutUserAndRunEngine(req, res);
+        expect(result).to.be.undefined;
+        expect(endResponseStub).to.have.been.calledOnce;
+        expect(requestRetryStub).to.have.been.calledTwice;
+        expect(res.status().end.firstCall.args[0]).to.equal(`Received request to 'check for fraudulent user'`);
+    });
+
     it(`should send notification for verbose mode when 'verbose mode' is ON`, async () => {
         const payload = {
             message: 'Just so you know, fraud detector ran',
