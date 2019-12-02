@@ -319,5 +319,4 @@ def updateUserBehaviourAndTriggerFraudDetector(event, context):
 
 # TODO: replace FRAUD_DETECTOR_ENDPOINT with actual endpoint
 # TODO: abstract out the `fetch user behaviour` to an endpoint
-
 # TODO: 5) deploy service => add to circle ci and terraform
