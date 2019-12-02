@@ -62,6 +62,7 @@ const {
 } = httpMethods;
 const CONTACTS_TO_BE_NOTIFIED = config.get('contactsToBeNotified');
 const serviceUrls = config.get('serviceUrls');
+const EMAIL_SUBJECT_FOR_ADMINS = config.get('emailSubjectForAdmins');
 const {
     NOTIFICATION_SERVICE_URL
 } = serviceUrls;
@@ -131,7 +132,8 @@ describe('Fraud Detector', () => {
         const expectedResult = {
             notificationType: EMAIL_TYPE,
             contacts: CONTACTS_TO_BE_NOTIFIED,
-            message: `User: ${sampleUserAccountInfo.userId} with account: ${sampleUserAccountInfo.accountId} has been flagged as fraudulent. Reason for flagging User: ${sampleReasonForFlaggingUser}`
+            message: `User: ${sampleUserAccountInfo.userId} with account: ${sampleUserAccountInfo.accountId} has been flagged as fraudulent. Reason for flagging User: ${sampleReasonForFlaggingUser}`,
+            subject: EMAIL_SUBJECT_FOR_ADMINS
         };
         const result = await constructNotificationPayload(sampleUserAccountInfo, sampleReasonForFlaggingUser);
         expect(result).to.exist;

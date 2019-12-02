@@ -10,6 +10,7 @@ const DATASET_ID = config.get('BIG_QUERY_DATASET_ID');
 const TABLE_ID = config.get('BIG_QUERY_TABLE_ID');
 const CUSTOM_RULES = require('./custom-rules').allRules;
 const serviceUrls = config.get('serviceUrls');
+const EMAIL_SUBJECT_FOR_ADMINS = config.get('emailSubjectForAdmins');
 const {
     createTimestampForSQLDatabase
 } = require('./utils');
@@ -131,7 +132,8 @@ const logFraudulentUserFlag = async (userAccountInfo, reasonForFlaggingUser) => 
 const constructNotificationPayload = (userAccountInfo, reasonForFlaggingUser) => ({
         notificationType: EMAIL_TYPE,
         contacts: CONTACTS_TO_BE_NOTIFIED,
-        message: `User: ${userAccountInfo.userId} with account: ${userAccountInfo.accountId} has been flagged as fraudulent. Reason for flagging User: ${reasonForFlaggingUser}`
+        message: `User: ${userAccountInfo.userId} with account: ${userAccountInfo.accountId} has been flagged as fraudulent. Reason for flagging User: ${reasonForFlaggingUser}`,
+        subject: EMAIL_SUBJECT_FOR_ADMINS
     });
 
 const extractReasonForFlaggingUserFromEvent = (event) => event.params.reasonForFlaggingUser;
