@@ -109,7 +109,7 @@ jobs:
                  echo GOOGLE_PROJECT_ID=$STAGING_GOOGLE_PROJECT_ID >> .env
                  echo FRAUD_DETECTOR_ENDPOINT=$STAGING_FRAUD_DETECTOR_ENDPOINT >> .env
                fi
-               zip -rq $HOME/user_behaviour_query_$CIRCLE_SHA1.zip .
+               zip -rq $HOME/user_behaviour_$CIRCLE_SHA1.zip .
 
 
                cd $HOME/app/functions/python/pubsub-to-big-query-for-sns
