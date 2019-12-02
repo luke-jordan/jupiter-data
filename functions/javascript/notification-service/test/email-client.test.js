@@ -25,7 +25,9 @@ const sampleRequestId = shortid.generate();
 const {
     from,
     subject
-} = config.get("mailFormat");
+} = config.get('mailFormat');
+
+const ENVIRONMENT = config.get('environment');
 
 const resetStubs = () => {
     transporterSendMailStub.reset();
@@ -40,7 +42,7 @@ describe('Email Client', () => {
         const params = {
             from,
             to: sampleEmail,
-            subject,
+            subject: `${ENVIRONMENT} - ${subject}`,
             text: sampleMessage,
             html: sampleMessage
         };
@@ -54,7 +56,7 @@ describe('Email Client', () => {
         const params = {
             from,
             to: sampleEmail,
-            subject,
+            subject: `${ENVIRONMENT} - ${subject}`,
             text: sampleMessage,
             html: sampleMessage
         };

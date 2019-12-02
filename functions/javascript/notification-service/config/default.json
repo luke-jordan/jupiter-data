@@ -8,6 +8,7 @@
       "pass": "xxxxxxxxx"
     }
   },
+  "environment": "[STAGING]",
   "mailFormat": {
     "from": "Jupiter Save",
     "subject": "Notification"

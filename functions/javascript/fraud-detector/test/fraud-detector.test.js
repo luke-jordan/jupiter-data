@@ -204,7 +204,7 @@ describe('Fraud Detector', () => {
             status: () => ({
                 json: jsonResponseStub,
                 end: endResponseStub
-            }),
+            })
         };
 
         const result = await fetchFactsAboutUserAndRunEngine(req, res);

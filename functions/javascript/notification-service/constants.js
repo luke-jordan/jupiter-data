@@ -1,7 +1,7 @@
 'use strict';
 
 module.exports = {
-    notificationTypes:{
+    notificationTypes: {
         EMAIL_TYPE: 'EMAIL'
     },
     httpMethods: {

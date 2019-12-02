@@ -3,13 +3,15 @@
 const nodemailer = require('nodemailer');
 const config = require('config');
 const logger = require('debug')('notification-service:email-client');
-const mailTransporterConfig = config.get("mailTransporter");
+const mailTransporterConfig = config.get('mailTransporter');
 const transporter = nodemailer.createTransport(mailTransporterConfig);
 
 const {
     from,
     subject
-} = config.get("mailFormat");
+} = config.get('mailFormat');
+
+const ENVIRONMENT = config.get('environment');
 
 /**
  * @param email
@@ -22,7 +24,7 @@ const sendEmail = (email, message, reqId) => {
     return transporter.sendMail({
         from,
         to: email,
-        subject,
+        subject: `${ENVIRONMENT} - ${subject}`,
         text: message,
         html: message
     }).

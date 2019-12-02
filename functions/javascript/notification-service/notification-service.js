@@ -63,24 +63,24 @@ const handleMissingParameterInReceivedPayload = (payload, res, reqId) => {
     logger(
         `Request ID: ${reqId} - request to send notification failed because of invalid parameters in received payload. Received payload: ${JSON.stringify(payload)}`
     );
-    return;
+    
 };
 
 const handleNotSupportedHttpMethod = (res) => {
     res.status(httpStatus.METHOD_NOT_ALLOWED).end(`only ${POST} http method accepted`);
-    return;
+    
 };
 
 const sendSuccessResponse = (res, reqId) => {
     logger(`Request ID: ${reqId} - successfully handled send notification request`);
     res.status(httpStatus.OK).json('Successfully sent notification request');
-    return;
+    
 };
 
 const sendFailureResponse = (res, error, reqId) => {
     logger(`Request ID: ${reqId} - error occurred while handling send notification request. Error: ${JSON.stringify(error)}`);
     res.status(httpStatus.BAD_REQUEST).end('Unable to send notification request');
-    return;
+    
 };
 
 const handleSendNotificationRequest = async (req, res) => {

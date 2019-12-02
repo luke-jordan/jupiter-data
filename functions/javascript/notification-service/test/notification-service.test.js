@@ -69,40 +69,40 @@ describe('Notification Service', () => {
         const payload = { ...samplePayload, notificationType: uuid() };
         try {
             await sendMessageBasedOnType(payload, sampleOptions);
-        } catch(error) {
+        } catch (error) {
             expect(error.message).equal('Notification Type not supported at the moment');
         }
     });
 
     it(`should return 'false' as all required parameter are present`, async () => {
-        let result = await missingParameterInReceivedPayload(samplePayload);
+        const result = await missingParameterInReceivedPayload(samplePayload);
         expect(result).to.exist;
         expect(result).to.equal(false);
     });
 
     it(`should return 'true' when 'message' is missing from parameters`, async () => {
-        const payloadWithMissingParameter = { ... samplePayload, message: null };
+        const payloadWithMissingParameter = { ...samplePayload, message: null };
         const result = await missingParameterInReceivedPayload(payloadWithMissingParameter);
         expect(result).to.exist;
         expect(result).to.equal(true);
     });
 
     it(`should return 'true' when 'notificationType' is missing from parameters`, async () => {
-        const payloadWithMissingParameter = { ... samplePayload, notificationType: null };
+        const payloadWithMissingParameter = { ...samplePayload, notificationType: null };
         const result = await missingParameterInReceivedPayload(payloadWithMissingParameter);
         expect(result).to.exist;
         expect(result).to.equal(true);
     });
 
     it(`should return 'true' when 'contacts' is missing from parameters`, async () => {
-        const payloadWithMissingParameter = { ... samplePayload, contacts: null };
+        const payloadWithMissingParameter = { ...samplePayload, contacts: null };
         const result = await missingParameterInReceivedPayload(payloadWithMissingParameter);
         expect(result).to.exist;
         expect(result).to.equal(true);
     });
 
     it(`should return 'true' when 'contacts' is an empty array in received parameters`, async () => {
-        const payloadWithMissingParameter = { ... samplePayload, contacts: [] };
+        const payloadWithMissingParameter = { ...samplePayload, contacts: [] };
         const result = await missingParameterInReceivedPayload(payloadWithMissingParameter);
         expect(result).to.exist;
         expect(result).to.equal(true);
@@ -111,7 +111,7 @@ describe('Notification Service', () => {
     it(`should handle send notification requests successfully`, async () => {
         const req = {
             method: POST,
-            body: { ...samplePayload },
+            body: { ...samplePayload }
         };
         const jsonResponseStub = sinon.stub();
         const res = {
@@ -129,12 +129,12 @@ describe('Notification Service', () => {
     it(`handle send notification requests only accepts http method: ${POST}`, async () => {
         const req = {
             method: uuid(),
-            body: { ...samplePayload },
+            body: { ...samplePayload }
         };
         const endResponseStub = sinon.stub();
         const res = {
             status: () => ({
-                end: endResponseStub,
+                end: endResponseStub
             })
         };
 
@@ -147,12 +147,12 @@ describe('Notification Service', () => {
     it(`handle send notification requests checks for missing parameters in payload`, async () => {
         const req = {
             method: POST,
-            body:  { ... samplePayload, message: null }
+            body: { ...samplePayload, message: null }
         };
         const endResponseStub = sinon.stub();
         const res = {
             status: () => ({
-                end: endResponseStub,
+                end: endResponseStub
             })
         };
 
@@ -165,12 +165,12 @@ describe('Notification Service', () => {
     it(`send failure response when an error is thrown during the request`, async () => {
         const req = {
             method: POST,
-            body:  null
+            body: null
         };
         const endResponseStub = sinon.stub();
         const res = {
             status: () => ({
-                end: endResponseStub,
+                end: endResponseStub
             })
         };
 
