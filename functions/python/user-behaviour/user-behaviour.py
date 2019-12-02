@@ -160,29 +160,34 @@ def retrieveUserBehaviourBasedOnRules(userId, accountId):
         "userId": userId,
         "accountId": accountId
     }
-    # Single deposit larger than R100 000
-    countOfDepositsGreaterThanHundredThousand = retrieve_count_of_user_transactions_larger_than_benchmark(userId, FIRST_BENCHMARK_DEPOSIT, DEPOSIT_TRANSACTION_TYPE)
+    try:
+        # Single deposit larger than R100 000
+        countOfDepositsGreaterThanHundredThousand = retrieve_count_of_user_transactions_larger_than_benchmark(userId, FIRST_BENCHMARK_DEPOSIT, DEPOSIT_TRANSACTION_TYPE)
 
-    configForFetch = {
-        "periodInMonths": SIX_MONTHS_INTERVAL,
-        "benchmark": SECOND_BENCHMARK_DEPOSIT,
-        "transactionType": DEPOSIT_TRANSACTION_TYPE
-    }
-    # More than 3 deposits larger than R50 000 within a 6 month period
-    countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod = retrieve_count_of_user_transactions_larger_than_benchmark_within_months_period(userId, configForFetch)
-    
-    # If latest inward deposit > 10x past 6 month average deposit
-    latestDeposit = retrieve_user_latest_transaction(userId, DEPOSIT_TRANSACTION_TYPE)
-    
-    sixMonthAverageDeposit = retrieve_user_average_transaction_within_months_period(userId, configForFetch)
+        configForFetch = {
+            "periodInMonths": SIX_MONTHS_INTERVAL,
+            "benchmark": SECOND_BENCHMARK_DEPOSIT,
+            "transactionType": DEPOSIT_TRANSACTION_TYPE
+        }
+        # More than 3 deposits larger than R50 000 within a 6 month period
+        countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod = retrieve_count_of_user_transactions_larger_than_benchmark_within_months_period(userId, configForFetch)
 
-    return {
-        "userAccountInfo": userAccountInfo,
-        "countOfDepositsGreaterThanHundredThousand": countOfDepositsGreaterThanHundredThousand,
-        "countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod": countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod,
-        "latestDeposit": latestDeposit,
-        "sixMonthAverageDeposit": sixMonthAverageDeposit
-    }
+        # If latest inward deposit > 10x past 6 month average deposit
+        latestDeposit = retrieve_user_latest_transaction(userId, DEPOSIT_TRANSACTION_TYPE)
+
+        sixMonthAverageDeposit = retrieve_user_average_transaction_within_months_period(userId, configForFetch)
+
+        response = {
+            "userAccountInfo": userAccountInfo,
+            "countOfDepositsGreaterThanHundredThousand": countOfDepositsGreaterThanHundredThousand,
+            "countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod": countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod,
+            "latestDeposit": latestDeposit,
+            "sixMonthAverageDeposit": sixMonthAverageDeposit
+        }
+        print("done retrieving user behaviour shaped by rules. Response: {}".format(response))
+        return response, 200
+    except Exception as e:
+        print('error decoding message on {}' .format(e))
 
 def missingParameterInPayload (payload):
     if ("context" not in payload):
@@ -274,7 +279,6 @@ def insertRowsIntoUserBehaviourTable(formattedPayloadList):
             print('error decoding message on {}' .format(e))
 
 def triggerFraudDetector(userId):
-    # send post request to fraud detector url
     payloadToFraudDetector = {
         "userId": userId
     }
@@ -289,22 +293,31 @@ def decodePubSubMessage(event):
     return msg
 
 
-def formatPayloadAndLogAccountTransaction(event, context):
+def formatPayloadAndLogAccountTransaction(event):
     print("message received from pubsub")
 
     try:
         messageFromPubSub = decodePubSubMessage(event)
         formattedPayloadList = formatPayloadForUserBehaviourTable(messageFromPubSub)
         insertRowsIntoUserBehaviourTable(formattedPayloadList)
+        return formattedPayloadList
+    except Exception as e:
+        print('error decoding message on {}' .format(e))
 
-        userId = formattedPayloadList[0].user_id
+def extractUserIdFromFormattedPayloadList(formattedPayloadList):
+    return formattedPayloadList[0].user_id
+
+def updateUserBehaviourAndTriggerFraudDetector(event, context):
+    try:
+        formattedPayloadList = formatPayloadAndLogAccountTransaction(event)
+        userId = extractUserIdFromFormattedPayloadList(formattedPayloadList)
         triggerFraudDetector(userId)
         print("acknowledging message to pub/sub")
         return 'OK', 200
     except Exception as e:
         print('error decoding message on {}' .format(e))
 
-
+# TODO: replace FRAUD_DETECTOR_ENDPOINT with actual endpoint
 # TODO: abstract out the `fetch user behaviour` to an endpoint
 
 # TODO: 5) deploy service => add to circle ci and terraform

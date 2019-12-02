@@ -62,7 +62,6 @@ jobs:
                 echo GOOGLE_PROJECT_ID=$PRODUCTION_GOOGLE_PROJECT_ID >> .env
                 echo BIG_QUERY_DATASET_LOCATION=$PRODUCTION_BIG_QUERY_DATASET_LOCATION >> .env
                fi
-
                if [ $CIRCLE_BRANCH == 'staging' ]; then
                 echo GOOGLE_PROJECT_ID=$STAGING_GOOGLE_PROJECT_ID >> .env
                 echo BIG_QUERY_DATASET_LOCATION=$STAGING_BIG_QUERY_DATASET_LOCATION >> .env
@@ -78,7 +77,6 @@ jobs:
                if [ $CIRCLE_BRANCH == 'master' ]; then
                 echo $PRODUCTION_NOTIFICATION_SERVICE >> config/production.json
                fi
-
                if [ $CIRCLE_BRANCH == 'staging' ]; then
                 echo $STAGING_NOTIFICATION_SERVICE >> config/production.json
                fi
@@ -91,12 +89,28 @@ jobs:
                 echo $PRODUCTION_GCLOUD_SERVICE_KEY >> jupiter_ml_python_credentials.json
                 echo $PRODUCTION_AMPLITUDE_SECRETS >> .env
                fi
-
                if [ $CIRCLE_BRANCH == 'staging' ]; then
                 echo $STAGING_GCLOUD_SERVICE_KEY >> jupiter_ml_python_credentials.json
                 echo $STAGING_AMPLITUDE_SECRETS >> .env
                fi
                zip -rq $HOME/sync_amplitude_data_to_big_query_$CIRCLE_SHA1.zip .
+
+
+               cd $HOME/app/functions/python/user-behaviour
+               echo $CIRCLE_SHA1 > last_commit.txt
+               echo "setting environment variables for user behaviour"
+               if [ $CIRCLE_BRANCH == 'master' ]; then
+                 echo $PRODUCTION_GCLOUD_SERVICE_KEY >> service-account-credentials.json
+                 echo GOOGLE_PROJECT_ID=$PRODUCTION_GOOGLE_PROJECT_ID >> .env
+                 echo FRAUD_DETECTOR_ENDPOINT=$PRODUCTION_FRAUD_DETECTOR_ENDPOINT >> .env
+               fi
+               if [ $CIRCLE_BRANCH == 'staging' ]; then
+                 echo $STAGING_GCLOUD_SERVICE_KEY >> service-account-credentials.json
+                 echo GOOGLE_PROJECT_ID=$STAGING_GOOGLE_PROJECT_ID >> .env
+                 echo FRAUD_DETECTOR_ENDPOINT=$STAGING_FRAUD_DETECTOR_ENDPOINT >> .env
+               fi
+               zip -rq $HOME/user_behaviour_query_$CIRCLE_SHA1.zip .
+
 
                cd $HOME/app/functions/python/pubsub-to-big-query-for-sns
                echo $CIRCLE_SHA1 > last_commit.txt
@@ -104,7 +118,6 @@ jobs:
                if [ $CIRCLE_BRANCH == 'master' ]; then
                 echo GOOGLE_PROJECT_ID=$PRODUCTION_GOOGLE_PROJECT_ID >> .env
                fi
-
                if [ $CIRCLE_BRANCH == 'staging' ]; then
                 echo GOOGLE_PROJECT_ID=$STAGING_GOOGLE_PROJECT_ID >> .env
                fi
@@ -153,6 +166,7 @@ jobs:
               ./app/google-cloud-sdk/bin/gsutil cp sns_to_pubsub_$CIRCLE_SHA1.zip gs://prod-sns-to-pubsub-bucket
               ./app/google-cloud-sdk/bin/gsutil cp notification_service_$CIRCLE_SHA1.zip gs://prod-notification-service-bucket
               ./app/google-cloud-sdk/bin/gsutil cp sync_amplitude_data_to_big_query_$CIRCLE_SHA1.zip gs://prod-sync-amplitude-data-to-big-query-bucket
+              ./app/google-cloud-sdk/bin/gsutil cp user_behaviour_$CIRCLE_SHA1.zip gs://prod-user-behaviour-bucket
               ./app/google-cloud-sdk/bin/gsutil cp pubsub_to_big_query_for_sns_$CIRCLE_SHA1.zip gs://prod-pubsub-to-big-query-for-sns-bucket
             fi
 
@@ -163,6 +177,7 @@ jobs:
               ./app/google-cloud-sdk/bin/gsutil cp sns_to_pubsub_$CIRCLE_SHA1.zip gs://staging-sns-to-pubsub-bucket
               ./app/google-cloud-sdk/bin/gsutil cp notification_service_$CIRCLE_SHA1.zip gs://staging-notification-service-bucket
               ./app/google-cloud-sdk/bin/gsutil cp sync_amplitude_data_to_big_query_$CIRCLE_SHA1.zip gs://staging-sync-amplitude-data-to-big-query-bucket
+              ./app/google-cloud-sdk/bin/gsutil cp user_behaviour_$CIRCLE_SHA1.zip gs://staging-user-behaviour-bucket
               ./app/google-cloud-sdk/bin/gsutil cp pubsub_to_big_query_for_sns_$CIRCLE_SHA1.zip gs://staging-pubsub-to-big-query-for-sns-bucket
             fi
 

@@ -116,5 +116,3 @@ module.exports = {
     missingParameterInReceivedPayload,
     handleSendNotificationRequest
 };
-
-// TODO: deploy service => add to circle ci and terraform (supply with working email config)
