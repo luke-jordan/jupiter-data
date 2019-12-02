@@ -4,6 +4,4 @@ const {
     handleSendNotificationRequest
 } = require('./notification-service');
 
-module.exports = {
-    handleSendNotificationRequest
-};
+exports.handleSendNotificationRequest = handleSendNotificationRequest;
