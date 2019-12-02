@@ -33,18 +33,21 @@ jobs:
             cd $HOME/app/functions/javascript/fetch-from-big-query && npm install
             cd $HOME/app/functions/javascript/sns-to-pubsub && npm install
             cd $HOME/app/functions/javascript/sns-to-pubsub/libs/auth-validator && npm install
+            cd $HOME/app/functions/javascript/notification-service && npm install
 
       - run:
           name: Run linter
           command: |
             cd $HOME/app/functions/javascript/fetch-from-big-query && npm run lint
             cd $HOME/app/functions/javascript/sns-to-pubsub && npm run lint
+            cd $HOME/app/functions/javascript/notification-service && npm run lint
 
       - run:
           name: Run tests
           command: |
             cd $HOME/app/functions/javascript/fetch-from-big-query && npm test
             cd $HOME/app/functions/javascript/sns-to-pubsub && npm test
+            cd $HOME/app/functions/javascript/notification-service && npm test
 
       - run:
           name: zip artifacts
@@ -69,6 +72,10 @@ jobs:
                cd $HOME/app/functions/javascript/sns-to-pubsub
                echo $CIRCLE_SHA1 > last_commit.txt
                zip -rq $HOME/sns_to_pubsub_$CIRCLE_SHA1.zip .
+
+               cd $HOME/app/functions/javascript/notification-service
+               echo $CIRCLE_SHA1 > last_commit.txt
+               zip -rq $HOME/notification_service_$CIRCLE_SHA1.zip .
 
                cd $HOME/app/functions/python/sync-amplitude-data-to-big-query
                echo $CIRCLE_SHA1 > last_commit.txt
@@ -137,6 +144,7 @@ jobs:
               cd $HOME
               ./app/google-cloud-sdk/bin/gsutil cp fetch_from_big_query_$CIRCLE_SHA1.zip gs://prod-fetch-from-big-query-bucket
               ./app/google-cloud-sdk/bin/gsutil cp sns_to_pubsub_$CIRCLE_SHA1.zip gs://prod-sns-to-pubsub-bucket
+              ./app/google-cloud-sdk/bin/gsutil cp notification_service_$CIRCLE_SHA1.zip gs://prod-notification-service-bucket
               ./app/google-cloud-sdk/bin/gsutil cp sync_amplitude_data_to_big_query_$CIRCLE_SHA1.zip gs://prod-sync-amplitude-data-to-big-query-bucket
               ./app/google-cloud-sdk/bin/gsutil cp pubsub_to_big_query_for_sns_$CIRCLE_SHA1.zip gs://prod-pubsub-to-big-query-for-sns-bucket
             fi
@@ -146,6 +154,7 @@ jobs:
               cd $HOME
               ./app/google-cloud-sdk/bin/gsutil cp fetch_from_big_query_$CIRCLE_SHA1.zip gs://staging-fetch-from-big-query-bucket
               ./app/google-cloud-sdk/bin/gsutil cp sns_to_pubsub_$CIRCLE_SHA1.zip gs://staging-sns-to-pubsub-bucket
+              ./app/google-cloud-sdk/bin/gsutil cp notification_service_$CIRCLE_SHA1.zip gs://staging-notification-service-bucket
               ./app/google-cloud-sdk/bin/gsutil cp sync_amplitude_data_to_big_query_$CIRCLE_SHA1.zip gs://staging-sync-amplitude-data-to-big-query-bucket
               ./app/google-cloud-sdk/bin/gsutil cp pubsub_to_big_query_for_sns_$CIRCLE_SHA1.zip gs://staging-pubsub-to-big-query-for-sns-bucket
             fi
