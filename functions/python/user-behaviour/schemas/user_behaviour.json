@@ -17,7 +17,12 @@
     {
       "mode": "REQUIRED",
       "name": "amount",
-      "type": "FLOAT"
+      "type": "INTEGER"
+    },
+    {
+      "mode": "REQUIRED",
+      "name": "unit",
+      "type": "STRING"
     },
     {
         "mode": "REQUIRED",
