@@ -1,4 +1,4 @@
-resource "google_cloudfunctions_function" "fetch-from-big-query-function" {
+resource "google_cloudfunctions_function" "notification-service-function" {
   name = "notification-service"
   description = "Send notifications to contacts via various medium"
   available_memory_mb = 128
