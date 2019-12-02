@@ -1,10 +1,23 @@
-# Overview - How it works
-This cloud function is triggered by a cloud scheduler (`fire-amplitude-to-big-query-sync`) which runs at 3am UTC every day.
+# Sync Amplitdue Data To Big Query
+## Overview - How it works
+
+`sync-amplitude-data-to-big-query` serves to retrieve data from Amplitude, process the data and
+load it into Big Query.
+
+`sync-amplitude-data-to-big-query` is triggered by a cloud scheduler (`fire-amplitude-to-big-query-sync`) which runs at 3am UTC every day.
+
 The cloud scheduler sends a message to pub/sub topic (`daily-runs`), our function `sync-amplitude-data-to-big-query` has a 
 subscription to `daily-runs` and is triggered when the message arrives from `fire-amplitude-to-big-query-sync`.
 
+When `sync-amplitude-data-to-big-query` (now referred to as `the script`) runs it hits the Amplitude API and downloads a gzipped file containing our data for the previous day, the script stores a copy of the downloaded file in Google cloud storage bucket: `gs://staging-sync-amplitude-data-to-big-query-bucket/export` (for production: `gs://production-sync-amplitude-data-to-big-query-bucket/export`). The script then unzips the file and transforms it into a data format suitable for Big Query table: `amplitude.events` and `amplitude.events_properties`. The script then stores a copy of the formatted data in 
+Google cloud storage bucket: `gs://staging-sync-amplitude-data-to-big-query-bucket/import` (for production: `gs://production-sync-amplitude-data-to-big-query-bucket/import`). 
+The script also loads the formatted data into the Big query tables: `amplitude.events` and `amplitude.events_properties`.
 
-# This documentation was written by Martijn Scheijbeler: https://github.com/martijnsch/amplitude-bigquery 
+Then the script commences cleanups which involves removing the raw downloaded files and the formatted files stored in the local directory of the script.
+
+
+
+# The below was written by Martijn Scheijbeler: https://github.com/martijnsch/amplitude-bigquery and it explains how the script is used
 
 # Amplitude > Google Cloud Storage > Google BigQuery
 Export your [Amplitude](https://amplitude.com/) data to [Google BigQuery](https://bigquery.cloud.google.com) for big data analysis.
