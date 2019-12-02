@@ -8,4 +8,7 @@ resource "google_cloudfunctions_function" "notification-service-function" {
   entry_point = "handleSendNotificationRequest"
   trigger_http = true
   runtime = "nodejs10"
+  environment_variables = {
+    DEBUG = "*"
+  }
 }

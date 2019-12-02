@@ -68,19 +68,16 @@ const handleMissingParameterInReceivedPayload = (payload, res, reqId) => {
 
 const handleNotSupportedHttpMethod = (res) => {
     res.status(httpStatus.METHOD_NOT_ALLOWED).end(`only ${POST} http method accepted`);
-    
 };
 
 const sendSuccessResponse = (res, reqId) => {
     logger(`Request ID: ${reqId} - successfully handled send notification request`);
     res.status(httpStatus.OK).json('Successfully sent notification request');
-    
 };
 
 const sendFailureResponse = (res, error, reqId) => {
     logger(`Request ID: ${reqId} - error occurred while handling send notification request. Error: ${JSON.stringify(error)}`);
     res.status(httpStatus.BAD_REQUEST).end('Unable to send notification request');
-    
 };
 
 const handleSendNotificationRequest = async (req, res) => {
