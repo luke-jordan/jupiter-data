@@ -9,6 +9,7 @@ verify_ssl = true
 google-cloud-storage = "*"
 google-cloud-bigquery = "*"
 python-dotenv = "*"
+requests = "*"
 
 [requires]
 python_version = "3.7"

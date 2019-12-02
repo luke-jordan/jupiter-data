@@ -3,6 +3,7 @@ import json
 import base64
 import constant
 import datetime
+import requests
 
 from google.cloud import bigquery
 from dotenv import load_dotenv
@@ -12,6 +13,7 @@ load_dotenv()
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="service-account-credentials.json"
 
 client = bigquery.Client()
+FRAUD_DETECTOR_ENDPOINT = os.getenv("FRAUD_DETECTOR_ENDPOINT")
 project_id = os.getenv("GOOGLE_PROJECT_ID")
 dataset_id = 'ops'
 table_id = 'user_behaviour'
@@ -271,6 +273,14 @@ def insertRowsIntoUserBehaviourTable(formattedPayloadList):
         except Exception as e:
             print('error decoding message on {}' .format(e))
 
+def triggerFraudDetector(userId):
+    # send post request to fraud detector url
+    payloadToFraudDetector = {
+        "userId": userId
+    }
+    response = requests.post(url = FRAUD_DETECTOR_ENDPOINT, data = payloadToFraudDetector)
+
+    print("Response from fraud detector {}".format(response.text))
 
 def decodePubSubMessage(event):
     print("decoding raw message 'data' from event: {evt}".format(evt=event))
@@ -285,15 +295,16 @@ def formatPayloadAndLogAccountTransaction(event, context):
     try:
         messageFromPubSub = decodePubSubMessage(event)
         formattedPayloadList = formatPayloadForUserBehaviourTable(messageFromPubSub)
-        
         insertRowsIntoUserBehaviourTable(formattedPayloadList)
+
+        userId = formattedPayloadList[0].user_id
+        triggerFraudDetector(userId)
         print("acknowledging message to pub/sub")
         return 'OK', 200
     except Exception as e:
         print('error decoding message on {}' .format(e))
 
 
-# TODO: trigger fraud detection and send `userId` in the payload of the request
 # TODO: abstract out the `fetch user behaviour` to an endpoint
 
 # TODO: 5) deploy service => add to circle ci and terraform
