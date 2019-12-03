@@ -243,7 +243,7 @@ def formatPayloadForUserBehaviourTable(payloadList):
         
         context = json.loads(eventMessage["context"])
         amountUnitAndCurrency = extractAmountUnitAndCurrency(context["savedAmount"])
-        transactionType = determineTransactionTypeFromEventType(eventMessage.event_type)
+        transactionType = determineTransactionTypeFromEventType(eventMessage["event_type"])
         if transactionType == "":
             print(
                 "Given event type is not supported. We only support the following event types: {}"
