@@ -5,10 +5,7 @@ resource "google_cloudfunctions_function" "update-user-behaviour-and-trigger-fra
   source_archive_bucket = "${var.gcp_bucket_prefix[terraform.workspace]}-user-behaviour-bucket"
   source_archive_object = "user_behaviour_${var.deploy_code_commit_hash}.zip"
   timeout = 120
-  entry_point = "retrieveUserBehaviourBasedOnRules"
-  event_trigger {
-    event_type = "google.pubsub.topic.publish"
-    resource = "projects/${var.project[terraform.workspace]}/topics/${var.gcp_pub_sub_topic["events_from_sns"]}"
-  }
+  entry_point = "fetchUserBehaviourBasedOnRules"
+  trigger_http = true
   runtime = "python37"
 }

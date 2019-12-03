@@ -67,7 +67,7 @@ def fetch_data_from_user_behaviour_table(QUERY):
     return rows
 
 
-def retrieve_user_latest_transaction(userId, transactionType):
+def fetch_user_latest_transaction(userId, transactionType):
     print(
         "retrieving the latest transaction type: {transaction_type} for user_id: {user_id}"
         .format(transaction_type=transactionType, user_id=userId)
@@ -87,7 +87,7 @@ def retrieve_user_latest_transaction(userId, transactionType):
     return latestDepositInWholeCurrency
 
 
-def retrieve_user_average_transaction_within_months_period(userId, config):
+def fetch_user_average_transaction_within_months_period(userId, config):
     periodInMonths = config["periodInMonths"]
     transactionType = config["transactionType"]
     leastDateToConsider = calculate_date_n_months_ago(periodInMonths)
@@ -111,7 +111,7 @@ def retrieve_user_average_transaction_within_months_period(userId, config):
     return averageDepositInWholeCurrency
 
 
-def retrieve_count_of_user_transactions_larger_than_benchmark_within_months_period(userId, config):
+def fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(userId, config):
     periodInMonths = config["periodInMonths"]
     benchmark = convertAmountFromGivenUnitToHundredthCent(config["benchmark"], 'WHOLE_CURRENCY')
     transactionType = config["transactionType"]
@@ -136,7 +136,7 @@ def retrieve_count_of_user_transactions_larger_than_benchmark_within_months_peri
     return countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriodList[0]
 
 
-def retrieve_count_of_user_transactions_larger_than_benchmark(userId, rawBenchmark, transactionType):
+def fetch_count_of_user_transactions_larger_than_benchmark(userId, rawBenchmark, transactionType):
     benchmark = convertAmountFromGivenUnitToHundredthCent(rawBenchmark, 'WHOLE_CURRENCY')
     print(
         "retrieving the count of transaction type: {transaction_type} for user_id: {user_id} larger than benchmark: {benchmark}"
@@ -173,13 +173,13 @@ def extractAccountInfoFromRetrieveUserBehaviourRequest(request):
         "accountId": accountId
     }
 
-def retrieveUserBehaviourBasedOnRules(request):
+def fetchUserBehaviourBasedOnRules(request):
     try:
         userAccountInfo = extractAccountInfoFromRetrieveUserBehaviourRequest(request)
         userId = userAccountInfo["userId"]
 
         # Single deposit larger than R100 000
-        countOfDepositsGreaterThanHundredThousand = retrieve_count_of_user_transactions_larger_than_benchmark(userId, FIRST_BENCHMARK_DEPOSIT, DEPOSIT_TRANSACTION_TYPE)
+        countOfDepositsGreaterThanHundredThousand = fetch_count_of_user_transactions_larger_than_benchmark(userId, FIRST_BENCHMARK_DEPOSIT, DEPOSIT_TRANSACTION_TYPE)
 
         configForFetch = {
             "periodInMonths": SIX_MONTHS_INTERVAL,
@@ -187,12 +187,12 @@ def retrieveUserBehaviourBasedOnRules(request):
             "transactionType": DEPOSIT_TRANSACTION_TYPE
         }
         # More than 3 deposits larger than R50 000 within a 6 month period
-        countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod = retrieve_count_of_user_transactions_larger_than_benchmark_within_months_period(userId, configForFetch)
+        countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod = fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(userId, configForFetch)
 
         # If latest inward deposit > 10x past 6 month average deposit
-        latestDeposit = retrieve_user_latest_transaction(userId, DEPOSIT_TRANSACTION_TYPE)
+        latestDeposit = fetch_user_latest_transaction(userId, DEPOSIT_TRANSACTION_TYPE)
 
-        sixMonthAverageDeposit = retrieve_user_average_transaction_within_months_period(userId, configForFetch)
+        sixMonthAverageDeposit = fetch_user_average_transaction_within_months_period(userId, configForFetch)
 
         response = {
             "userAccountInfo": userAccountInfo,
