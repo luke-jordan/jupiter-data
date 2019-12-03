@@ -61,7 +61,7 @@ typings/
 jupiter-ml-alpha-credentials.json
 jupiter_ml_python_credentials.json
 production-credentials.json
-production.json
+staging-credentials.json
 
 # temporary deployment bundles
 *.zip

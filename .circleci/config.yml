@@ -75,10 +75,10 @@ jobs:
                cd $HOME/app/functions/javascript/notification-service
                echo $CIRCLE_SHA1 > last_commit.txt
                if [ $CIRCLE_BRANCH == 'master' ]; then
-                echo $PRODUCTION_NOTIFICATION_SERVICE >> config/production.json
+                echo $PRODUCTION_NOTIFICATION_SERVICE_JSON_SECRETS >> config/production.json
                fi
                if [ $CIRCLE_BRANCH == 'staging' ]; then
-                echo $STAGING_NOTIFICATION_SERVICE >> config/production.json
+                echo $STAGING_NOTIFICATION_SERVICE_JSON_SECRETS >> config/production.json
                fi
                zip -rq $HOME/notification_service_$CIRCLE_SHA1.zip .
 

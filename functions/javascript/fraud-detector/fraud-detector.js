@@ -17,7 +17,7 @@ const {
 
 const {
     NOTIFICATION_SERVICE_URL,
-    USER_BEHAVIOUR_URL
+    FETCH_USER_BEHAVIOUR_URL
 } = serviceUrls;
 
 const {
@@ -173,7 +173,7 @@ const fetchFactsFromUserBehaviourService = async (userId) => {
     logger(`fetching facts from user behaviour service for user id: ${userId}`);
     try {
         const extraConfig = {
-            url: `${USER_BEHAVIOUR_URL}/${userId}`,
+            url: `${FETCH_USER_BEHAVIOUR_URL}/${userId}`,
             method: GET
         };
         const facts = await sendHttpRequest(extraConfig, FETCH_USER_BEHAVIOUR);
@@ -228,9 +228,10 @@ const validateRequestAndExtractParams = (req, res) => {
 const sendNotificationForVerboseMode = () => {
     logger('Verbose Mode - notifying admins that fraud detector ran');
     const payload = {
+        subject: 'Fraud Detector just ran',
         message: 'Just so you know, fraud detector ran',
         contacts: CONTACTS_TO_BE_NOTIFIED,
-        notificationType: EMAIL_TYPE
+        notificationType: EMAIL_TYPE,
     };
     try {
         const extraConfig = {

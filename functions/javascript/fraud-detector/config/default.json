@@ -5,7 +5,7 @@
   "verboseMode": true,
   "serviceUrls": {
     "NOTIFICATION_SERVICE_URL": "{notification_service}",
-    "USER_BEHAVIOUR_URL": "{user_behaviour}"
+    "FETCH_USER_BEHAVIOUR_URL": "{user_behaviour}"
   },
   "emailSubjectForAdmins": "Fraud Alert"
 }

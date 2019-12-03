@@ -67,6 +67,9 @@ production-credentials.json
 
 package-lock.json
 
+production-credentials.json
+staging-credentials.json
+
 # phpstorm & mac specific files
 atlassian-ide-plugin.xml
 /.idea
