@@ -156,6 +156,7 @@ def fetch_count_of_user_transactions_larger_than_benchmark(userId, rawBenchmark,
     
 
 def extractAccountInfoFromRetrieveUserBehaviourRequest(request):
+    print("extracting account info from 'retrieve user behaviour request'")
     request_json = request.get_json()
     userId = ""
     accountId = ""
@@ -202,9 +203,9 @@ def fetchUserBehaviourBasedOnRules(request):
             "sixMonthAverageDeposit": sixMonthAverageDeposit
         }
         print("done retrieving user behaviour shaped by rules. Response: {}".format(response))
-        return response, 200
+        return json.dumps(response), 200
     except Exception as e:
-        print('error decoding message on {}' .format(e))
+        print('Error fetching user behaviour based on rules. Error: {}' .format(e))
 
 def missingParameterInPayload (payload):
     if ("context" not in payload):
@@ -351,6 +352,6 @@ def updateUserBehaviourAndTriggerFraudDetector(event, context):
     except Exception as e:
         print("Error updating user behaviour and trigger fraud detector. Error: {}".format(e))
 
-# TODO: replace FRAUD_DETECTOR_ENDPOINT with actual endpoint
-# TODO: abstract out the `fetch user behaviour` to an endpoint
 # TODO: 5) deploy service => add to circle ci and terraform
+# TODO: replace FRAUD_DETECTOR_ENDPOINT with actual endpoint
+# TODO: separate the `fetch user behaviour` to a separate folder as it's own function
