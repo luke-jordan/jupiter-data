@@ -234,13 +234,14 @@ def determineTransactionTypeFromEventType(eventType):
     return ""
 
 def formatPayloadForUserBehaviourTable(payloadList):
+    print("formatting payload for user behaviour table {}".format(payloadList))
     formattedPayloadList = []
     for eventMessage in payloadList:
         if missingParameterInPayload(eventMessage):
             print("a required parameter is missing")
             break
         
-        context = eventMessage["context"]
+        context = json.loads(eventMessage["context"])
         amountUnitAndCurrency = extractAmountUnitAndCurrency(context["savedAmount"])
         transactionType = determineTransactionTypeFromEventType(eventMessage.event_type)
         if transactionType == "":
@@ -267,16 +268,18 @@ def formatPayloadForUserBehaviourTable(payloadList):
 
 
 def insertRowsIntoUserBehaviourTable(formattedPayloadList):
-    if len(formattedPayloadList > 0):
+    if len(formattedPayloadList) > 0:
         print("inserting formatted payload {msg} into table: {table} of big query".format(msg=formattedPayloadList, table=table_id))
         try:
             errors = client.insert_rows(table, formattedPayloadList)
             print("successfully inserted formatted payload: {msg} into table: {table} of big query".format(msg=formattedPayloadList, table=table_id))
             assert errors == []
         except AssertionError:
-            print('error inserting message with message id: ', errors)
-        except Exception as e:
-            print('error decoding message on {}' .format(e))
+            raise Exception('Error inserting row into user behaviour table. Error: {}'.format(errors))
+        except Exception as error:
+            raise Exception('Error occurred during creation of new row in user behaviour table. Error: {}'.format(error))
+    else:
+        raise Exception("Invalid formatted payload list provided to insert rows into behaviour table function. Formatted Payload list: {}".format(formattedPayloadList))
 
 def triggerFraudDetector(userId):
     payloadToFraudDetector = {
@@ -287,14 +290,14 @@ def triggerFraudDetector(userId):
     print("Response from fraud detector {}".format(response.text))
 
 def decodePubSubMessage(event):
-    print("decoding raw message 'data' from event: {evt}".format(evt=event))
+    print("Decoding raw message 'data' from event: {evt}".format(evt=event))
     msg = eval(base64.b64decode(event['data']).decode('utf-8'))
-    print("successfully decoded message from pubsub. Message: {msg}".format(msg=msg))
+    print("Successfully decoded message from pubsub. Message: {msg}".format(msg=msg))
     return msg
 
 
 def formatPayloadAndLogAccountTransaction(event):
-    print("message received from pubsub")
+    print("Message received from pubsub")
 
     try:
         messageFromPubSub = decodePubSubMessage(event)
@@ -302,7 +305,7 @@ def formatPayloadAndLogAccountTransaction(event):
         insertRowsIntoUserBehaviourTable(formattedPayloadList)
         return formattedPayloadList
     except Exception as e:
-        print('error decoding message on {}' .format(e))
+        raise Exception("Error formatting payload and logging account transaction. Error: {}".format(e))
 
 def extractUserIdFromFormattedPayloadList(formattedPayloadList):
     return formattedPayloadList[0].user_id
@@ -315,7 +318,7 @@ def updateUserBehaviourAndTriggerFraudDetector(event, context):
         print("acknowledging message to pub/sub")
         return 'OK', 200
     except Exception as e:
-        print('error decoding message on {}' .format(e))
+        print("Error updating user behaviour and trigger fraud detector. Error: {}".format(e))
 
 # TODO: replace FRAUD_DETECTOR_ENDPOINT with actual endpoint
 # TODO: abstract out the `fetch user behaviour` to an endpoint
