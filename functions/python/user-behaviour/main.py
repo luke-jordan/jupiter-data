@@ -155,12 +155,29 @@ def retrieve_count_of_user_transactions_larger_than_benchmark(userId, rawBenchma
     return countOfDepositsGreaterThanBenchMarkDeposit
     
 
-def retrieveUserBehaviourBasedOnRules(userId, accountId):
-    userAccountInfo = {
+def extractAccountInfoFromRetrieveUserBehaviourRequest(request):
+    request_json = request.get_json()
+    userId = ""
+    accountId = ""
+
+    if request_json and 'userId' in request_json:
+        userId = request_json['userId']
+    if request_json and 'accountId' in request_json:
+        accountId = request_json['accountId']
+
+    if userId == "" or accountId == "":
+        raise Exception("Invalid request to fetch user behaviour based on rules. 'userId' and 'accountId' must be supplied")
+
+    return {
         "userId": userId,
         "accountId": accountId
     }
+
+def retrieveUserBehaviourBasedOnRules(request):
     try:
+        userAccountInfo = extractAccountInfoFromRetrieveUserBehaviourRequest(request)
+        userId = userAccountInfo["userId"]
+
         # Single deposit larger than R100 000
         countOfDepositsGreaterThanHundredThousand = retrieve_count_of_user_transactions_larger_than_benchmark(userId, FIRST_BENCHMARK_DEPOSIT, DEPOSIT_TRANSACTION_TYPE)
 
@@ -234,9 +251,11 @@ def determineTransactionTypeFromEventType(eventType):
     return ""
 
 def formatPayloadForUserBehaviourTable(payloadList):
+    userId = ""
+    accountId = ""
     print("formatting payload for user behaviour table {}".format(payloadList))
     formattedPayloadList = []
-    for eventMessage in payloadList:
+    for eventMessage in payloadList: # only one eventMessage is expected
         if missingParameterInPayload(eventMessage):
             print("a required parameter is missing")
             break
@@ -251,9 +270,12 @@ def formatPayloadForUserBehaviourTable(payloadList):
             )
             break
 
+        userId = eventMessage["user_id"]
+        accountId = context["accountId"]
+
         singleFormattedPayload = {
-            "user_id": eventMessage["user_id"],
-            "account_id": context["accountId"],
+            "user_id": userId,
+            "account_id": accountId,
             "transaction_type": transactionType,
             "amount": amountUnitAndCurrency["amount"],
             "unit": amountUnitAndCurrency["unit"],
@@ -263,8 +285,14 @@ def formatPayloadForUserBehaviourTable(payloadList):
 
         formattedPayloadList.append(singleFormattedPayload)
     
-    print("constructed formatted payload list: {payload}".format(payload=formattedPayloadList))
-    return formattedPayloadList
+    print(
+        "constructed formatted payload list: {payload} for user Id: {userId} and account id: {accountId}".format(payload=formattedPayloadList, userId=userId, accountId=accountId)
+    )
+    return {
+        "userId": userId,
+        "accountId": accountId,
+        "formattedPayloadList": formattedPayloadList
+    }
 
 
 def insertRowsIntoUserBehaviourTable(formattedPayloadList):
@@ -281,11 +309,18 @@ def insertRowsIntoUserBehaviourTable(formattedPayloadList):
     else:
         raise Exception("Invalid formatted payload list provided to insert rows into behaviour table function. Formatted Payload list: {}".format(formattedPayloadList))
 
-def triggerFraudDetector(userId):
-    payloadToFraudDetector = {
-        "userId": userId
+
+def constructPayloadForFraudDetector(payload):
+    return {
+        "userId": payload["userId"],
+        "accountId": payload["accountId"]
     }
-    response = requests.post(url = FRAUD_DETECTOR_ENDPOINT, data = payloadToFraudDetector)
+
+def triggerFraudDetector(payload):
+    print(
+        "trigger fraud detector with payload: {}".format(payload)
+    )
+    response = requests.post(url = FRAUD_DETECTOR_ENDPOINT, data = payload)
 
     print("Response from fraud detector {}".format(response.text))
 
@@ -295,26 +330,22 @@ def decodePubSubMessage(event):
     print("Successfully decoded message from pubsub. Message: {msg}".format(msg=msg))
     return msg
 
-
 def formatPayloadAndLogAccountTransaction(event):
     print("Message received from pubsub")
 
     try:
         messageFromPubSub = decodePubSubMessage(event)
-        formattedPayloadList = formatPayloadForUserBehaviourTable(messageFromPubSub)
-        insertRowsIntoUserBehaviourTable(formattedPayloadList)
-        return formattedPayloadList
+        responseFromPayloadFormatter = formatPayloadForUserBehaviourTable(messageFromPubSub)
+        insertRowsIntoUserBehaviourTable(responseFromPayloadFormatter["formattedPayloadList"])
+        return responseFromPayloadFormatter
     except Exception as e:
         raise Exception("Error formatting payload and logging account transaction. Error: {}".format(e))
 
-def extractUserIdFromFormattedPayloadList(formattedPayloadList):
-    return formattedPayloadList[0].user_id
-
 def updateUserBehaviourAndTriggerFraudDetector(event, context):
     try:
-        formattedPayloadList = formatPayloadAndLogAccountTransaction(event)
-        userId = extractUserIdFromFormattedPayloadList(formattedPayloadList)
-        triggerFraudDetector(userId)
+        responseFromPayloadFormatter = formatPayloadAndLogAccountTransaction(event)
+        payloadForFraudDetector = constructPayloadForFraudDetector(responseFromPayloadFormatter)
+        triggerFraudDetector(payloadForFraudDetector)
         print("acknowledging message to pub/sub")
         return 'OK', 200
     except Exception as e:
