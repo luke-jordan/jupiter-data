@@ -30,7 +30,7 @@ const {
 
 const { EMAIL_TYPE } = notificationTypes;
 const {
-    POST,
+    POST
 } = httpMethods;
 const {
     NOTIFICATION,
