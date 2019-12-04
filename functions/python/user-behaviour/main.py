@@ -157,14 +157,8 @@ def fetch_count_of_user_transactions_larger_than_benchmark(userId, rawBenchmark,
 
 def extractAccountInfoFromRetrieveUserBehaviourRequest(request):
     print("extracting account info from 'retrieve user behaviour request'")
-    request_json = request.get_json()
-    userId = ""
-    accountId = ""
-
-    if request_json and 'userId' in request_json:
-        userId = request_json['userId']
-    if request_json and 'accountId' in request_json:
-        accountId = request_json['accountId']
+    userId = request.args.get('userId', default = "", type = str)
+    accountId = request.args.get('accountId', default = "", type = str)
 
     if userId == "" or accountId == "":
         raise Exception("Invalid request to fetch user behaviour based on rules. 'userId' and 'accountId' must be supplied")

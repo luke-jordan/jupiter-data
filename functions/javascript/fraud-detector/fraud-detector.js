@@ -30,7 +30,8 @@ const {
 
 const { EMAIL_TYPE } = notificationTypes;
 const {
-    POST
+    POST,
+    GET
 } = httpMethods;
 const {
     NOTIFICATION,
@@ -169,16 +170,13 @@ const createEngineAndRunFactsAgainstRules = (facts, rules) => {
 };
 
 const fetchFactsFromUserBehaviourService = async (userId, accountId) => {
-    logger(`fetching facts from user behaviour service for user id: ${userId}`);
-    const payload = {
-        userId,
-        accountId
-    };
+    logger(
+        `Fetching facts from user behaviour service for user id: ${userId} and account id: ${accountId}`
+    );
     try {
         const extraConfig = {
-            url: `${FETCH_USER_BEHAVIOUR_URL}`,
-            method: POST,
-            body: payload
+            url: `${FETCH_USER_BEHAVIOUR_URL}?userId=${userId}&accountId=${accountId}`,
+            method: GET
         };
         const response = await sendHttpRequest(extraConfig, FETCH_USER_BEHAVIOUR);
         logger(`Successfully fetched facts from user behaviour. Facts: ${JSON.stringify(response.body)}`);
@@ -199,8 +197,8 @@ const sendSuccessResponse = (req, res) => {
 };
 
 const handleNotSupportedHttpMethod = (res) => {
-    res.status(httpStatus.METHOD_NOT_ALLOWED).end(`only ${POST} http method accepted`);
-    
+    logger(`Request is invalid. Only ${POST} http method accepted`);
+    res.status(httpStatus.METHOD_NOT_ALLOWED).end(`Only ${POST} http method accepted`);
 };
 
 const missingParameterInReceivedPayload = (parameters) => !parameters.userId || !parameters.accountId;
@@ -289,6 +287,3 @@ module.exports = {
     fetchFactsAboutUserAndRunEngine,
     sendNotificationForVerboseMode
 };
-
-// TODO: replace serviceUrls in config
-// TODO: deploy service => add to circle ci and terraform

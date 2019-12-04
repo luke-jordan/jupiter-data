@@ -58,7 +58,8 @@ const {
 
 const { EMAIL_TYPE } = notificationTypes;
 const {
-    POST
+    POST,
+    GET
 } = httpMethods;
 const CONTACTS_TO_BE_NOTIFIED = config.get('contactsToBeNotified');
 const serviceUrls = config.get('serviceUrls');
@@ -199,10 +200,14 @@ describe('Fraud Detector', () => {
             body: payload
         };
 
+        const {
+            userId,
+            accountId
+        } = samplePayloadFromFetchFactsTrigger;
+
         const extraConfigForFetchUserBehaviour = {
-            url: `${FETCH_USER_BEHAVIOUR_URL}`,
-            method: POST,
-            body: { ...samplePayloadFromFetchFactsTrigger }
+            url: `${FETCH_USER_BEHAVIOUR_URL}?userId=${userId}&accountId=${accountId}`,
+            method: GET
         };
 
         const req = {
@@ -249,7 +254,7 @@ describe('Fraud Detector', () => {
         expect(result).to.be.undefined;
         expect(endResponseStub).to.have.been.calledTwice;
         expect(res.status().end.firstCall.args[0]).to.equal(`Received request to 'check for fraudulent user'`);
-        expect(res.status().end.secondCall.args[0]).to.equal(`only ${POST} http method accepted`);
+        expect(res.status().end.secondCall.args[0]).to.equal(`Only ${POST} http method accepted`);
     });
 
     it(`should 'fetch facts about user and run engine' checks for missing 'userId' parameter in payload`, async () => {
