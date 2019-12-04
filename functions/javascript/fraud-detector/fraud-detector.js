@@ -180,9 +180,9 @@ const fetchFactsFromUserBehaviourService = async (userId, accountId) => {
             method: POST,
             body: payload
         };
-        const facts = await sendHttpRequest(extraConfig, FETCH_USER_BEHAVIOUR);
-        logger(`Successfully fetched facts from user behaviour. Facts: ${JSON.stringify(facts)}`);
-        return facts;
+        const response = await sendHttpRequest(extraConfig, FETCH_USER_BEHAVIOUR);
+        logger(`Successfully fetched facts from user behaviour. Facts: ${JSON.stringify(response.body)}`);
+        return response.body;
     } catch (error) {
         logger(`Error occurred while fetching facts from user behaviour service for user id: ${userId}. Error: ${JSON.stringify(error)}`);
     }
