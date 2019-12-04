@@ -253,22 +253,28 @@ const sendNotificationForVerboseMode = () => {
 
 const fetchFactsAboutUserAndRunEngine = async (req, res) => {
     sendSuccessResponse(req, res);
+    try {
+        if (VERBOSE_MODE) {
+            sendNotificationForVerboseMode();
+        }
 
-    if (VERBOSE_MODE) {
-        sendNotificationForVerboseMode();
+        const payload = validateRequestAndExtractParams(req, res);
+        if (!payload) {
+            return;
+        }
+
+        const factsAboutUser = await fetchFactsFromUserBehaviourService(payload.userId, payload.accountId);
+        if (!factsAboutUser) {
+            return;
+        }
+
+        await createEngineAndRunFactsAgainstRules(factsAboutUser, CUSTOM_RULES);
+    } catch (error) {
+        logger(
+            `Error occurred while fetching facts about user and running engine with facts/rules.
+            Error: ${JSON.stringify(error)}`
+        );
     }
-
-    const payload = validateRequestAndExtractParams(req, res);
-    if (!payload) {
-        return;
-    }
-
-    const factsAboutUser = await fetchFactsFromUserBehaviourService(payload.userId, payload.accountId);
-    if (!factsAboutUser) {
-        return;
-    }
-
-    await createEngineAndRunFactsAgainstRules(factsAboutUser, CUSTOM_RULES);
 };
 
 module.exports = {
