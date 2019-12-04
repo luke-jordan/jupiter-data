@@ -31,7 +31,6 @@ const {
 const { EMAIL_TYPE } = notificationTypes;
 const {
     POST,
-    GET
 } = httpMethods;
 const {
     NOTIFICATION,
@@ -169,12 +168,17 @@ const createEngineAndRunFactsAgainstRules = (facts, rules) => {
         });
 };
 
-const fetchFactsFromUserBehaviourService = async (userId) => {
+const fetchFactsFromUserBehaviourService = async (userId, accountId) => {
     logger(`fetching facts from user behaviour service for user id: ${userId}`);
+    const payload = {
+        userId,
+        accountId
+    };
     try {
         const extraConfig = {
-            url: `${FETCH_USER_BEHAVIOUR_URL}/${userId}`,
-            method: GET
+            url: `${FETCH_USER_BEHAVIOUR_URL}`,
+            method: POST,
+            body: payload
         };
         const facts = await sendHttpRequest(extraConfig, FETCH_USER_BEHAVIOUR);
         logger(`Successfully fetched facts from user behaviour. Facts: ${JSON.stringify(facts)}`);
@@ -199,12 +203,13 @@ const handleNotSupportedHttpMethod = (res) => {
     
 };
 
-const missingParameterInReceivedPayload = (parameters) => !parameters.userId;
+const missingParameterInReceivedPayload = (parameters) => !parameters.userId || !parameters.accountId;
 
 const handleMissingParameterInReceivedPayload = (payload, res) => {
-    res.status(httpStatus.BAD_REQUEST).end(`invalid payload => 'userId' is required`);
+    res.status(httpStatus.BAD_REQUEST).end(`invalid payload => 'userId' and 'accountId' are required`);
     logger(
-        `Request to 'check for fraudulent user' failed because of invalid parameters in received payload. Received payload: ${JSON.stringify(payload)}`
+        `Request to 'check for fraudulent user' failed because of invalid parameters in received payload. 
+        Received payload: ${JSON.stringify(payload)}`
     );
     return null;
 };
@@ -231,7 +236,7 @@ const sendNotificationForVerboseMode = () => {
         subject: 'Fraud Detector just ran',
         message: 'Just so you know, fraud detector ran',
         contacts: CONTACTS_TO_BE_NOTIFIED,
-        notificationType: EMAIL_TYPE,
+        notificationType: EMAIL_TYPE
     };
     try {
         const extraConfig = {
@@ -258,7 +263,7 @@ const fetchFactsAboutUserAndRunEngine = async (req, res) => {
         return;
     }
 
-    const factsAboutUser = await fetchFactsFromUserBehaviourService(payload.userId);
+    const factsAboutUser = await fetchFactsFromUserBehaviourService(payload.userId, payload.accountId);
     if (!factsAboutUser) {
         return;
     }

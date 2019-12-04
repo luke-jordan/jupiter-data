@@ -352,6 +352,6 @@ def updateUserBehaviourAndTriggerFraudDetector(event, context):
     except Exception as e:
         print("Error updating user behaviour and trigger fraud detector. Error: {}".format(e))
 
-# TODO: 5) deploy service => add to circle ci and terraform
-# TODO: replace FRAUD_DETECTOR_ENDPOINT with actual endpoint
-# TODO: separate the `fetch user behaviour` to a separate folder as it's own function
+# TODO: `fetch user behaviour` should accept only GET requests
+# TODO: separate the `fetch user behaviour` and `update user behaviour` functions to a separate folder as it's own function
+# TODO: only authorized users can `fetch user behaviour`

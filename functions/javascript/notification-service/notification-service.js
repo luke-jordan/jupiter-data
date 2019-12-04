@@ -116,3 +116,5 @@ module.exports = {
     missingParameterInReceivedPayload,
     handleSendNotificationRequest
 };
+
+// TODO: only authorized users can send notifications via `notification-service`

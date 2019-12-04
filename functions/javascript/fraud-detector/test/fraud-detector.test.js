@@ -64,7 +64,8 @@ const CONTACTS_TO_BE_NOTIFIED = config.get('contactsToBeNotified');
 const serviceUrls = config.get('serviceUrls');
 const EMAIL_SUBJECT_FOR_ADMINS = config.get('emailSubjectForAdmins');
 const {
-    NOTIFICATION_SERVICE_URL
+    NOTIFICATION_SERVICE_URL,
+    FETCH_USER_BEHAVIOUR_URL
 } = serviceUrls;
 
 const sampleUserAccountInfo = {
@@ -102,7 +103,8 @@ const sampleRow = [
     /* eslint-enable */
 ];
 const samplePayloadFromFetchFactsTrigger = {
-  userId: 'bkc-3a'  
+  userId: 'bkc-3a',
+  accountId: 'fdla'
 };
 
 describe('Utils for Fraud Detector', () => {
@@ -188,12 +190,19 @@ describe('Fraud Detector', () => {
         const payload = {
             message: 'Just so you know, fraud detector ran',
             contacts: CONTACTS_TO_BE_NOTIFIED,
-            notificationType: EMAIL_TYPE
+            notificationType: EMAIL_TYPE,
+            subject: 'Fraud Detector just ran'
         };
         const extraConfigForVerbose = {
             url: `${NOTIFICATION_SERVICE_URL}`,
             method: POST,
             body: payload
+        };
+
+        const extraConfigForFetchUserBehaviour = {
+            url: `${FETCH_USER_BEHAVIOUR_URL}`,
+            method: POST,
+            body: { ...samplePayloadFromFetchFactsTrigger }
         };
 
         const req = {
@@ -213,10 +222,15 @@ describe('Fraud Detector', () => {
         expect(result).to.be.undefined;
         expect(endResponseStub).to.have.been.calledOnce;
         expect(requestRetryStub).to.have.been.calledTwice;
-        expect(requestRetryStub).to.have.been.calledWith({
+        expect(requestRetryStub.firstCall.args[0]).to.deep.equal({
             ...baseConfigForRequestRetry,
             ...extraConfigForVerbose
         });
+        expect(requestRetryStub.secondCall.args[0]).to.deep.equal({
+            ...baseConfigForRequestRetry,
+            ...extraConfigForFetchUserBehaviour
+        });
+
     });
 
     it(`should 'fetch facts about user and run engine' only accepts http method: ${POST}`, async () => {
@@ -238,10 +252,10 @@ describe('Fraud Detector', () => {
         expect(res.status().end.secondCall.args[0]).to.equal(`only ${POST} http method accepted`);
     });
 
-    it(`should 'fetch facts about user and run engine' checks for missing parameters in payload`, async () => {
+    it(`should 'fetch facts about user and run engine' checks for missing 'userId' parameter in payload`, async () => {
         const req = {
             method: POST,
-            body: { userId: null }
+            body: { userId: null, accountId: 'hdfl' }
         };
         const endResponseStub = sinon.stub();
         const res = {
@@ -254,7 +268,26 @@ describe('Fraud Detector', () => {
         expect(result).to.be.undefined;
         expect(endResponseStub).to.have.been.calledTwice;
         expect(res.status().end.firstCall.args[0]).to.equal(`Received request to 'check for fraudulent user'`);
-        expect(res.status().end.secondCall.args[0]).to.equal('invalid payload => \'userId\' is required');
+        expect(res.status().end.secondCall.args[0]).to.equal('invalid payload => \'userId\' and \'accountId\' are required');
+    });
+
+    it(`should 'fetch facts about user and run engine' checks for missing 'accountId' parameter in payload`, async () => {
+        const req = {
+            method: POST,
+            body: { userId: 'kfld', accountId: null }
+        };
+        const endResponseStub = sinon.stub();
+        const res = {
+            status: () => ({
+                end: endResponseStub
+            })
+        };
+
+        const result = await fetchFactsAboutUserAndRunEngine(req, res);
+        expect(result).to.be.undefined;
+        expect(endResponseStub).to.have.been.calledTwice;
+        expect(res.status().end.firstCall.args[0]).to.equal(`Received request to 'check for fraudulent user'`);
+        expect(res.status().end.secondCall.args[0]).to.equal('invalid payload => \'userId\' and \'accountId\' are required');
     });
 
     it(`should send failure response when the 'body' of the request does not exist`, async () => {
@@ -301,7 +334,8 @@ describe('Fraud Detector', () => {
         const payload = {
             message: 'Just so you know, fraud detector ran',
             contacts: CONTACTS_TO_BE_NOTIFIED,
-            notificationType: EMAIL_TYPE
+            notificationType: EMAIL_TYPE,
+            subject: 'Fraud Detector just ran'
         };
         const extraConfig = {
             url: `${NOTIFICATION_SERVICE_URL}`,
