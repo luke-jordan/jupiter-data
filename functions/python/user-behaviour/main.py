@@ -29,6 +29,12 @@ FACTOR_TO_CONVERT_WHOLE_CURRENCY_TO_HUNDREDTH_CENT = constant.FACTOR_TO_CONVERT_
 FACTOR_TO_CONVERT_WHOLE_CENT_TO_HUNDREDTH_CENT = constant.FACTOR_TO_CONVERT_WHOLE_CENT_TO_HUNDREDTH_CENT
 FACTOR_TO_CONVERT_HUNDREDTH_CENT_TO_WHOLE_CURRENCY = constant.FACTOR_TO_CONVERT_HUNDREDTH_CENT_TO_WHOLE_CURRENCY
 SUPPORTED_EVENT_TYPES = constant.SUPPORTED_EVENT_TYPES
+MULTIPLIER_OF_SIX_MONTHS_AVERAGE_DEPOSIT = constant.MULTIPLIER_OF_SIX_MONTHS_AVERAGE_DEPOSIT
+HOURS_IN_A_DAY = constant.HOURS_IN_A_DAY
+MINUTES_IN_A_DAY = constant.MINUTES_IN_A_DAY
+HOURS_IN_TWO_DAYS = constant.HOURS_IN_TWO_DAYS
+DAYS_IN_A_MONTH = constant.DAYS_IN_A_MONTH
+DAYS_IN_A_WEEK = constant.DAYS_IN_A_WEEK
 
 
 FULL_TABLE_URL="{project_id}.{dataset_id}.{table_id}".format(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
@@ -49,9 +55,13 @@ def convertAmountFromHundredthCentToWholeCurrency(amount):
 
 def calculate_date_n_months_ago(num):
     print("calculating date: {n} months before today".format(n=num))
-    return (datetime.date.today() - datetime.timedelta(num * constant.TOTAL_DAYS_IN_A_YEAR / constant.MONTHS_IN_A_YEAR))
+    return datetime.date.today() - datetime.timedelta(num * constant.TOTAL_DAYS_IN_A_YEAR / constant.MONTHS_IN_A_YEAR)
 
-def extract_needed_data_from_big_query_response(rows, key):
+def calculate_date_n_days_ago(num):
+    print("calculating date: {n} days before today".format(n=num))
+    return (datetime.date.today() - datetime.timedelta(days=num)).isoformat()
+
+def convert_list_of_maps_to_list_of_values_for_big_query_response(rows, key):
     data = []
     for row in rows:
         print("big query response, actual value ======> {}".format(row[key]))
@@ -69,7 +79,7 @@ def fetch_data_from_user_behaviour_table(QUERY):
 
 def fetch_user_latest_transaction(userId, transactionType):
     print(
-        "retrieving the latest transaction type: {transaction_type} for user_id: {user_id}"
+        "fetching the latest transaction type: {transaction_type} for user_id: {user_id}"
         .format(transaction_type=transactionType, user_id=userId)
     )
     QUERY = (
@@ -82,7 +92,7 @@ def fetch_user_latest_transaction(userId, transactionType):
     )
 
     bigQueryResponse = fetch_data_from_user_behaviour_table(QUERY)
-    latestDepositInHundredthCentList = extract_needed_data_from_big_query_response(bigQueryResponse, 'latestDeposit')
+    latestDepositInHundredthCentList = convert_list_of_maps_to_list_of_values_for_big_query_response(bigQueryResponse, 'latestDeposit')
     latestDepositInWholeCurrency = convertAmountFromHundredthCentToWholeCurrency(latestDepositInHundredthCentList[0])
     return latestDepositInWholeCurrency
 
@@ -93,7 +103,7 @@ def fetch_user_average_transaction_within_months_period(userId, config):
     leastDateToConsider = calculate_date_n_months_ago(periodInMonths)
 
     print(
-        "retrieving the average transaction type: {transaction_type} for user_id: {user_id} within {period} months period"
+        "fetching the average transaction type: {transaction_type} for user_id: {user_id} within {period} months period"
         .format(transaction_type=transactionType, user_id=userId, period=periodInMonths)
     )
 
@@ -106,7 +116,7 @@ def fetch_user_average_transaction_within_months_period(userId, config):
     )
 
     bigQueryResponse = fetch_data_from_user_behaviour_table(QUERY)
-    averageDepositInHundredthCentList = extract_needed_data_from_big_query_response(bigQueryResponse, 'averageDepositDuringPastPeriodInMonths')
+    averageDepositInHundredthCentList = convert_list_of_maps_to_list_of_values_for_big_query_response(bigQueryResponse, 'averageDepositDuringPastPeriodInMonths')
     averageDepositInWholeCurrency = convertAmountFromHundredthCentToWholeCurrency(averageDepositInHundredthCentList[0])
     return averageDepositInWholeCurrency
 
@@ -119,7 +129,7 @@ def fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(
     leastDateToConsider = calculate_date_n_months_ago(periodInMonths)
 
     print(
-        "retrieving the count of transaction type: {transaction_type} for user_id: {user_id} larger than benchmark: {benchmark} within {period} months period"
+        "fetching the count of transaction type: {transaction_type} for user_id: {user_id} larger than benchmark: {benchmark} within {period} months period"
         .format(transaction_type=transactionType, user_id=userId, benchmark=benchmark, period={periodInMonths})
     )
 
@@ -132,14 +142,14 @@ def fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(
     )
 
     bigQueryResponse = fetch_data_from_user_behaviour_table(QUERY)
-    countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriodList = extract_needed_data_from_big_query_response(bigQueryResponse, 'countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriod')
+    countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriodList = convert_list_of_maps_to_list_of_values_for_big_query_response(bigQueryResponse, 'countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriod')
     return countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriodList[0]
 
 
 def fetch_count_of_user_transactions_larger_than_benchmark(userId, rawBenchmark, transactionType):
     benchmark = convertAmountFromGivenUnitToHundredthCent(rawBenchmark, 'WHOLE_CURRENCY')
     print(
-        "retrieving the count of transaction type: {transaction_type} for user_id: {user_id} larger than benchmark: {benchmark}"
+        "fetching the count of transaction type: {transaction_type} for user_id: {user_id} larger than benchmark: {benchmark}"
         .format(transaction_type=transactionType, user_id=userId, benchmark=benchmark)
     )
     QUERY = (
@@ -150,10 +160,108 @@ def fetch_count_of_user_transactions_larger_than_benchmark(userId, rawBenchmark,
     )
 
     bigQueryResponse = fetch_data_from_user_behaviour_table(QUERY)
-    countOfDepositsList = extract_needed_data_from_big_query_response(bigQueryResponse, 'countOfDepositsGreaterThanBenchMarkDeposit')
+    countOfDepositsList = convert_list_of_maps_to_list_of_values_for_big_query_response(bigQueryResponse, 'countOfDepositsGreaterThanBenchMarkDeposit')
     countOfDepositsGreaterThanBenchMarkDeposit = countOfDepositsList[0]
     return countOfDepositsGreaterThanBenchMarkDeposit
+
+
+def fetch_withdrawals_during_days_cycle(userId, numOfDays):
+    leastDateToConsider = calculate_date_n_days_ago(numOfDays)
+    print(
+        "fetching the withdrawals during {numOfDays} days of user id {userId}. Least date to consider: {leastDate}"
+        .format(userId=userId, numOfDays=numOfDays, leastDate=leastDateToConsider)
+    )
+    QUERY = (
+        'select `amount`, `time_transaction_occurred` '
+        'from `{full_table_url}` '
+        'where transaction_type = "{transactionType}" '
+        'and user_id = "{user_id}" '
+        'and time_transaction_occurred >= "{given_date}" '
+        .format(transaction_type=WITHDRAWAL_TRANSACTION_TYPE, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=leastDateToConsider)
+    )
+
+    withdrawalsDuringDaysList = fetch_data_from_user_behaviour_table(QUERY)
+    return withdrawalsDuringDaysList
+
+def fetch_deposits_during_days_cycle(userId, numOfDays):
+    leastDateToConsider = calculate_date_n_days_ago(numOfDays)
+
+    print(
+        "fetching the deposits during {numOfDays} days of user id {userId}. Least date to consider: {leastDate}"
+        .format(userId=userId, numOfDays=numOfDays, leastDate=leastDateToConsider)
+    )
+    QUERY = (
+        'select `amount`, `time_transaction_occurred` '
+        'from `{full_table_url}` '
+        'where transaction_type = "{transactionType}" '
+        'and user_id = "{user_id}" '
+        'and time_transaction_occurred >= "{given_date}" '
+        .format(transaction_type=DEPOSIT_TRANSACTION_TYPE, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=leastDateToConsider)
+    )
+
+    depositsDuringDaysList = fetch_data_from_user_behaviour_table(QUERY)
+    return depositsDuringDaysList
     
+
+def convert_integer_to_string(num):
+    return num + ""
+
+# input: [{ amount: 1, time_transaction_occurred: "2019-01-17 14:23:08 UTC" }, { amount: 2, time_transaction_occurred: "2019-01-17 14:23:08 UTC" }]
+# output: { 1: ["2019-01-17 14:23:08 UTC"], 2: ["2019-01-17 14:23:08 UTC"] }
+def create_map_of_amount_to_list_of_time_transaction_occurred(transactions):
+    mapOfAmountsToListOfTimeTransactionOccurred = {}
+    for mapOfTransactionAmountAndTimeTransactionOccurred in transactions:
+        amountAsString = convert_integer_to_string(mapOfTransactionAmountAndTimeTransactionOccurred["amount"])
+        timeOfTransaction = mapOfTransactionAmountAndTimeTransactionOccurred["time_transaction_occurred"]
+        if amountAsString in mapOfAmountsToListOfTimeTransactionOccurred:
+            mapOfAmountsToListOfTimeTransactionOccurred[amountAsString].append(timeOfTransaction)
+        else:
+            mapOfAmountsToListOfTimeTransactionOccurred[amountAsString] = [timeOfTransaction]
+
+    return mapOfAmountsToListOfTimeTransactionOccurred
+
+def convert_string_to_datetime(date_time_str):
+    return datetime.datetime.strptime(date_time_str, '%Y-%m-%d %H:%M:%S')
+
+def calculate_time_difference_in_hours_between_timestamps(withdrawalTimestampString, depositTimestampString):
+    withdrawalTimestampAsDateTime = convert_string_to_datetime(withdrawalTimestampString.replace(" UTC", ""))
+    depositTimestampAsDateTime = convert_string_to_datetime(depositTimestampString.replace(" UTC", ""))
+
+    timeDifference = withdrawalTimestampAsDateTime - depositTimestampAsDateTime
+
+    timeDifferenceInDays, timeDifferenceInSeconds = timeDifference.days, timeDifference.seconds
+    timeDifferenceInHours = timeDifferenceInDays * HOURS_IN_A_DAY + timeDifferenceInSeconds // MINUTES_IN_A_DAY
+
+    print(
+        "Time difference in hours between withdrawal at: {withdrawalTimestampString} and deposit at {depositTimestampString} is {timeDifferenceInHours} hours"
+        .format(withdrawalTimestampString=withdrawalTimestampString, depositTimestampString=depositTimestampString, timeDifferenceInHours=timeDifferenceInHours)
+    )
+    return timeDifferenceInHours
+
+def calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(userId, numOfHours, numOfDays):
+    print(
+        "Calculate count of withdrawals within {numOfHours} hours of depositing during a {numOfDays} days cycle for user id: {userId}"
+        .format(numOfHours=numOfHours, numOfDays=numOfDays, userId=userId)
+    )
+    withdrawalsDuringDaysList = fetch_withdrawals_during_days_cycle(userId, numOfDays)
+    depositsDuringDaysList = fetch_deposits_during_days_cycle(userId, numOfDays)
+    mapOfDepositedAmountsToListOfTimeTransactionOccurred = create_map_of_amount_to_list_of_time_transaction_occurred(depositsDuringDaysList)
+
+    counter = 0
+    for mapOfWithdrawalAmountAndTimeTransactionOccurred in withdrawalsDuringDaysList:
+        # if withdrawals of the same amount as deposits exists, proceed to check time difference
+        if convert_integer_to_string(mapOfWithdrawalAmountAndTimeTransactionOccurred["amount"]) in mapOfDepositedAmountsToListOfTimeTransactionOccurred:
+            timeOfWithdrawal = mapOfWithdrawalAmountAndTimeTransactionOccurred["time_transaction_occurred"]
+            for timeOfDeposit in mapOfDepositedAmountsToListOfTimeTransactionOccurred["amount"]:
+                # check if time difference less than or equal to numOfHours
+                if calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(timeOfWithdrawal, timeOfDeposit) <= numOfHours:
+                    counter += 1
+
+
+    return counter
+
+
+
 
 def extractAccountInfoFromRetrieveUserBehaviourRequest(request):
     print("extracting account info from 'retrieve user behaviour request'")
@@ -186,17 +294,22 @@ def fetchUserBehaviourBasedOnRules(request):
 
         # If latest inward deposit > 10x past 6 month average deposit
         latestDeposit = fetch_user_latest_transaction(userId, DEPOSIT_TRANSACTION_TYPE)
-
         sixMonthAverageDeposit = fetch_user_average_transaction_within_months_period(userId, configForFetch)
+        sixMonthAverageDepositMultipliedByN = sixMonthAverageDeposit * MULTIPLIER_OF_SIX_MONTHS_AVERAGE_DEPOSIT
+
+        countOfWithdrawalsWithin48HoursOfDepositDuringA30DayCycle = calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(userId, HOURS_IN_TWO_DAYS, DAYS_IN_A_MONTH)
+        countOfWithdrawalsWithin24HoursOfDepositDuringA7DayCycle = calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(userId, HOURS_IN_A_DAY, DAYS_IN_A_WEEK)
 
         response = {
             "userAccountInfo": userAccountInfo,
             "countOfDepositsGreaterThanHundredThousand": countOfDepositsGreaterThanHundredThousand,
             "countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod": countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod,
             "latestDeposit": latestDeposit,
-            "sixMonthAverageDeposit": sixMonthAverageDeposit
+            "sixMonthAverageDepositMultipliedByN": sixMonthAverageDepositMultipliedByN,
+            "countOfWithdrawalsWithin48HoursOfDepositDuringA30DayCycle": countOfWithdrawalsWithin48HoursOfDepositDuringA30DayCycle,
+            "countOfWithdrawalsWithin24HoursOfDepositDuringA7DayCycle": countOfWithdrawalsWithin24HoursOfDepositDuringA7DayCycle
         }
-        print("done retrieving user behaviour shaped by rules. Response: {}".format(response))
+        print("Done fetching user behaviour shaped by rules. Response: {}".format(response))
         return json.dumps(response), 200
     except Exception as e:
         print('Error fetching user behaviour based on rules. Error: {}' .format(e))
