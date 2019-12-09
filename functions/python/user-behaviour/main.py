@@ -168,7 +168,7 @@ def fetch_count_of_user_transactions_larger_than_benchmark(userId, rawBenchmark,
 def fetch_withdrawals_during_days_cycle(userId, numOfDays):
     leastDateToConsider = calculate_date_n_days_ago(numOfDays)
     print(
-        "fetching the withdrawals during {numOfDays} days of user id {userId}. Least date to consider: {leastDate}"
+        "fetching the withdrawals during '{numOfDays}' days of user id '{userId}'. Least date to consider: '{leastDate}'"
         .format(userId=userId, numOfDays=numOfDays, leastDate=leastDateToConsider)
     )
     QUERY = (
@@ -177,7 +177,7 @@ def fetch_withdrawals_during_days_cycle(userId, numOfDays):
         'where transaction_type = "{transactionType}" '
         'and user_id = "{user_id}" '
         'and time_transaction_occurred >= "{given_date}" '
-        .format(transaction_type=WITHDRAWAL_TRANSACTION_TYPE, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=leastDateToConsider)
+        .format(transactionType=WITHDRAWAL_TRANSACTION_TYPE, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=leastDateToConsider)
     )
 
     withdrawalsDuringDaysList = fetch_data_from_user_behaviour_table(QUERY)
