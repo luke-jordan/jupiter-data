@@ -54,7 +54,7 @@ module.exports = {
                     reasonForFlaggingUser: `User's latest inward transfer > 10x past 6 month average transfer`
                 }
             }
-        },
+        }
         // {
         //     conditions: {
         //         any: [
