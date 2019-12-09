@@ -82,12 +82,16 @@ const constructPayloadForUserFlagTable = (userAccountInfo, reasonForFlaggingUser
     ];
 };
 
+const allowAllRulesSinceGeneralExperimentalModeIsOn = () => config.has('experimentalRules.run') && Boolean(config.get('experimentalRules.run'));
+
+const allowOnlyNonExperimentalRules = (rule) => !Reflect.has(rule, 'experimental') && !rule.experimental;
+
 const isRuleSafeOrIsExperimentalModeOn = (rule) => {
-    if (config.has('experimentalRules.run') && Boolean(config.get('experimentalRules.run'))) {
+    if (allowAllRulesSinceGeneralExperimentalModeIsOn()) {
         return true;
     }
 
-    return !Reflect.has(rule, 'experimental') && !Boolean(rule.experimental);
+    return allowOnlyNonExperimentalRules(rule);
 };
 
 const constructNewEngineAndAddRules = (rules) => {
@@ -192,7 +196,7 @@ const fetchFactsFromUserBehaviourService = async (userId, accountId) => {
         logger(`Successfully fetched facts from user behaviour. Facts: ${JSON.stringify(response.body)}`);
 
         if (!response || !response.body) {
-            throw 'Could not fetch facts from user behaviour';
+            throw new Error('Could not fetch facts from user behaviour');
         }
 
         return response.body;
@@ -247,8 +251,8 @@ const validateRequestAndExtractParams = (req, res) => {
 const sendNotificationOfResultToAdmins = async (requestStatus) => {
     logger('Notifying admins of result (error, or verbose mode, or...)');
     const baseMessage = 'Just so you know, fraud detector ran';
-    const message = requestStatus.info ?
-        `${baseMessage}. Extra info: ${JSON.stringify(requestStatus.info)}`: baseMessage;
+    const message = requestStatus.info
+        ? `${baseMessage}. Extra info: ${JSON.stringify(requestStatus.info)}` : baseMessage;
     const payload = {
         subject: `[${requestStatus.result}] => Fraud Detector just ran`,
         message,
@@ -264,6 +268,7 @@ const sendNotificationOfResultToAdmins = async (requestStatus) => {
         await sendHttpRequest(extraConfig, NOTIFICATION);
     } catch (error) {
         logger(`Error occurred while notifying admins that fraud detector ran (Verbose Mode). Error: ${JSON.stringify(error)}`);
+        throw error;
     }
 };
 
@@ -284,12 +289,14 @@ const fetchFactsAboutUserAndRunEngine = async (req, res) => {
             await sendNotificationOfResultToAdmins({ result: 'SUCCESS'});
         }
     } catch (error) {
-        logger(
-            `Error occurred while fetching facts about user and running engine with facts/rules.
-            Error: ${JSON.stringify(error)}`
-        );
+        logger(`Error occurred while fetching facts about user and running engine with facts/rules. Error: ${error}`);
 
-        await sendNotificationOfResultToAdmins({ result: 'FAILED', info: error });
+        const info = {
+            errorMessage: error.message,
+            errorStack: error.stack
+        };
+        await sendNotificationOfResultToAdmins({ result: 'FAILED', info }).
+            catch((err) => logger(`Error while sending failure of fraud detector to run properly. Error: ${JSON.stringify(err)}`));
     }
 };
 
@@ -303,5 +310,6 @@ module.exports = {
     constructPayloadForUserFlagTable,
     insertUserFlagIntoTable,
     fetchFactsAboutUserAndRunEngine,
-    sendNotificationForVerboseMode: sendNotificationOfResultToAdmins
+    sendNotificationOfResultToAdmins,
+    isRuleSafeOrIsExperimentalModeOn
 };

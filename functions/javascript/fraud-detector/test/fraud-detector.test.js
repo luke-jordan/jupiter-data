@@ -47,7 +47,8 @@ const {
     constructPayloadForUserFlagTable,
     insertUserFlagIntoTable,
     fetchFactsAboutUserAndRunEngine,
-    sendNotificationForVerboseMode
+    sendNotificationOfResultToAdmins,
+    isRuleSafeOrIsExperimentalModeOn
 } = fraudDetector;
 const {
     accuracyStates,
@@ -55,6 +56,8 @@ const {
     notificationTypes,
     baseConfigForRequestRetry
 } = require('../constants');
+
+const indexNotExist = -1;
 
 const { EMAIL_TYPE } = notificationTypes;
 const {
@@ -150,6 +153,13 @@ describe('Fraud Detector', () => {
         expect(requestRetryStub).to.have.been.calledOnce;
     });
 
+    it(`should handle errors gracefully while 'notifying admins of newly flagged user'`, async () => {
+        requestRetryStub.rejects();
+        const result = await notifyAdminsOfNewlyFlaggedUser();
+        expect(result).to.be.undefined;
+        expect(requestRetryStub).to.have.been.calledOnce;
+    });
+
     it('should log fraudulent user and notify admins', async () => {
         bigQueryTableInsertStub.resolves();
         requestRetryStub.resolves();
@@ -168,8 +178,6 @@ describe('Fraud Detector', () => {
     });
 
     it(`should insert user flag into table`, async () => {
-        timestampStub.returns(sampleTimestamp);
-
         bigQueryTableInsertStub.resolves();
         const result = await insertUserFlagIntoTable(sampleRow);
         expect(result).to.be.undefined;
@@ -244,16 +252,16 @@ describe('Fraud Detector', () => {
         requestRetryStub.onFirstCall().resolves({});
         requestRetryStub.onSecondCall().resolves();
 
-        const payload = {
-            message: "Just so you know, fraud detector ran. Extra info: \"Could not fetch facts from user behaviour\"",
+        const messageWithoutErrorStackValue = `Just so you know, fraud detector ran. Extra info: {"errorMessage":"Could not fetch facts from user behaviour","errorStack"`;
+        const payloadWithoutMessage = {
             contacts: CONTACTS_TO_BE_NOTIFIED,
             notificationType: EMAIL_TYPE,
             subject: '[FAILED] => Fraud Detector just ran'
         };
-        const extraConfigForVerbose = {
+        const extraConfigForVerboseWithoutMessage = {
             url: `${NOTIFICATION_SERVICE_URL}`,
             method: POST,
-            body: payload
+            body: payloadWithoutMessage
         };
 
         const {
@@ -287,9 +295,25 @@ describe('Fraud Detector', () => {
             ...baseConfigForRequestRetry,
             ...extraConfigForFetchUserBehaviour
         });
+
+        const messageForSendNotificationResultToAdmins = requestRetryStub.secondCall.args[0].body.message;
+        const indexOfErrorStackInMessage = messageForSendNotificationResultToAdmins.indexOf(`errorStack`);
+
+        if (indexOfErrorStackInMessage === indexNotExist) {
+            throw new Error('errorStack must be in message body of payload');
+        } else {
+            // test message value in body or payload being sent as a notification
+            const indexOfStringBeforeErrorStackValue = indexOfErrorStackInMessage + 'errorStack'.length + 1;
+            expect(messageForSendNotificationResultToAdmins.substring(0, indexOfStringBeforeErrorStackValue)).to.equal(messageWithoutErrorStackValue);
+            expect(messageForSendNotificationResultToAdmins.substring(indexOfStringBeforeErrorStackValue)).to.exist;
+
+            // delete message property from body of the payload as message property might be unpredictable with an error stack embedded in the message
+            Reflect.deleteProperty(requestRetryStub.secondCall.args[0].body, 'message');
+        }
+
         expect(requestRetryStub.secondCall.args[0]).to.deep.equal({
             ...baseConfigForRequestRetry,
-            ...extraConfigForVerbose
+            ...extraConfigForVerboseWithoutMessage
         });
 
     });
@@ -407,11 +431,64 @@ describe('Fraud Detector', () => {
         const requestStatus = {
             result: 'SUCCESS'
         };
-        const result = await sendNotificationForVerboseMode(requestStatus);
+        const result = await sendNotificationOfResultToAdmins(requestStatus);
         expect(result).to.be.undefined;
         expect(requestRetryStub).to.have.been.calledWith({
             ...baseConfigForRequestRetry,
             ...extraConfig
         });
     });
+
+    it(`should handle errors gracefully when 'insert user flag into table' fails`, async () => {
+        bigQueryTableInsertStub.rejects();
+        const result = await insertUserFlagIntoTable(sampleRow);
+        expect(result).to.be.undefined;
+        expect(bigQueryTableInsertStub).to.have.been.calledOnce;
+    });
+
+    it(`should allow only 'non-experimental' rules when 'general experimental mode is off'`, async () => {
+        const ruleWithExperimentalMode = {
+                    experimental: true,
+                    conditions: {
+                        any: [
+                            {
+                                fact: 'countOfDepositsGreaterThanHundredThousand',
+                                operator: 'greaterThan',
+                                value: 0
+                            }
+                        ]
+                    },
+                    event: { // define the event to fire when the conditions evaluate truthy
+                        type: 'flaggedAsFraudulent',
+                        params: {
+                            reasonForFlaggingUser: `User has a deposit greater than 100,000 rands`
+                        }
+                    }
+                };
+
+        const ruleWithoutExperimentalMode = {
+                    conditions: {
+                        any: [
+                            {
+                                fact: 'countOfDepositsGreaterThanHundredThousand',
+                                operator: 'greaterThan',
+                                value: 0
+                            }
+                        ]
+                    },
+                    event: { // define the event to fire when the conditions evaluate truthy
+                        type: 'flaggedAsFraudulent',
+                        params: {
+                            reasonForFlaggingUser: `User has a deposit greater than 100,000 rands`
+                        }
+                    }
+                };
+
+        const result1 = await isRuleSafeOrIsExperimentalModeOn(ruleWithExperimentalMode);
+        expect(result1).to.equal(false);
+
+        const result2 = await isRuleSafeOrIsExperimentalModeOn(ruleWithoutExperimentalMode);
+        expect(result2).to.equal(true);
+    });
+
 });

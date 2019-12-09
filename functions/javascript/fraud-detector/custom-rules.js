@@ -69,7 +69,7 @@ module.exports = {
             event: {
                 type: 'flaggedAsFraudulent',
                 params: {
-                    reasonForFlaggingUser: `User has more than 3 instances within a 30 day cycle, of withdrawal of deposit within 48 hours of depositing`,
+                    reasonForFlaggingUser: `User has more than 3 instances within a 30 day cycle, of withdrawal of deposit within 48 hours of depositing`
                 }
             }
         },
