@@ -174,10 +174,10 @@ def fetch_withdrawals_during_days_cycle(userId, numOfDays):
     QUERY = (
         'select `amount`, `time_transaction_occurred` '
         'from `{full_table_url}` '
-        'where transaction_type = "{transactionType}" '
+        'where transaction_type = "{transaction_type}" '
         'and user_id = "{user_id}" '
         'and time_transaction_occurred >= "{given_date}" '
-        .format(transactionType=WITHDRAWAL_TRANSACTION_TYPE, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=leastDateToConsider)
+        .format(transaction_type=WITHDRAWAL_TRANSACTION_TYPE, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=leastDateToConsider)
     )
 
     withdrawalsDuringDaysList = fetch_data_from_user_behaviour_table(QUERY)
