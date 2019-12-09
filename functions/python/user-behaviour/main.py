@@ -257,10 +257,12 @@ def calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(us
                 if calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(timeOfWithdrawal, timeOfDeposit) <= numOfHours:
                     counter += 1
 
+    print(
+        "Count of withdrawals within {numOfHours} hours of depositing during a {numOfDays} days cycle for user id: {userId}. Counter: {count_of_withdrawals}"
+            .format(numOfHours=numOfHours, numOfDays=numOfDays, userId=userId, count_of_withdrawals=counter)
+    )
 
     return counter
-
-
 
 
 def extractAccountInfoFromRetrieveUserBehaviourRequest(request):
@@ -312,7 +314,9 @@ def fetchUserBehaviourBasedOnRules(request):
         print("Done fetching user behaviour shaped by rules. Response: {}".format(response))
         return json.dumps(response), 200
     except Exception as e:
-        print('Error fetching user behaviour based on rules. Error: {}' .format(e))
+        customErrorMessage = 'Error fetching user behaviour based on rules. Error: {}' .format(e)
+        print(customErrorMessage)
+        return customErrorMessage, 500
 
 def missingParameterInPayload (payload):
     if ("context" not in payload):

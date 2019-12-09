@@ -185,14 +185,16 @@ describe('Fraud Detector', () => {
     });
 
     it(`should 'fetch facts about user and run engine' successfully`, async () => {
-        requestRetryStub.onFirstCall().resolves();
-        requestRetryStub.onSecondCall().resolves(sampleFactsFromUserBehaviour);
+        requestRetryStub.onFirstCall().resolves({
+            body: sampleFactsFromUserBehaviour
+        });
+        requestRetryStub.onSecondCall().resolves();
 
         const payload = {
             message: 'Just so you know, fraud detector ran',
             contacts: CONTACTS_TO_BE_NOTIFIED,
             notificationType: EMAIL_TYPE,
-            subject: 'Fraud Detector just ran'
+            subject: '[SUCCESS] => Fraud Detector just ran'
         };
         const extraConfigForVerbose = {
             url: `${NOTIFICATION_SERVICE_URL}`,
@@ -229,11 +231,65 @@ describe('Fraud Detector', () => {
         expect(requestRetryStub).to.have.been.calledTwice;
         expect(requestRetryStub.firstCall.args[0]).to.deep.equal({
             ...baseConfigForRequestRetry,
-            ...extraConfigForVerbose
+            ...extraConfigForFetchUserBehaviour
         });
         expect(requestRetryStub.secondCall.args[0]).to.deep.equal({
             ...baseConfigForRequestRetry,
+            ...extraConfigForVerbose
+        });
+
+    });
+
+    it(`should notify properly on failure -> 'fetch facts about user and run engine'`, async () => {
+        requestRetryStub.onFirstCall().resolves({});
+        requestRetryStub.onSecondCall().resolves();
+
+        const payload = {
+            message: "Just so you know, fraud detector ran. Extra info: \"Could not fetch facts from user behaviour\"",
+            contacts: CONTACTS_TO_BE_NOTIFIED,
+            notificationType: EMAIL_TYPE,
+            subject: '[FAILED] => Fraud Detector just ran'
+        };
+        const extraConfigForVerbose = {
+            url: `${NOTIFICATION_SERVICE_URL}`,
+            method: POST,
+            body: payload
+        };
+
+        const {
+            userId,
+            accountId
+        } = samplePayloadFromFetchFactsTrigger;
+
+        const extraConfigForFetchUserBehaviour = {
+            url: `${FETCH_USER_BEHAVIOUR_URL}?userId=${userId}&accountId=${accountId}`,
+            method: GET
+        };
+
+        const req = {
+            method: POST,
+            body: { ...samplePayloadFromFetchFactsTrigger }
+        };
+        const endResponseStub = sinon.stub();
+        const jsonResponseStub = sinon.stub();
+        const res = {
+            status: () => ({
+                json: jsonResponseStub,
+                end: endResponseStub
+            })
+        };
+
+        const result = await fetchFactsAboutUserAndRunEngine(req, res);
+        expect(result).to.be.undefined;
+        expect(endResponseStub).to.have.been.calledOnce;
+        expect(requestRetryStub).to.have.been.calledTwice;
+        expect(requestRetryStub.firstCall.args[0]).to.deep.equal({
+            ...baseConfigForRequestRetry,
             ...extraConfigForFetchUserBehaviour
+        });
+        expect(requestRetryStub.secondCall.args[0]).to.deep.equal({
+            ...baseConfigForRequestRetry,
+            ...extraConfigForVerbose
         });
 
     });
@@ -340,7 +396,7 @@ describe('Fraud Detector', () => {
             message: 'Just so you know, fraud detector ran',
             contacts: CONTACTS_TO_BE_NOTIFIED,
             notificationType: EMAIL_TYPE,
-            subject: 'Fraud Detector just ran'
+            subject: '[SUCCESS] => Fraud Detector just ran'
         };
         const extraConfig = {
             url: `${NOTIFICATION_SERVICE_URL}`,
@@ -348,7 +404,10 @@ describe('Fraud Detector', () => {
             body: payload
         };
         requestRetryStub.resolves();
-        const result = await sendNotificationForVerboseMode();
+        const requestStatus = {
+            result: 'SUCCESS'
+        };
+        const result = await sendNotificationForVerboseMode(requestStatus);
         expect(result).to.be.undefined;
         expect(requestRetryStub).to.have.been.calledWith({
             ...baseConfigForRequestRetry,

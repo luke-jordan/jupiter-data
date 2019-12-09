@@ -82,6 +82,14 @@ const constructPayloadForUserFlagTable = (userAccountInfo, reasonForFlaggingUser
     ];
 };
 
+const isRuleSafeOrIsExperimentalModeOn = (rule) => {
+    if (config.has('experimentalRules.run') && Boolean(config.get('experimentalRules.run'))) {
+        return true;
+    }
+
+    return !Reflect.has(rule, 'experimental') && !Boolean(rule.experimental);
+};
+
 const constructNewEngineAndAddRules = (rules) => {
     logger(`constructing new engine and adding new rules to the engine. Rules: ${JSON.stringify(rules)}`);
 
@@ -89,7 +97,9 @@ const constructNewEngineAndAddRules = (rules) => {
      * Setup a new engine
      */
     const engine = new Engine();
-    rules.forEach((rule) => engine.addRule(rule));
+
+    rules.filter((rule) => isRuleSafeOrIsExperimentalModeOn(rule)).
+        forEach((rule) => engine.addRule(rule));
     return engine;
 };
 
@@ -180,9 +190,15 @@ const fetchFactsFromUserBehaviourService = async (userId, accountId) => {
         };
         const response = await sendHttpRequest(extraConfig, FETCH_USER_BEHAVIOUR);
         logger(`Successfully fetched facts from user behaviour. Facts: ${JSON.stringify(response.body)}`);
+
+        if (!response || !response.body) {
+            throw 'Could not fetch facts from user behaviour';
+        }
+
         return response.body;
     } catch (error) {
         logger(`Error occurred while fetching facts from user behaviour service for user id: ${userId}. Error: ${JSON.stringify(error)}`);
+        throw error;
     }
 };
 
@@ -228,11 +244,14 @@ const validateRequestAndExtractParams = (req, res) => {
     }
 };
 
-const sendNotificationForVerboseMode = () => {
-    logger('Verbose Mode - notifying admins that fraud detector ran');
+const sendNotificationOfResultToAdmins = async (requestStatus) => {
+    logger('Notifying admins of result (error, or verbose mode, or...)');
+    const baseMessage = 'Just so you know, fraud detector ran';
+    const message = requestStatus.info ?
+        `${baseMessage}. Extra info: ${JSON.stringify(requestStatus.info)}`: baseMessage;
     const payload = {
-        subject: 'Fraud Detector just ran',
-        message: 'Just so you know, fraud detector ran',
+        subject: `[${requestStatus.result}] => Fraud Detector just ran`,
+        message,
         contacts: CONTACTS_TO_BE_NOTIFIED,
         notificationType: EMAIL_TYPE
     };
@@ -242,7 +261,7 @@ const sendNotificationForVerboseMode = () => {
             method: POST,
             body: payload
         };
-        sendHttpRequest(extraConfig, NOTIFICATION);
+        await sendHttpRequest(extraConfig, NOTIFICATION);
     } catch (error) {
         logger(`Error occurred while notifying admins that fraud detector ran (Verbose Mode). Error: ${JSON.stringify(error)}`);
     }
@@ -252,26 +271,25 @@ const sendNotificationForVerboseMode = () => {
 const fetchFactsAboutUserAndRunEngine = async (req, res) => {
     sendSuccessResponse(req, res);
     try {
-        if (VERBOSE_MODE) {
-            sendNotificationForVerboseMode();
-        }
-
         const payload = validateRequestAndExtractParams(req, res);
         if (!payload) {
             return;
         }
 
         const factsAboutUser = await fetchFactsFromUserBehaviourService(payload.userId, payload.accountId);
-        if (!factsAboutUser) {
-            return;
-        }
 
         await createEngineAndRunFactsAgainstRules(factsAboutUser, CUSTOM_RULES);
+
+        if (VERBOSE_MODE) {
+            await sendNotificationOfResultToAdmins({ result: 'SUCCESS'});
+        }
     } catch (error) {
         logger(
             `Error occurred while fetching facts about user and running engine with facts/rules.
             Error: ${JSON.stringify(error)}`
         );
+
+        await sendNotificationOfResultToAdmins({ result: 'FAILED', info: error });
     }
 };
 
@@ -285,5 +303,5 @@ module.exports = {
     constructPayloadForUserFlagTable,
     insertUserFlagIntoTable,
     fetchFactsAboutUserAndRunEngine,
-    sendNotificationForVerboseMode
+    sendNotificationForVerboseMode: sendNotificationOfResultToAdmins
 };
