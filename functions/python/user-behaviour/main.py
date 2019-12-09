@@ -193,7 +193,7 @@ def fetch_deposits_during_days_cycle(userId, numOfDays):
     QUERY = (
         'select `amount`, `time_transaction_occurred` '
         'from `{full_table_url}` '
-        'where transaction_type = "{transactionType}" '
+        'where transaction_type = "{transaction_type}" '
         'and user_id = "{user_id}" '
         'and time_transaction_occurred >= "{given_date}" '
         .format(transaction_type=DEPOSIT_TRANSACTION_TYPE, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=leastDateToConsider)
@@ -297,8 +297,8 @@ def fetchUserBehaviourBasedOnRules(request):
         sixMonthAverageDeposit = fetch_user_average_transaction_within_months_period(userId, configForFetch)
         sixMonthAverageDepositMultipliedByN = sixMonthAverageDeposit * MULTIPLIER_OF_SIX_MONTHS_AVERAGE_DEPOSIT
 
-        countOfWithdrawalsWithin48HoursOfDepositDuringA30DayCycle = calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(userId, HOURS_IN_TWO_DAYS, DAYS_IN_A_MONTH)
-        countOfWithdrawalsWithin24HoursOfDepositDuringA7DayCycle = calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(userId, HOURS_IN_A_DAY, DAYS_IN_A_WEEK)
+        # countOfWithdrawalsWithin48HoursOfDepositDuringA30DayCycle = calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(userId, HOURS_IN_TWO_DAYS, DAYS_IN_A_MONTH)
+        # countOfWithdrawalsWithin24HoursOfDepositDuringA7DayCycle = calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(userId, HOURS_IN_A_DAY, DAYS_IN_A_WEEK)
 
         response = {
             "userAccountInfo": userAccountInfo,
@@ -306,8 +306,8 @@ def fetchUserBehaviourBasedOnRules(request):
             "countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod": countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod,
             "latestDeposit": latestDeposit,
             "sixMonthAverageDepositMultipliedByN": sixMonthAverageDepositMultipliedByN,
-            "countOfWithdrawalsWithin48HoursOfDepositDuringA30DayCycle": countOfWithdrawalsWithin48HoursOfDepositDuringA30DayCycle,
-            "countOfWithdrawalsWithin24HoursOfDepositDuringA7DayCycle": countOfWithdrawalsWithin24HoursOfDepositDuringA7DayCycle
+            # "countOfWithdrawalsWithin48HoursOfDepositDuringA30DayCycle": countOfWithdrawalsWithin48HoursOfDepositDuringA30DayCycle,
+            # "countOfWithdrawalsWithin24HoursOfDepositDuringA7DayCycle": countOfWithdrawalsWithin24HoursOfDepositDuringA7DayCycle
         }
         print("Done fetching user behaviour shaped by rules. Response: {}".format(response))
         return json.dumps(response), 200
