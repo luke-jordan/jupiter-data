@@ -35,6 +35,7 @@ MINUTES_IN_A_DAY = constant.MINUTES_IN_A_DAY
 HOURS_IN_TWO_DAYS = constant.HOURS_IN_TWO_DAYS
 DAYS_IN_A_MONTH = constant.DAYS_IN_A_MONTH
 DAYS_IN_A_WEEK = constant.DAYS_IN_A_WEEK
+ERROR_TOLERANCE_PERCENTAGE_FOR_DEPOSITS = constant.ERROR_TOLERANCE_PERCENTAGE_FOR_DEPOSITS
 
 
 FULL_TABLE_URL="{project_id}.{dataset_id}.{table_id}".format(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
@@ -67,7 +68,6 @@ def convert_list_of_maps_to_list_of_values_for_big_query_response(rows, key):
         print("big query response, actual value ======> {}".format(row[key]))
         data.append(row[key])
     return data
-
 
 def fetch_data_from_user_behaviour_table(QUERY):
     print("fetching data from table: {table} with query: {query}".format(query=QUERY, table=table_id))
@@ -201,31 +201,18 @@ def fetch_deposits_during_days_cycle(userId, numOfDays):
 
     depositsDuringDaysList = fetch_data_from_user_behaviour_table(QUERY)
     return depositsDuringDaysList
-    
-
-def convert_integer_to_string(num):
-    return num + ""
-
-# input: [{ amount: 1, time_transaction_occurred: "2019-01-17 14:23:08 UTC" }, { amount: 2, time_transaction_occurred: "2019-01-17 14:23:08 UTC" }]
-# output: { 1: ["2019-01-17 14:23:08 UTC"], 2: ["2019-01-17 14:23:08 UTC"] }
-def create_map_of_amount_to_list_of_time_transaction_occurred(transactions):
-    mapOfAmountsToListOfTimeTransactionOccurred = {}
-    for mapOfTransactionAmountAndTimeTransactionOccurred in transactions:
-        amountAsString = convert_integer_to_string(mapOfTransactionAmountAndTimeTransactionOccurred["amount"])
-        timeOfTransaction = mapOfTransactionAmountAndTimeTransactionOccurred["time_transaction_occurred"]
-        if amountAsString in mapOfAmountsToListOfTimeTransactionOccurred:
-            mapOfAmountsToListOfTimeTransactionOccurred[amountAsString].append(timeOfTransaction)
-        else:
-            mapOfAmountsToListOfTimeTransactionOccurred[amountAsString] = [timeOfTransaction]
-
-    return mapOfAmountsToListOfTimeTransactionOccurred
 
 def convert_string_to_datetime(date_time_str):
     return datetime.datetime.strptime(date_time_str, '%Y-%m-%d %H:%M:%S')
 
 def calculate_time_difference_in_hours_between_timestamps(withdrawalTimestampString, depositTimestampString):
-    withdrawalTimestampAsDateTime = convert_string_to_datetime(withdrawalTimestampString.replace(" UTC", ""))
-    depositTimestampAsDateTime = convert_string_to_datetime(depositTimestampString.replace(" UTC", ""))
+    print(
+        "Calculating the time difference in hours between withdrawal timestamp: {withdrawalTimestampString} and deposit timestamp: {depositTimestampString}"
+        .format(withdrawalTimestampString=withdrawalTimestampString, depositTimestampString=depositTimestampString)
+          )
+
+    withdrawalTimestampAsDateTime = convert_string_to_datetime(str(withdrawalTimestampString).replace(" UTC", "")[:19])
+    depositTimestampAsDateTime = convert_string_to_datetime(str(depositTimestampString).replace(" UTC", "")[:19])
 
     timeDifference = withdrawalTimestampAsDateTime - depositTimestampAsDateTime
 
@@ -238,6 +225,50 @@ def calculate_time_difference_in_hours_between_timestamps(withdrawalTimestampStr
     )
     return timeDifferenceInHours
 
+def check_withdrawal_within_tolerance_range_of_deposit_amount(withdrawalAmount, depositAmount):
+    minimumMatchingDepositForToleranceRange = depositAmount * ERROR_TOLERANCE_PERCENTAGE_FOR_DEPOSITS
+    print(
+        "Checking if withdrawal amount: {withdrawalAmount} is within tolerance range of minimum amount: {minimumAmount} to deposited amount: {depositAmount}"
+        .format(withdrawalAmount=withdrawalAmount, minimumAmount=minimumMatchingDepositForToleranceRange, depositAmount=depositAmount)
+    )
+
+    if minimumMatchingDepositForToleranceRange <= withdrawalAmount <= depositAmount:
+        return True
+    else:
+        return False
+
+def check_time_difference_less_than_or_equal_given_hours(timeDifference, numOfHours):
+    print(
+        "Check if time difference: '{timeDifference}' is <= number of hours: '{numOfHours}'"
+            .format(timeDifference=timeDifference, numOfHours=numOfHours)
+    )
+    return timeDifference <= numOfHours
+
+def check_each_withdrawal_against_deposit_for_flagged_withdrawals(withdrawals, deposits, numOfHours):
+    print('Checking each withdrawal against deposits in search of flagged withdrawals')
+    count_of_flagged_withdrawals = 0
+
+    # loop over {withdrawal amounts / time} and compare with each {deposited amounts / time}
+    for mapOfWithdrawalAmountAndTimeTransactionOccurred in withdrawals:
+        withdrawalAmount = mapOfWithdrawalAmountAndTimeTransactionOccurred["amount"]
+        timeOfWithdrawal = mapOfWithdrawalAmountAndTimeTransactionOccurred["time_transaction_occurred"]
+
+        for mapOfDepositAmountAndTimeTransactionOccurred in deposits:
+            depositAmount = mapOfDepositAmountAndTimeTransactionOccurred["amount"]
+            print(
+                "Comparing withdrawal: {withdrawalAmount} against deposit: {depositAmount}"
+                .format(withdrawalAmount=withdrawalAmount, depositAmount=depositAmount)
+            )
+            if check_withdrawal_within_tolerance_range_of_deposit_amount(withdrawalAmount, depositAmount):
+                print("Withdrawal: {} is within tolerance range of deposit".format(withdrawalAmount))
+                timeOfDeposit = mapOfDepositAmountAndTimeTransactionOccurred["time_transaction_occurred"]
+                timeBetweenDepositAndWithdrawal = calculate_time_difference_in_hours_between_timestamps(timeOfWithdrawal, timeOfDeposit)
+                if check_time_difference_less_than_or_equal_given_hours(timeBetweenDepositAndWithdrawal, numOfHours):
+                    print("Withdrawal has been flagged. Increase counter by 1")
+                    count_of_flagged_withdrawals += 1
+
+    return count_of_flagged_withdrawals
+
 def calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(userId, numOfHours, numOfDays):
     print(
         "Calculate count of withdrawals within {numOfHours} hours of depositing during a {numOfDays} days cycle for user id: {userId}"
@@ -245,24 +276,15 @@ def calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(us
     )
     withdrawalsDuringDaysList = fetch_withdrawals_during_days_cycle(userId, numOfDays)
     depositsDuringDaysList = fetch_deposits_during_days_cycle(userId, numOfDays)
-    mapOfDepositedAmountsToListOfTimeTransactionOccurred = create_map_of_amount_to_list_of_time_transaction_occurred(depositsDuringDaysList)
 
-    counter = 0
-    for mapOfWithdrawalAmountAndTimeTransactionOccurred in withdrawalsDuringDaysList:
-        # if withdrawals of the same amount as deposits exists, proceed to check time difference
-        if convert_integer_to_string(mapOfWithdrawalAmountAndTimeTransactionOccurred["amount"]) in mapOfDepositedAmountsToListOfTimeTransactionOccurred:
-            timeOfWithdrawal = mapOfWithdrawalAmountAndTimeTransactionOccurred["time_transaction_occurred"]
-            for timeOfDeposit in mapOfDepositedAmountsToListOfTimeTransactionOccurred["amount"]:
-                # check if time difference less than or equal to numOfHours
-                if calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(timeOfWithdrawal, timeOfDeposit) <= numOfHours:
-                    counter += 1
+    count_of_flagged_withdrawals = check_each_withdrawal_against_deposit_for_flagged_withdrawals(withdrawalsDuringDaysList, depositsDuringDaysList, numOfHours)
 
     print(
         "Count of withdrawals within {numOfHours} hours of depositing during a {numOfDays} days cycle for user id: {userId}. Counter: {count_of_withdrawals}"
-            .format(numOfHours=numOfHours, numOfDays=numOfDays, userId=userId, count_of_withdrawals=counter)
+            .format(numOfHours=numOfHours, numOfDays=numOfDays, userId=userId, count_of_withdrawals=count_of_flagged_withdrawals)
     )
 
-    return counter
+    return count_of_flagged_withdrawals
 
 
 def extractAccountInfoFromRetrieveUserBehaviourRequest(request):
@@ -299,8 +321,8 @@ def fetchUserBehaviourBasedOnRules(request):
         sixMonthAverageDeposit = fetch_user_average_transaction_within_months_period(userId, configForFetch)
         sixMonthAverageDepositMultipliedByN = sixMonthAverageDeposit * MULTIPLIER_OF_SIX_MONTHS_AVERAGE_DEPOSIT
 
-        # countOfWithdrawalsWithin48HoursOfDepositDuringA30DayCycle = calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(userId, HOURS_IN_TWO_DAYS, DAYS_IN_A_MONTH)
-        # countOfWithdrawalsWithin24HoursOfDepositDuringA7DayCycle = calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(userId, HOURS_IN_A_DAY, DAYS_IN_A_WEEK)
+        countOfWithdrawalsWithin48HoursOfDepositDuringA30DayCycle = calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(userId, HOURS_IN_TWO_DAYS, DAYS_IN_A_MONTH)
+        countOfWithdrawalsWithin24HoursOfDepositDuringA7DayCycle = calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(userId, HOURS_IN_A_DAY, DAYS_IN_A_WEEK)
 
         response = {
             "userAccountInfo": userAccountInfo,
@@ -308,8 +330,8 @@ def fetchUserBehaviourBasedOnRules(request):
             "countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod": countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod,
             "latestDeposit": latestDeposit,
             "sixMonthAverageDepositMultipliedByN": sixMonthAverageDepositMultipliedByN,
-            # "countOfWithdrawalsWithin48HoursOfDepositDuringA30DayCycle": countOfWithdrawalsWithin48HoursOfDepositDuringA30DayCycle,
-            # "countOfWithdrawalsWithin24HoursOfDepositDuringA7DayCycle": countOfWithdrawalsWithin24HoursOfDepositDuringA7DayCycle
+            "countOfWithdrawalsWithin48HoursOfDepositDuringA30DayCycle": countOfWithdrawalsWithin48HoursOfDepositDuringA30DayCycle,
+            "countOfWithdrawalsWithin24HoursOfDepositDuringA7DayCycle": countOfWithdrawalsWithin24HoursOfDepositDuringA7DayCycle
         }
         print("Done fetching user behaviour shaped by rules. Response: {}".format(response))
         return json.dumps(response), 200
@@ -317,6 +339,15 @@ def fetchUserBehaviourBasedOnRules(request):
         customErrorMessage = 'Error fetching user behaviour based on rules. Error: {}' .format(e)
         print(customErrorMessage)
         return customErrorMessage, 500
+
+'''
+=========== END OF FETCH USER BEHAVIOUR ===========
+'''
+
+
+'''
+=========== BEGINNING OF UPDATE USER BEHAVIOUR ===========
+'''
 
 def missingParameterInPayload (payload):
     if ("context" not in payload):
@@ -463,6 +494,5 @@ def updateUserBehaviourAndTriggerFraudDetector(event, context):
     except Exception as e:
         print("Error updating user behaviour and trigger fraud detector. Error: {}".format(e))
 
-# TODO: `fetch user behaviour` should accept only GET requests
 # TODO: separate the `fetch user behaviour` and `update user behaviour` functions to a separate folder as it's own function
 # TODO: only authorized users can `fetch user behaviour`
