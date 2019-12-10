@@ -84,7 +84,7 @@ const constructPayloadForUserFlagTable = (userAccountInfo, reasonForFlaggingUser
 
 const allowAllRulesSinceGeneralExperimentalModeIsOn = () => config.has('experimentalRules.run') && Boolean(config.get('experimentalRules.run'));
 
-const allowOnlyNonExperimentalRules = (rule) => !Reflect.has(rule, 'experimental') && !rule.experimental;
+const allowOnlyNonExperimentalRules = (rule) => !Reflect.has(rule, 'experimental') || !rule.experimental;
 
 const isRuleSafeOrIsExperimentalModeOn = (rule) => {
     if (allowAllRulesSinceGeneralExperimentalModeIsOn()) {
