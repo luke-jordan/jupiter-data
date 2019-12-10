@@ -130,9 +130,10 @@ const insertUserFlagIntoTable = async (row) => {
         table(TABLE_ID).
         insert(row);
 
-        logger(`Successfully inserted user flag: ${JSON.stringify(row)} into database`);
+        logger(`Successfully inserted user flag: ${JSON.stringify(row)} into big query`);
     } catch (error) {
-        logger(`Error occurred while saving user flag to big query. Error: ${JSON.stringify(error)}`);
+        logger(`Error occurred while saving user flag: ${JSON.stringify(row)}  to big query. 
+        Error Message: ${JSON.stringify(error.message)}. Error stack: ${JSON.stringify(error.stack)}`);
     }
 };
 
