@@ -62,19 +62,25 @@ def calculate_date_n_days_ago(num):
     print("calculating date: {n} days before today".format(n=num))
     return (datetime.date.today() - datetime.timedelta(days=num)).isoformat()
 
-def convert_list_of_maps_to_list_of_values_for_big_query_response(rows, key):
-    data = []
-    for row in rows:
-        print("big query response, actual value ======> {}".format(row[key]))
-        data.append(row[key])
-    return data
+def extract_key_value_from_first_item_of_big_query_response(responseList, key):
+    firstItemOfList = responseList[0]
+    value = firstItemOfList[key]
+    print("Value of key '{key}' in big query response is: {value}".format(key=key, value=value))
+    return value
 
-def fetch_data_from_user_behaviour_table(QUERY):
+def convert_big_query_response_to_list(response):
+    return list(response)
+
+def fetch_data_as_list_from_user_behaviour_table(QUERY):
     print("fetching data from table: {table} with query: {query}".format(query=QUERY, table=table_id))
     query_job = client.query(QUERY)  # API request
-    rows = query_job.result()  # Waits for query to finish
-    print("successfully fetched rows: {rows} from table: {table} with query: {query}".format(query=QUERY, table=table_id, rows=rows))
-    return rows
+    rows = query_job.result()  # Waits for query to finish. Rows has type: <class 'google.cloud.bigquery.table.RowIterator'>
+    rowsAsList = convert_big_query_response_to_list(rows) # convert to list to enable easy iteration in python.
+    print(
+        "successfully fetched rows list: {rows} from table: {table} with query: {query}"
+          .format(query=QUERY, table=table_id, rows=rowsAsList)
+    )
+    return rowsAsList
 
 
 def fetch_user_latest_transaction(userId, transactionType):
@@ -91,9 +97,9 @@ def fetch_user_latest_transaction(userId, transactionType):
         'limit 1 '.format(transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL)
     )
 
-    bigQueryResponse = fetch_data_from_user_behaviour_table(QUERY)
-    latestDepositInHundredthCentList = convert_list_of_maps_to_list_of_values_for_big_query_response(bigQueryResponse, 'latestDeposit')
-    latestDepositInWholeCurrency = convertAmountFromHundredthCentToWholeCurrency(latestDepositInHundredthCentList[0])
+    bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(QUERY)
+    latestDepositInHundredthCentList = extract_key_value_from_first_item_of_big_query_response(bigQueryResponse, 'latestDeposit')
+    latestDepositInWholeCurrency = convertAmountFromHundredthCentToWholeCurrency(latestDepositInHundredthCentList) 
     return latestDepositInWholeCurrency
 
 
@@ -115,9 +121,9 @@ def fetch_user_average_transaction_within_months_period(userId, config):
         'and time_transaction_occurred >= "{given_date}" '.format(transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=leastDateToConsider)
     )
 
-    bigQueryResponse = fetch_data_from_user_behaviour_table(QUERY)
-    averageDepositInHundredthCentList = convert_list_of_maps_to_list_of_values_for_big_query_response(bigQueryResponse, 'averageDepositDuringPastPeriodInMonths')
-    averageDepositInWholeCurrency = convertAmountFromHundredthCentToWholeCurrency(averageDepositInHundredthCentList[0])
+    bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(QUERY)
+    averageDepositInHundredthCentList = extract_key_value_from_first_item_of_big_query_response(bigQueryResponse, 'averageDepositDuringPastPeriodInMonths')
+    averageDepositInWholeCurrency = convertAmountFromHundredthCentToWholeCurrency(averageDepositInHundredthCentList)
     return averageDepositInWholeCurrency
 
 
@@ -141,9 +147,9 @@ def fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(
         'and time_transaction_occurred >= "{given_date}"'.format(benchmark=benchmark, transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=leastDateToConsider)
     )
 
-    bigQueryResponse = fetch_data_from_user_behaviour_table(QUERY)
-    countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriodList = convert_list_of_maps_to_list_of_values_for_big_query_response(bigQueryResponse, 'countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriod')
-    return countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriodList[0]
+    bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(QUERY)
+    countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriodList = extract_key_value_from_first_item_of_big_query_response(bigQueryResponse, "countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriod")
+    return countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriodList
 
 
 def fetch_count_of_user_transactions_larger_than_benchmark(userId, rawBenchmark, transactionType):
@@ -159,9 +165,8 @@ def fetch_count_of_user_transactions_larger_than_benchmark(userId, rawBenchmark,
     'and user_id = "{user_id}" '.format(benchmark=benchmark, transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL)
     )
 
-    bigQueryResponse = fetch_data_from_user_behaviour_table(QUERY)
-    countOfDepositsList = convert_list_of_maps_to_list_of_values_for_big_query_response(bigQueryResponse, 'countOfDepositsGreaterThanBenchMarkDeposit')
-    countOfDepositsGreaterThanBenchMarkDeposit = countOfDepositsList[0]
+    bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(QUERY)
+    countOfDepositsGreaterThanBenchMarkDeposit = extract_key_value_from_first_item_of_big_query_response(bigQueryResponse, 'countOfDepositsGreaterThanBenchMarkDeposit')
     return countOfDepositsGreaterThanBenchMarkDeposit
 
 
@@ -180,7 +185,7 @@ def fetch_withdrawals_during_days_cycle(userId, numOfDays):
         .format(transaction_type=WITHDRAWAL_TRANSACTION_TYPE, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=leastDateToConsider)
     )
 
-    withdrawalsDuringDaysList = fetch_data_from_user_behaviour_table(QUERY)
+    withdrawalsDuringDaysList = fetch_data_as_list_from_user_behaviour_table(QUERY)
     return withdrawalsDuringDaysList
 
 def fetch_deposits_during_days_cycle(userId, numOfDays):
@@ -199,7 +204,7 @@ def fetch_deposits_during_days_cycle(userId, numOfDays):
         .format(transaction_type=DEPOSIT_TRANSACTION_TYPE, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=leastDateToConsider)
     )
 
-    depositsDuringDaysList = fetch_data_from_user_behaviour_table(QUERY)
+    depositsDuringDaysList = fetch_data_as_list_from_user_behaviour_table(QUERY)
     return depositsDuringDaysList
 
 def convert_string_to_datetime(date_time_str):
@@ -225,7 +230,7 @@ def calculate_time_difference_in_hours_between_timestamps(withdrawalTimestampStr
     )
     return timeDifferenceInHours
 
-def check_withdrawal_within_tolerance_range_of_deposit_amount(withdrawalAmount, depositAmount):
+def withdrawal_within_tolerance_range_of_deposit_amount(withdrawalAmount, depositAmount):
     minimumMatchingDepositForToleranceRange = depositAmount * ERROR_TOLERANCE_PERCENTAGE_FOR_DEPOSITS
     print(
         "Checking if withdrawal amount: {withdrawalAmount} is within tolerance range of minimum amount: {minimumAmount} to deposited amount: {depositAmount}"
@@ -237,9 +242,9 @@ def check_withdrawal_within_tolerance_range_of_deposit_amount(withdrawalAmount, 
     else:
         return False
 
-def check_time_difference_less_than_or_equal_given_hours(timeDifference, numOfHours):
+def time_difference_less_than_or_equal_given_hours(timeDifference, numOfHours):
     print(
-        "Check if time difference: '{timeDifference}' is <= number of hours: '{numOfHours}'"
+        "Check if time difference: {timeDifference} is <= number of hours: {numOfHours}"
             .format(timeDifference=timeDifference, numOfHours=numOfHours)
     )
     return timeDifference <= numOfHours
@@ -259,13 +264,15 @@ def check_each_withdrawal_against_deposit_for_flagged_withdrawals(withdrawals, d
                 "Comparing withdrawal: {withdrawalAmount} against deposit: {depositAmount}"
                 .format(withdrawalAmount=withdrawalAmount, depositAmount=depositAmount)
             )
-            if check_withdrawal_within_tolerance_range_of_deposit_amount(withdrawalAmount, depositAmount):
+            if withdrawal_within_tolerance_range_of_deposit_amount(withdrawalAmount, depositAmount):
                 print("Withdrawal: {} is within tolerance range of deposit".format(withdrawalAmount))
                 timeOfDeposit = mapOfDepositAmountAndTimeTransactionOccurred["time_transaction_occurred"]
                 timeBetweenDepositAndWithdrawal = calculate_time_difference_in_hours_between_timestamps(timeOfWithdrawal, timeOfDeposit)
-                if check_time_difference_less_than_or_equal_given_hours(timeBetweenDepositAndWithdrawal, numOfHours):
-                    print("Withdrawal has been flagged. Increase counter by 1")
+
+                if time_difference_less_than_or_equal_given_hours(timeBetweenDepositAndWithdrawal, numOfHours):
+                    print("Withdrawal {} has been flagged. Increase counter by 1".format(withdrawalAmount))
                     count_of_flagged_withdrawals += 1
+
 
     return count_of_flagged_withdrawals
 
@@ -285,7 +292,6 @@ def calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(us
     )
 
     return count_of_flagged_withdrawals
-
 
 def extractAccountInfoFromRetrieveUserBehaviourRequest(request):
     print("extracting account info from 'retrieve user behaviour request'")
