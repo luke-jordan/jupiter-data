@@ -56,7 +56,7 @@ module.exports = {
             }
         },
         {
-            experimental: true,
+            experimental: false,
             conditions: {
                 any: [
                     {
@@ -74,7 +74,7 @@ module.exports = {
             }
         },
         {
-            experimental: true,
+            experimental: false,
             conditions: {
                 any: [
                     {
