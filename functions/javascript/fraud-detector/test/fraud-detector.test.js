@@ -447,8 +447,27 @@ describe('Fraud Detector', () => {
     });
 
     it(`should allow only 'non-experimental' rules when 'general experimental mode is off'`, async () => {
-        const ruleWithExperimentalMode = {
+        const ruleWithExperimentalModeTrue = {
                     experimental: true,
+                    conditions: {
+                        any: [
+                            {
+                                fact: 'countOfDepositsGreaterThanHundredThousand',
+                                operator: 'greaterThan',
+                                value: 0
+                            }
+                        ]
+                    },
+                    event: { // define the event to fire when the conditions evaluate truthy
+                        type: 'flaggedAsFraudulent',
+                        params: {
+                            reasonForFlaggingUser: `User has a deposit greater than 100,000 rands`
+                        }
+                    }
+                };
+
+        const ruleWithExperimentalModeFalse = {
+                    experimental: false,
                     conditions: {
                         any: [
                             {
@@ -484,11 +503,14 @@ describe('Fraud Detector', () => {
                     }
                 };
 
-        const result1 = await isRuleSafeOrIsExperimentalModeOn(ruleWithExperimentalMode);
-        expect(result1).to.equal(false);
+        const resultOfExperimentalModeTrue = await isRuleSafeOrIsExperimentalModeOn(ruleWithExperimentalModeTrue);
+        expect(resultOfExperimentalModeTrue).to.equal(false);
 
-        const result2 = await isRuleSafeOrIsExperimentalModeOn(ruleWithoutExperimentalMode);
-        expect(result2).to.equal(true);
+        const resultOfExperimentalModeFalse = await isRuleSafeOrIsExperimentalModeOn(ruleWithExperimentalModeFalse);
+        expect(resultOfExperimentalModeFalse).to.equal(true);
+
+        const resultOfWithoutExperimentalMode = await isRuleSafeOrIsExperimentalModeOn(ruleWithoutExperimentalMode);
+        expect(resultOfWithoutExperimentalMode).to.equal(true);
     });
 
 });
