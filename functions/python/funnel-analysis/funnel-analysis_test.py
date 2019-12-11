@@ -83,7 +83,7 @@ def test_generate_drop_off_users_query_with_params():
                 select `user_id`
                 from `{full_table_url}`
                 where `event_type` in @nextStepList
-                and `timestamp` <= @endDate
+                and `timestamp` <= @endDateInMilliseconds
             )
             and `event_type` = @stepBeforeDropOff
             and `timestamp` between @startDateInMilliseconds and @endDate
