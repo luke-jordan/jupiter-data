@@ -31,7 +31,7 @@ def calculate_date_of_yesterday_at_utc():
     print("Date of yesterday is: {}".format(dateOfYesterday))
     return dateOfYesterday
 
-def convert_date_string_to_millisecond_string(dateString, hour):
+def convert_date_string_to_millisecond_int(dateString, hour):
     print(
         "Converting date string: {dateString} and hour: {hour} to milliseconds"
         .format(dateString=dateString, hour=hour)
@@ -46,7 +46,7 @@ def convert_date_string_to_millisecond_string(dateString, hour):
         "Successfully converted date string: {dateString} and hour: {hour} to milliseconds: {timeInMilliSecond}"
             .format(dateString=dateString, hour=hour, timeInMilliSecond=timeInMilliSecond)
     )
-    return str(timeInMilliSecond)
+    return int(timeInMilliSecond)
 
 
 def extract_required_keys_for_generate_dropoff_query(events, dateIntervals):
@@ -58,8 +58,8 @@ def extract_required_keys_for_generate_dropoff_query(events, dateIntervals):
     requiredKeysForQuery =  {
         "stepBeforeDropOff": events["stepBeforeDropOff"],
         "nextStepList": events["nextStepList"],
-        "startDateInMilliseconds": convert_date_string_to_millisecond_string(dateIntervals["startDate"], HOUR_MARKING_START_OF_DAY),
-        "endDateInMilliseconds": convert_date_string_to_millisecond_string(dateIntervals["endDate"], HOUR_MARKING_END_OF_DAY)
+        "startDateInMilliseconds": convert_date_string_to_millisecond_int(dateIntervals["startDate"], HOUR_MARKING_START_OF_DAY),
+        "endDateInMilliseconds": convert_date_string_to_millisecond_int(dateIntervals["endDate"], HOUR_MARKING_END_OF_DAY)
     }
 
     print(
@@ -81,7 +81,7 @@ def extract_required_keys_for_generate_recovery_query(events, dateIntervals):
     requiredKeysForQuery =  {
         "stepBeforeDropOff": events["stepBeforeDropOff"],
         "nextStepList": events["nextStepList"],
-        "recoveryStep": events["recoveryStep"]
+        "recoveryStep": events["nextStepList"]
     }
 
     print(
@@ -102,7 +102,7 @@ def fetch_from_all_events_table(query, query_params):
         job_config=job_config,
     )  # API request - starts the query
 
-    assert query_job.state == "DONE"
+    return query_job
 
 
 def generate_drop_off_users_query_with_params(events, dateIntervals):
@@ -120,8 +120,8 @@ def generate_drop_off_users_query_with_params(events, dateIntervals):
 
     dropOffQuery = (
         """
-            select `user_id` 
-            from `{full_table_url}` 
+            select distinct(`user_id`)
+            from `{full_table_url}`
             where `user_id` not in
             (
                 select `user_id`
@@ -138,8 +138,8 @@ def generate_drop_off_users_query_with_params(events, dateIntervals):
     dropOffParams = [
         bigquery.ScalarQueryParameter("stepBeforeDropOff", "STRING", stepBeforeDropOff),
         bigquery.ScalarQueryParameter("nextStepList", "STRING", nextStepList),
-        bigquery.ScalarQueryParameter("startDateInMilliseconds", "STRING", startDateInMilliseconds),
-        bigquery.ScalarQueryParameter("endDateInMilliseconds", "STRING", endDateInMilliseconds),
+        bigquery.ScalarQueryParameter("startDateInMilliseconds", "INT64", startDateInMilliseconds),
+        bigquery.ScalarQueryParameter("endDateInMilliseconds", "INT64", endDateInMilliseconds),
     ]
 
     print(
@@ -170,21 +170,22 @@ def generate_recovery_users_query_with_params(events, dateIntervals):
     recoveryStep = requiredKeysForQuery["recoveryStep"]
 
     dateOfYesterday = calculate_date_of_yesterday_at_utc()
-    beginningOfYesterdayInMilliseconds = convert_date_string_to_millisecond_string(dateOfYesterday, HOUR_MARKING_START_OF_DAY)
-    endOfYesterdayInMilliseconds = convert_date_string_to_millisecond_string(dateOfYesterday, HOUR_MARKING_END_OF_DAY)
+    beginningOfYesterdayInMilliseconds = convert_date_string_to_millisecond_int(dateOfYesterday, HOUR_MARKING_START_OF_DAY)
+    endOfYesterdayInMilliseconds = convert_date_string_to_millisecond_int(dateOfYesterday, HOUR_MARKING_END_OF_DAY)
 
     recoveryQuery = (
         """
-            select `user_id` from `{full_table_url}` 
-            where `event_type` = @recoveryStep
+            select distinct(`user_id`)
+            from `{full_table_url}`
+            where `event_type` in @recoveryStep
             and `timestamp` between @beginningOfYesterdayInMilliseconds and @endOfYesterdayInMilliseconds
             and `user_id` in
             (
-                select `user_id` 
+                select `user_id`
                 from `{full_table_url}`
-                where `user_id` not in 
+                where `user_id` not in
                 (
-                    select `user_id` 
+                    select `user_id`
                     from `{full_table_url}`
                     where `event_type` in @nextStepList
                     and `timestamp` <= @endOfYesterdayInMilliseconds
@@ -200,8 +201,8 @@ def generate_recovery_users_query_with_params(events, dateIntervals):
         bigquery.ScalarQueryParameter("recoveryStep", "STRING", recoveryStep),
         bigquery.ScalarQueryParameter("stepBeforeDropOff", "STRING", stepBeforeDropOff),
         bigquery.ScalarQueryParameter("nextStepList", "STRING", nextStepList),
-        bigquery.ScalarQueryParameter("beginningOfYesterdayInMilliseconds", "STRING", beginningOfYesterdayInMilliseconds),
-        bigquery.ScalarQueryParameter("endOfYesterdayInMilliseconds", "STRING", endOfYesterdayInMilliseconds),
+        bigquery.ScalarQueryParameter("beginningOfYesterdayInMilliseconds", "INT64", beginningOfYesterdayInMilliseconds),
+        bigquery.ScalarQueryParameter("endOfYesterdayInMilliseconds", "INT64", endOfYesterdayInMilliseconds),
     ]
 
     print(
@@ -217,6 +218,15 @@ def generate_recovery_users_query_with_params(events, dateIntervals):
         "recoveryParams": recoveryParams
     }
 
+
+def fetch_dropoff_and_recovery_users_given_steps(events, dateIntervals):
+    dropOffQueryAndParams = generate_drop_off_users_query_with_params(events, dateIntervals)
+    recoveryQueryAndParams = generate_recovery_users_query_with_params(events, dateIntervals)
+
+    return
+
+def fetch_dropoff_and_recovery_users_given_list_of_steps():
+    return
 
 # TODO: create `all_events_table` with the columns: `user_id`, `event_type`, `timestamp`, `context`
 # TODO: have `sync amplitude data` function and `pubsub-to-big-query` store data in `all_events_table`

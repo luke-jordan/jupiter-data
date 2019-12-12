@@ -9,6 +9,7 @@ verify_ssl = true
 dotenv = "*"
 python-dotenv = "*"
 google-cloud-bigquery = "*"
+mock = "*"
 
 [requires]
 python_version = "3.7"
