@@ -10,13 +10,13 @@ load_dotenv()
 # these credentials are used to access google cloud services. See https://cloud.google.com/docs/authentication/getting-started
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="service-account-credentials.json"
 
-client = bigquery.Client()
-
 project_id = os.getenv("GOOGLE_PROJECT_ID")
 BIG_QUERY_DATASET_LOCATION =  os.getenv("BIG_QUERY_DATASET_LOCATION")
 dataset_id = 'ops'
 table_id = 'all_events_table'
 FULL_TABLE_URL="{project_id}.{dataset_id}.{table_id}".format(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
+
+client = bigquery.Client()
 
 SECOND_TO_MILLISECOND_FACTOR=constant.SECOND_TO_MILLISECOND_FACTOR
 HOUR_MARKING_START_OF_DAY=constant.HOUR_MARKING_START_OF_DAY
@@ -95,6 +95,7 @@ def extract_required_keys_for_generate_recovery_query(events, dateIntervals):
 def fetch_from_all_events_table(query, query_params):
     job_config = bigquery.QueryJobConfig()
     job_config.query_parameters = query_params
+
     query_job = client.query(
         query,
         # Location must match that of the dataset(s) referenced in the query.
@@ -219,14 +220,47 @@ def generate_recovery_users_query_with_params(events, dateIntervals):
     }
 
 
-def fetch_dropoff_and_recovery_users_given_steps(events, dateIntervals):
+def fetch_dropoff_and_recovery_user_count_given_steps(events, dateIntervals):
+    print(
+        "Fetching dropoff/recovery users given steps with events: {events}, and date intervals: {dateIntervals}"
+        .format(events=events, dateIntervals=dateIntervals)
+    )
     dropOffQueryAndParams = generate_drop_off_users_query_with_params(events, dateIntervals)
     recoveryQueryAndParams = generate_recovery_users_query_with_params(events, dateIntervals)
 
-    return
+    dropOffUsers = fetch_from_all_events_table(
+        dropOffQueryAndParams["dropOffQuery"],
+        dropOffQueryAndParams["dropOffParams"]
+    )
 
-def fetch_dropoff_and_recovery_users_given_list_of_steps():
-    return
+    recoveryUsers = fetch_from_all_events_table(
+        recoveryQueryAndParams["recoveryQuery"],
+        recoveryQueryAndParams["recoveryParams"]
+    )
+
+    dropOffAndRecoveryUsersCount = {
+        "dropOffCount": len(dropOffUsers),
+        "recoveryCount": len(recoveryUsers),
+    }
+    print(
+        """
+        Successfully fetched dropoff/recovery users counts given steps with events: {events},
+        and date intervals: {dateIntervals}. dropOffAndRecoveryUsersCount: {dropOffAndRecoveryUsersCount}
+        """
+        .format(events=events, dateIntervals=dateIntervals, dropOffAndRecoveryUsersCount=dropOffAndRecoveryUsersCount)
+    )
+
+    return dropOffAndRecoveryUsersCount
+
+def fetch_dropoff_and_recovery_users_count_given_list_of_steps(eventsAndDatesList):
+    userCountList = []
+    for item in eventsAndDatesList:
+        events = item["events"]
+        dateIntervals = item["dateIntervals"]
+        dropOffAndRecoveryUsersCount = fetch_dropoff_and_recovery_user_count_given_steps(events, dateIntervals)
+        dropOffAndRecoveryUsersCount["dropOffStep"] = events["stepBeforeDropOff"]
+        userCountList.append(dropOffAndRecoveryUsersCount)
+    return userCountList
 
 # TODO: create `all_events_table` with the columns: `user_id`, `event_type`, `timestamp`, `context`
 # TODO: have `sync amplitude data` function and `pubsub-to-big-query` store data in `all_events_table`
