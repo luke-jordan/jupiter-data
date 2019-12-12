@@ -54,7 +54,7 @@ const sendHttpRequest = async (extraConfig, specifiedRequestTitle) => {
     return response;
 };
 
-const constructPayloadForUserFlagTable = (userAccountInfo, reasonForFlaggingUser) => {
+const constructPayloadForUserFlagTable = (userAccountInfo, ruleLabel, reasonForFlaggingUser) => {
     logger(`constructing payload for user flag table with user info: ${JSON.stringify(userAccountInfo)}`);
     const {
         userId,
@@ -70,6 +70,7 @@ const constructPayloadForUserFlagTable = (userAccountInfo, reasonForFlaggingUser
     const payloadForFlaggedTable = {
         user_id: userId,
         account_id: accountId,
+        rule_label: ruleLabel,
         reason: reasonForFlaggingUser,
         accuracy: accuracyStates.pending,
         created_at: timestamp,
@@ -107,6 +108,22 @@ const constructNewEngineAndAddRules = (rules) => {
     return engine;
 };
 
+const obtainLastRuleLabelForUser = async (ruleLabel, userId) => {
+    const query = `SELECT creation_time FROM fraud_alerts where rule_label = ruleLabel and userId = userId ` +
+        `order by creation_time desc limit 1`;
+    const options = { query, params: { rule_label: ruleLabel, user_id: userId }};
+    const [rows] = bigQueryClient.dataset(DATASET_ID).table(TABLE_ID).query(options);
+    const cutOffTime = rows.length > 0 ? rows[0]['creation_time'] : moment(0).format();
+    return { ruleLabel, cutOffTime };
+};
+
+const obtainLastAlertTimesForUser = async (rules, userId) => {
+    const ruleLabels = (rules).map((rule) => rule.event.params.ruleLabel);
+    const ruleTimePromises = ruleLabels.map((label) => obtainLastRuleLabelForUser(label, userId));
+    const ruleCutOffTimes = await Promise.all(ruleTimePromises);
+    return ruleCutOffTimes.reduce((entry, obj) => ({ ...obj, [entry.ruleLabel]: entry.cutOffTime }), {});
+};
+
 const notifyAdminsOfNewlyFlaggedUser = async (payload) => {
     logger('notifying admins of newly flagged user');
     try {
@@ -137,7 +154,7 @@ const insertUserFlagIntoTable = async (row) => {
     }
 };
 
-const logFraudulentUserFlag = async (userAccountInfo, reasonForFlaggingUser) => {
+const logFraudulentUserFlag = async (userAccountInfo, ruleLabel, reasonForFlaggingUser) => {
     logger(`save new fraudulent flag for user with info: ${JSON.stringify(userAccountInfo)} for reason: '${reasonForFlaggingUser}'`);
     const row = constructPayloadForUserFlagTable(userAccountInfo, reasonForFlaggingUser);
 
@@ -157,10 +174,11 @@ const logFraudulentUserAndNotifyAdmins = async (event, userAccountInfo) => {
     logger(`Processing success result of rules engines with event: ${JSON.stringify(event)}`);
     logger(`log fraudulent user and notify admins. User Info: ${JSON.stringify(userAccountInfo)}`);
     // 'results' is an object containing successful events, and an Almanac instance containing facts
-    const reasonForFlaggingUser = extractReasonForFlaggingUserFromEvent(event);
+    // const reasonForFlaggingUser = extractReasonForFlaggingUserFromEvent(event);
+    const { ruleLabel, reasonForFlaggingUser } = event.params;
     
     // log to `user_flagged_as_fraudulent`
-    await logFraudulentUserFlag(userAccountInfo, reasonForFlaggingUser);
+    await logFraudulentUserFlag(userAccountInfo, ruleLabel, reasonForFlaggingUser);
         
     const notificationPayload = constructNotificationPayload(userAccountInfo, reasonForFlaggingUser);
 
@@ -189,10 +207,18 @@ const fetchFactsFromUserBehaviourService = async (userId, accountId) => {
         `Fetching facts from user behaviour service for user id: ${userId} and account id: ${accountId}`
     );
     try {
+        const ruleCutOffTimes = await obtainLastAlertTimesForUser(CUSTOM_RULES, userId);
+
         const extraConfig = {
-            url: `${FETCH_USER_BEHAVIOUR_URL}?userId=${userId}&accountId=${accountId}`,
-            method: GET
+            url: FETCH_USER_BEHAVIOUR_URL,
+            body: {
+                userId,
+                accountId,
+                ruleCutOffTimes
+            },
+            method: POST
         };
+
         const response = await sendHttpRequest(extraConfig, FETCH_USER_BEHAVIOUR);
         logger(`Successfully fetched facts from user behaviour. Facts: ${JSON.stringify(response.body)}`);
 

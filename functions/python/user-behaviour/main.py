@@ -102,15 +102,19 @@ def fetch_user_latest_transaction(userId, transactionType):
     latestDepositInWholeCurrency = convertAmountFromHundredthCentToWholeCurrency(latestDepositInHundredthCentList) 
     return latestDepositInWholeCurrency
 
+# config can specify (1) a reference time expressed as "days ago" or "months ago" (required), (2) a cut off time, e.g.,
+# the time of the last fraud alert, obtained from querying the fraud alert table
+def obtain_datetime_cutoff_from_config(config):
+    ref_datetime = calculate_date_n_months_ago(config["periodInMonths"]) if "periodInMonths" in config else calculate_date_n_days_ago(config["periodInDays"])
+    return datetime.max([ref_datetime, config["cutOffDateTime"]]) if "cutOffDateTime" in config else ref_datetime
 
 def fetch_user_average_transaction_within_months_period(userId, config):
-    periodInMonths = config["periodInMonths"]
     transactionType = config["transactionType"]
-    leastDateToConsider = calculate_date_n_months_ago(periodInMonths)
+    leastDateToConsider = obtain_datetime_cutoff_from_config(config)
 
     print(
-        "fetching the average transaction type: {transaction_type} for user_id: {user_id} within {period} months period"
-        .format(transaction_type=transactionType, user_id=userId, period=periodInMonths)
+        "fetching the average transaction type: {transaction_type} for user_id: {user_id} since {date}"
+        .format(transaction_type=transactionType, user_id=userId, date=leastDateToConsider)
     )
 
     QUERY = (
@@ -128,15 +132,14 @@ def fetch_user_average_transaction_within_months_period(userId, config):
 
 
 def fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(userId, config):
-    periodInMonths = config["periodInMonths"]
     benchmark = convertAmountFromGivenUnitToHundredthCent(config["benchmark"], 'WHOLE_CURRENCY')
     transactionType = config["transactionType"]
 
-    leastDateToConsider = calculate_date_n_months_ago(periodInMonths)
+    leastDateToConsider = obtain_datetime_cutoff_from_config(config)
 
     print(
-        "fetching the count of transaction type: {transaction_type} for user_id: {user_id} larger than benchmark: {benchmark} within {period} months period"
-        .format(transaction_type=transactionType, user_id=userId, benchmark=benchmark, period={periodInMonths})
+        "fetching the count of transaction type: {transaction_type} for user_id: {user_id} larger than benchmark: {benchmark} since {dateCutoff}"
+        .format(transaction_type=transactionType, user_id=userId, benchmark=benchmark, dateCutoff={leastDateToConsider})
     )
 
     QUERY = (
@@ -152,17 +155,25 @@ def fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(
     return countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriodList
 
 
-def fetch_count_of_user_transactions_larger_than_benchmark(userId, rawBenchmark, transactionType):
+def fetch_count_of_user_transactions_larger_than_benchmark(userId, config):
+    rawBenchmark = config["rawBenchmark"]
+    transactionType = config["transactionType"]
     benchmark = convertAmountFromGivenUnitToHundredthCent(rawBenchmark, 'WHOLE_CURRENCY')
+
+    cutOffTime = obtain_datetime_cutoff_from_config(config)
+
     print(
         "fetching the count of transaction type: {transaction_type} for user_id: {user_id} larger than benchmark: {benchmark}"
         .format(transaction_type=transactionType, user_id=userId, benchmark=benchmark)
     )
+
     QUERY = (
     'select count(*) as countOfDepositsGreaterThanBenchMarkDeposit '
     'from `{full_table_url}` '
     'where amount > {benchmark} and transaction_type = "{transaction_type}" '
-    'and user_id = "{user_id}" '.format(benchmark=benchmark, transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL)
+    'and user_id = "{user_id}" '
+    'and time_transaction_occurred >= "{cutoff_date}"'.
+        format(benchmark=benchmark, transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL, cutoff_date=cutOffTime)
     )
 
     bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(QUERY)
@@ -306,13 +317,37 @@ def extractAccountInfoFromRetrieveUserBehaviourRequest(request):
         "accountId": accountId
     }
 
+def assembleConfigForRule(ruleLabel, ruleCutOffTimes, ruleDefaults):
+    return {
+        "cutOffDateTime": ruleCutOffTimes[ruleLabel],
+        "defaults": ruleDefaults["ruleLabel"]
+    }
+
 def fetchUserBehaviourBasedOnRules(request):
     try:
         userAccountInfo = extractAccountInfoFromRetrieveUserBehaviourRequest(request)
         userId = userAccountInfo["userId"]
 
-        # Single deposit larger than R100 000
-        countOfDepositsGreaterThanHundredThousand = fetch_count_of_user_transactions_larger_than_benchmark(userId, FIRST_BENCHMARK_DEPOSIT, DEPOSIT_TRANSACTION_TYPE)
+        # Obtain cut off times for rules from request. Note: cut off times should not be established in this function
+        # This function's job is to extract user behaviour. Its job is not to understand what fraud means. That is the
+        # job of the fraud detection function. This one just says, if you give me a cut off time for a rule, I apply it.
+        ruleCutOffTimes = request["ruleCutOffTimes"]
+
+        # could also do via a generic rule executor and list comprehensions
+        # rulesToExecute = request["rulesToExecute"]
+        # ruleConfigs = [assembleConfigForRule(label, ruleCutOffTimes, ruleDefaults) for label in rulesToExecute]
+        # ruleResults = [generic_rule_executor(ruleConfig) for ruleConfig in ruleConfigs]
+
+
+        # Single deposit larger than R100 000, use cut off time if it exists, else twenty years ago means prior to system birth
+        configForThisRule = {
+            "rawBenchmark": FIRST_BENCHMARK_DEPOSIT,
+            "transactionType": DEPOSIT_TRANSACTION_TYPE,
+            "periodInMonths": 240
+        }
+        if "single_very_large_deposit" in ruleCutOffTimes:
+            configForThisRule["cutOffDateTime"] = datetime.datetime.fromtimestamp(ruleCutOffTimes["single_very_large_deposit"])
+        countOfDepositsGreaterThanHundredThousand = fetch_count_of_user_transactions_larger_than_benchmark(userId, configForThisRule)
 
         configForFetch = {
             "periodInMonths": SIX_MONTHS_INTERVAL,

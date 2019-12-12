@@ -15,6 +15,7 @@ module.exports = {
             event: { // define the event to fire when the conditions evaluate truthy
                 type: 'flaggedAsFraudulent',
                 params: {
+                    ruleLabel: `single_very_large_deposit`,
                     reasonForFlaggingUser: `User has a deposit greater than 100,000 rands`
                 }
             }
