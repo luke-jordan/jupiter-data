@@ -264,3 +264,6 @@ def fetch_dropoff_and_recovery_users_count_given_list_of_steps(eventsAndDatesLis
 
 # TODO: create `all_events_table` with the columns: `user_id`, `event_type`, `timestamp`, `context`
 # TODO: have `sync amplitude data` function and `pubsub-to-big-query` store data in `all_events_table`
+
+# TODO: test coverage tool
+# TODO: deploy function as https and be triggered by cloud scheduler
