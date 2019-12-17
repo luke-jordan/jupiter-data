@@ -39,19 +39,23 @@ def fetch_current_datetime_at_utc():
     print("Successfully fetched current datetime at UTC. Date time at UTC: {}".format(dateTimeAtUTC))
     return dateTimeAtUTC
 
-def add_extra_params_to_message(message):
+def add_extra_params_to_message(messageList):
+    print("Add extra params to each message in list: {}".format(messageList))
     timestampNow = fetch_current_datetime_at_utc()
-    message["created_at"] = timestampNow
-    message["updated_at"] = timestampNow
-    message["source_of_event"] = SOURCE_OF_EVENT
-    return message
+    for message in messageList:
+        message["created_at"] = timestampNow
+        message["updated_at"] = timestampNow
+        message["source_of_event"] = SOURCE_OF_EVENT
+
+    print("Message list with extra params: {}".format(messageList))
+    return messageList
 
 def main(event, context):
     print("Message received from pubsub")
 
     try:
-        message = decode_message_from_pubsub(event)
-        messageForAllEventsTable = add_extra_params_to_message(message)
+        messageList = decode_message_from_pubsub(event)
+        messageForAllEventsTable = add_extra_params_to_message(messageList)
         insert_into_table(messageForAllEventsTable)
 
         print("Acknowledging message to pub/sub")
