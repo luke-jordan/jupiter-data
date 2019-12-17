@@ -206,7 +206,7 @@ def generate_drop_off_users_query_with_params(events, dateIntervals):
             (
                 select `user_id`
                 from `{full_table_url}`
-                where `event_type` in @nextStepList
+                where `event_type` in UNNEST(@nextStepList)
                 and `timestamp` <= @endDateInMilliseconds
             )
             and `event_type` = @stepBeforeDropOff
@@ -257,7 +257,7 @@ def generate_recovery_users_query_with_params(events, dateIntervals):
         """
             select distinct(`user_id`)
             from `{full_table_url}`
-            where `event_type` in @recoveryStep
+            where `event_type` in UNNEST(@recoveryStep)
             and `timestamp` between @beginningOfYesterdayInMilliseconds and @endOfYesterdayInMilliseconds
             and `user_id` in
             (
@@ -267,7 +267,7 @@ def generate_recovery_users_query_with_params(events, dateIntervals):
                 (
                     select `user_id`
                     from `{full_table_url}`
-                    where `event_type` in @nextStepList
+                    where `event_type` in UNNEST(@nextStepList)
                     and `timestamp` <= @endOfYesterdayInMilliseconds
                 )
                 and `event_type` = @stepBeforeDropOff
