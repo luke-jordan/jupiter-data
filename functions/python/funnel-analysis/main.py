@@ -1,4 +1,5 @@
 import os
+import json
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from google.cloud import bigquery
@@ -379,9 +380,10 @@ def fetch_dropoff_and_recovery_users_count_given_list_of_steps(request):
 
             userCountList.append(dropOffAndRecoveryUsersCountPerItem)
         print("COMPLETED FETCHING USER COUNT LIST for dropoff/recovery======> User count list: {}".format(userCountList))
-        return userCountList
+        return json.dumps(userCountList), 200
     except Exception as err:
         print(
             "Error occurred while fetching user count list for dropoff/recovery. Error: {}"
             .format(err)
         )
+        return "Error while fetching user count list for dropoff/recovery", 500
