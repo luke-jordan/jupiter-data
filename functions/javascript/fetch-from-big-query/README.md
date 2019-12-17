@@ -1,6 +1,7 @@
 # Fetch From Big Query
 
 This function is used to fetch data from Big Query. At the moment it only fetches amplitude data from big query.
+The table it fetches from is `ops.all_user_events`
 The function is exposed via a https endpoint and accepts `POST` requests with request body:
 
 ```

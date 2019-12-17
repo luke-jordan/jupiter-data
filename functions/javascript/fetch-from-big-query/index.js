@@ -60,7 +60,6 @@ exports.fetchFromBigQuery = async function fetchFromBigQuery(req, res) {
         } = parameters;
 
         console.log('constructing sql query');
-        // The SQL query to run
         const sqlQuery = `SELECT event_type, COUNT(event_type) as event_count
                     FROM \`${GOOGLE_PROJECT_ID}.${DATASET}.${TABLE}\`
                     where \`timestamp\` BETWEEN @start_date and @end_date and \`source_of_event\`="${SOURCE_OF_EVENT}" 
@@ -70,7 +69,6 @@ exports.fetchFromBigQuery = async function fetchFromBigQuery(req, res) {
 
         const options = {
             query: sqlQuery,
-            // Location must match that of the dataset(s) referenced in the query.
             location: BIG_QUERY_DATASET_LOCATION,
             params: {
                 start_date: convertDateTimeStringToMillisecondsInteger(startDate, timeAtStartOfDay),
@@ -79,7 +77,6 @@ exports.fetchFromBigQuery = async function fetchFromBigQuery(req, res) {
             },
         };
 
-        // Run the query
         const [rows] = await bigqueryClient.query(options);
 
         console.log(`Response from big query: ${JSON.stringify(rows)}`);

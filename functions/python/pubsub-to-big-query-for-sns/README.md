@@ -13,32 +13,3 @@ context
 
 Extra params like `created_at` and `updated_at` timestamps, as well as the `source_of_event` are added to the data
 and then loaded in the big query table: `all_user_events`.
-
-## Tests
-
-1. To run the tests only:
-
-```
-
-pytest
-
-```
-
-
-2. To run the tests with code coverage of the tests:
-
-```
-
-coverage run -m --source=. pytest
-
-```
-
-
-3. To view the test coverage report:
-
-
-```
-
-coverage report
-
-```
