@@ -162,6 +162,11 @@ def extract_required_keys_for_generate_recovery_query(events):
     return requiredKeysForQuery
 
 def fetch_from_all_events_table(query, query_params):
+    print(
+        """
+        Fetching from all events table with query: {query} and params {query_params}
+        """.format(query=query, query_params=query_params)
+    )
     job_config = bigquery.QueryJobConfig()
     job_config.query_parameters = query_params
 
@@ -172,6 +177,11 @@ def fetch_from_all_events_table(query, query_params):
         job_config=job_config,
     )  # API request - starts the query
 
+    print(
+        """
+        Successfully fetched from from all events table with query: {query} and params {query_params}
+        """.format(query=query, query_params=query_params)
+    )
     return query_job
 
 

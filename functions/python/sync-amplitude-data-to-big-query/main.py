@@ -161,7 +161,7 @@ def convert_date_string_to_millisecond_int(dateTimeString):
             .format(dateTimeString=dateTimeString)
     )
 
-    date_object = datetime.strptime(dateTimeString, '%Y-%m-%d %H:%M:%S.%f UTC')
+    date_object = datetime.strptime(dateTimeString, '%Y-%m-%d %H:%M:%S.%f')
     epoch = datetime.utcfromtimestamp(0)
     timeInMilliSecond = (date_object - epoch).total_seconds() * SECOND_TO_MILLISECOND_FACTOR
 

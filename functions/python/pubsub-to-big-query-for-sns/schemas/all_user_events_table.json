@@ -15,11 +15,6 @@
     "type": "INTEGER"
   },
   {
-    "mode": "NULLABLE",
-    "name": "context",
-    "type": "STRING"
-  },
-  {
     "mode": "REQUIRED",
     "name": "source_of_event",
     "type": "STRING"
@@ -33,5 +28,10 @@
     "mode": "REQUIRED",
     "name": "updated_at",
     "type": "TIMESTAMP"
+  },
+  {
+    "mode": "NULLABLE",
+    "name": "context",
+    "type": "STRING"
   }
 ]
