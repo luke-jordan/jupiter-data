@@ -14,6 +14,8 @@ from main \
     fetch_dropoff_and_recovery_user_count_given_steps, \
     fetch_dropoff_and_recovery_users_count_given_list_of_steps, \
     fetch_from_all_events_table, \
+    calculate_date_n_days_ago_at_utc, \
+    extract_events_and_dates_from_request, \
     extract_required_keys_for_generate_dropoff_query
 
 import main
@@ -49,16 +51,41 @@ stepBeforeDropOff = sampleEvents["stepBeforeDropOff"]
 nextStepList = sampleEvents["nextStepList"]
 recoveryStep = sampleEvents["nextStepList"]
 
+sampleEventsAndDatesList = [
+    {
+        "events": {
+            "stepBeforeDropOff": "ENTERED_ONBOARD_SCREEN",
+            "nextStepList": ["ENTERED_REFERRAL_CODE", "USER_LOGGED_IN"],
+        },
+        "dateIntervals": sampleDateIntervals
+    },
+    {
+        "events": {
+            "stepBeforeDropOff": "ENTERED_REFERRAL_CODE",
+            "nextStepList": ["USER_LOGGED_IN"],
+        },
+        "dateIntervals": sampleDateIntervals
+    }
+]
+
 @pytest.fixture
 def mock_big_query():
     return Mock(spec=bigquery.Client())
 
+@pytest.fixture
+def mock_json_request():
+    return Mock()
+
 def test_calculate_date_of_yesterday_at_utc():
     assert calculate_date_of_yesterday_at_utc() == (datetime.utcnow().date() - timedelta(days=1)).strftime("%Y-%m-%d")
 
+def test_calculate_date_n_days_ago_at_utc():
+    FOUR_DAYS_AGO = 4
+    assert calculate_date_n_days_ago_at_utc(FOUR_DAYS_AGO) == (datetime.utcnow().date() - timedelta(days=FOUR_DAYS_AGO)).strftime("%Y-%m-%d")
+
 def test_convert_date_string_to_millisecond_int():
-    assert convert_date_string_to_millisecond_int("2019-04-03", "00:00:00") == int(1554242400000.0)
-    assert convert_date_string_to_millisecond_int("2019-04-06", "23:59:59") == int(1554587999000.0)
+    assert convert_date_string_to_millisecond_int("2019-04-03", "00:00:00") == int(1554249600000.0)
+    assert convert_date_string_to_millisecond_int("2019-04-06", "23:59:59") == int(1554595199000.0)
 
 
 def test_extract_required_keys_for_generate_dropoff_query():
@@ -77,7 +104,7 @@ def test_extract_required_keys_for_generate_recovery_query():
         "nextStepList": nextStepList,
         "recoveryStep": recoveryStep
     }
-    assert extract_required_keys_for_generate_recovery_query(sampleEvents, sampleDateIntervals) == expectedKeysForQuery
+    assert extract_required_keys_for_generate_recovery_query(sampleEvents) == expectedKeysForQuery
 
 
 def test_generate_drop_off_users_query_with_params():
@@ -215,29 +242,20 @@ def test_fetch_dropoff_and_recovery_user_count_given_steps(mock_big_query):
     assert main.client.query.call_count == 2
     assert result == expectedUserCount
 
+def test_extract_events_and_dates_from_request(mock_json_request):
+    mock_json_request.get_json.return_value = {
+       "eventsAndDatesList": sampleEventsAndDatesList
+    }
+
+    assert extract_events_and_dates_from_request(mock_json_request) == sampleEventsAndDatesList
+
+
 
 # given a list of dropoff steps and next steps find dropoffs/recovery users for all list items
-def test_fetch_dropoff_and_recovery_users_count_given_list_of_steps(mock_big_query):
+def test_fetch_dropoff_and_recovery_users_count_given_list_of_steps(mock_big_query, mock_json_request):
     expectedUserIdList = [
         { "user_id": "1a" },
         { "user_id": "3k" },
-    ]
-
-    sampleEventsAndDatesList = [
-        {
-            "events": {
-                "stepBeforeDropOff": "ENTERED_ONBOARD_SCREEN",
-                "nextStepList": ["ENTERED_REFERRAL_CODE", "USER_LOGGED_IN"],
-            },
-            "dateIntervals": sampleDateIntervals
-        },
-        {
-            "events": {
-                "stepBeforeDropOff": "ENTERED_REFERRAL_CODE",
-                "nextStepList": ["USER_LOGGED_IN"],
-            },
-            "dateIntervals": sampleDateIntervals
-        }
     ]
 
     expectedUserCountList = [
@@ -251,10 +269,12 @@ def test_fetch_dropoff_and_recovery_users_count_given_list_of_steps(mock_big_que
         "recoveryCount": len(expectedUserIdList),
     }]
 
+    main.EVENTS_AND_DATES_LIST = sampleEventsAndDatesList
     main.client = mock_big_query
     mock_big_query.query.return_value = expectedUserIdList
+    mock_json_request.get_json.return_value = None
 
-    result = fetch_dropoff_and_recovery_users_count_given_list_of_steps(sampleEventsAndDatesList)
+    result = fetch_dropoff_and_recovery_users_count_given_list_of_steps(mock_json_request)
     main.client.query.assert_called()
     assert main.client.query.call_count == 4
     assert result == expectedUserCountList

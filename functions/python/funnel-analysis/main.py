@@ -1,5 +1,4 @@
 import os
-import json
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from google.cloud import bigquery
@@ -22,12 +21,31 @@ SECOND_TO_MILLISECOND_FACTOR=constant.SECOND_TO_MILLISECOND_FACTOR
 HOUR_MARKING_START_OF_DAY=constant.HOUR_MARKING_START_OF_DAY
 HOUR_MARKING_END_OF_DAY=constant.HOUR_MARKING_END_OF_DAY
 
+EVENTS_LIST = [
+    {
+        "events": {
+            "stepBeforeDropOff": "ENTERED_ONBOARD_SCREEN",
+            "nextStepList": ["ENTERED_REFERRAL_CODE", "USER_LOGGED_IN"],
+        },
+    },
+    {
+        "events": {
+            "stepBeforeDropOff": "ENTERED_REFERRAL_CODE",
+            "nextStepList": ["USER_LOGGED_IN"],
+        },
+    }
+]
+
+def calculate_date_n_days_ago_at_utc(num):
+    print("Getting date for {} days ag".format(num))
+    return (datetime.utcnow().date() - timedelta(days=num)).strftime("%Y-%m-%d")
+
 
 def calculate_date_of_yesterday_at_utc():
     print("Getting date for Yesterday")
     # this date must not be calculated as a global variable as cloud function global variables are set once deployed and do not change
     # setting as a global variable would lead to bad data as only the data being fetched daily would be for the saame date
-    dateOfYesterday = (datetime.utcnow().date() - timedelta(days=1)).strftime("%Y-%m-%d")
+    dateOfYesterday = calculate_date_n_days_ago_at_utc(1)
     print("Date of yesterday is: {}".format(dateOfYesterday))
     return dateOfYesterday
 
@@ -40,7 +58,8 @@ def convert_date_string_to_millisecond_int(dateString, hour):
     # TODO: do conversion for given timezone and default to UTC if timezone not specified
     dateAndHour = "{dateString} {hour}".format(dateString=dateString, hour=hour)
     date_object = datetime.strptime(dateAndHour, '%Y-%m-%d %H:%M:%S')
-    timeInMilliSecond = date_object.timestamp() * SECOND_TO_MILLISECOND_FACTOR
+    epoch = datetime.utcfromtimestamp(0)
+    timeInMilliSecond = (date_object - epoch).total_seconds() * SECOND_TO_MILLISECOND_FACTOR
 
     print(
         "Successfully converted date string: {dateString} and hour: {hour} to milliseconds: {timeInMilliSecond}"
@@ -72,10 +91,10 @@ def extract_required_keys_for_generate_dropoff_query(events, dateIntervals):
 
     return requiredKeysForQuery
 
-def extract_required_keys_for_generate_recovery_query(events, dateIntervals):
+def extract_required_keys_for_generate_recovery_query(events):
     print(
-        "Extracting required keys for generate recovery query from events: {events} and date intervals: {dateIntervals}"
-        .format(events=events, dateIntervals=dateIntervals)
+        "Extracting required keys for generate recovery query from events: {events}"
+        .format(events=events)
     )
 
     requiredKeysForQuery =  {
@@ -85,9 +104,9 @@ def extract_required_keys_for_generate_recovery_query(events, dateIntervals):
     }
 
     print(
-        """Successfully extracted required keys for generate recovery query from events: {events} 
-        and date intervals: {dateIntervals}. Parameters for Query: {requiredKeysForQuery}"""
-            .format(events=events, dateIntervals=dateIntervals, requiredKeysForQuery=requiredKeysForQuery)
+        """Successfully extracted required keys for generate recovery query from events: {events}.
+         Parameters for Query: {requiredKeysForQuery}"""
+            .format(events=events, requiredKeysForQuery=requiredKeysForQuery)
     )
 
     return requiredKeysForQuery
@@ -164,7 +183,7 @@ def generate_recovery_users_query_with_params(events, dateIntervals):
             .format(events=events, dateIntervals=dateIntervals)
     )
 
-    requiredKeysForQuery = extract_required_keys_for_generate_recovery_query(events, dateIntervals)
+    requiredKeysForQuery = extract_required_keys_for_generate_recovery_query(events)
 
     stepBeforeDropOff = requiredKeysForQuery["stepBeforeDropOff"]
     nextStepList = requiredKeysForQuery["nextStepList"]
@@ -252,7 +271,42 @@ def fetch_dropoff_and_recovery_user_count_given_steps(events, dateIntervals):
 
     return dropOffAndRecoveryUsersCount
 
-def fetch_dropoff_and_recovery_users_count_given_list_of_steps(eventsAndDatesList):
+def construct_default_events_and_dates_list():
+    eventsList = EVENTS_LIST
+    THREE_DAYS_AGO = 3
+    startDate = calculate_date_n_days_ago_at_utc(THREE_DAYS_AGO)
+    endDate = calculate_date_of_yesterday_at_utc()
+    for item in eventsList:
+        item["dateIntervals"] = {
+            "startDate": startDate,
+            "endDate": endDate,
+        }
+    eventsAndDatesList = eventsList
+    print("Constructed Default Events and Dates list: {}".format(eventsAndDatesList))
+    return eventsAndDatesList
+
+def extract_events_and_dates_from_request(request):
+    print("Extracting events and dates from request")
+    request_json = request.get_json()
+    eventsAndDatesList = ""
+
+    if request_json and 'eventsAndDatesList' in request_json:
+        eventsAndDatesList = request_json['eventsAndDatesList']
+
+    print("Events and dates lists extracted from request: {}".format(eventsAndDatesList))
+    return eventsAndDatesList
+
+def fetch_dropoff_and_recovery_users_count_given_list_of_steps(request):
+    resultFromRequest = extract_events_and_dates_from_request(request)
+    defaultEventsAndDatesList = construct_default_events_and_dates_list()
+    eventsAndDatesList = defaultEventsAndDatesList if resultFromRequest == "" else resultFromRequest
+
+    print(
+        """
+        Fetching dropoff and recovery users count given list of steps. Events and dates list: {}
+        """.format(eventsAndDatesList)
+    )
+
     userCountList = []
     for item in eventsAndDatesList:
         events = item["events"]
@@ -261,9 +315,3 @@ def fetch_dropoff_and_recovery_users_count_given_list_of_steps(eventsAndDatesLis
         dropOffAndRecoveryUsersCount["dropOffStep"] = events["stepBeforeDropOff"]
         userCountList.append(dropOffAndRecoveryUsersCount)
     return userCountList
-
-# TODO: create `all_events_table` with the columns: `user_id`, `event_type`, `timestamp`, `context`
-# TODO: have `sync amplitude data` function and `pubsub-to-big-query` store data in `all_events_table`
-
-# TODO: test coverage tool
-# TODO: deploy function as https and be triggered by cloud scheduler
