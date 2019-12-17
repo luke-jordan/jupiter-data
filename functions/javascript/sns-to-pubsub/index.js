@@ -20,8 +20,8 @@ async function processMessageBasedOnType(message, res) {
             console.log('converting message to buffer');
             /**
              * `neededParams` is sent as array as the function that would load the data into big query expects an array
-             * The keys: `user_id`, `event_type`, `timestamp` and `context match the schema of `sns_events` table in big query
-             * Please do not change the key names in `neededParams` without updating the schema of sns_events table in big query
+             * The keys: `user_id`, `event_type`, `timestamp` and `context match the schema of `all_user_events` table in big query
+             * Please do not change the key names in `neededParams` without updating the schema of all_user_events table in big query
             */
             const neededParams = [{
                 user_id: message.userId,

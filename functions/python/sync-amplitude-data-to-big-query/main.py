@@ -48,10 +48,15 @@ SOURCE_OF_EVENT = 'AMPLITUDE'
 SECOND_TO_MILLISECOND_FACTOR=1000
 
 def fetch_current_datetime_at_utc():
-    print("Fetching current datetime at UTC")
+    print("Fetching current datetime at UTC for created_at and updated_at datetime")
     date_time_format = '%Y-%m-%d %H:%M:%S'
     date_time_at_UTC = datetime.now(timezone.utc).strftime(date_time_format) + ' UTC'
-    print("Successfully fetched current datetime at UTC. Date time at UTC: {}".format(date_time_at_UTC))
+    print(
+        """
+        Successfully fetched current datetime at UTC. Date time at UTC: {}".format(date_time_at_UTC)
+        for created_at and updated_at datetime
+        """
+    )
     return date_time_at_UTC
 
 
@@ -157,7 +162,7 @@ def load_gcs_file_into_bigquery(path_to_file, table):
 
 def convert_date_string_to_millisecond_int(dateTimeString):
     print(
-        "Converting date time string: {dateTimeString} to milliseconds"
+        "Converting date time string: {dateTimeString} to milliseconds for time of transaction"
             .format(dateTimeString=dateTimeString)
     )
 
@@ -166,7 +171,10 @@ def convert_date_string_to_millisecond_int(dateTimeString):
     timeInMilliSecond = (date_object - epoch).total_seconds() * SECOND_TO_MILLISECOND_FACTOR
 
     print(
-        "Successfully converted date time string: {dateTimeString} to milliseconds: {timeInMilliSecond}"
+        """
+        Successfully converted date time string: {dateTimeString} to milliseconds: {timeInMilliSecond}
+        for time of transaction
+        """
             .format(dateTimeString=dateTimeString, timeInMilliSecond=timeInMilliSecond)
     )
     return int(timeInMilliSecond)

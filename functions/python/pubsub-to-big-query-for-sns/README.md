@@ -1,7 +1,7 @@
 # Pub Sub To Big Query
 
 `pubsub-to-big-query-for-sns` is subscribed to the Pub/Sub topic `sns-events` and when a message arrives on the 
-topic, the function takes the message and loads it into the big query table: `ops.sns_events`.
+topic, the function takes the message and loads it into the big query table: `ops.all_user_events`.
 
 The data coming from the topic `sns-events` is already formatted containing data like:
 ```
