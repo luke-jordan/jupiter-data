@@ -64,7 +64,7 @@ exports.fetchFromBigQuery = async function fetchFromBigQuery(req, res) {
         const sqlQuery = `SELECT event_type, COUNT(event_type) as event_count
                     FROM \`${GOOGLE_PROJECT_ID}.${DATASET}.${TABLE}\`
                     where \`timestamp\` BETWEEN @start_date and @end_date and \`source_of_event\`="${SOURCE_OF_EVENT}" 
-                    and event_type in (@eventTypes) GROUP BY event_type`;
+                    and event_type in UNNEST(@eventTypes) GROUP BY event_type`;
 
         console.log(`sql query to be run: ${sqlQuery}`);
 
