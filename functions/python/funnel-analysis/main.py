@@ -12,7 +12,7 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="service-account-credentials.json"
 project_id = os.getenv("GOOGLE_PROJECT_ID")
 BIG_QUERY_DATASET_LOCATION =  os.getenv("BIG_QUERY_DATASET_LOCATION")
 dataset_id = 'ops'
-table_id = 'all_events_table'
+table_id = 'all_user_events'
 FULL_TABLE_URL="{project_id}.{dataset_id}.{table_id}".format(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
 
 client = bigquery.Client()
@@ -161,7 +161,7 @@ def extract_required_keys_for_generate_recovery_query(events):
 
     return requiredKeysForQuery
 
-def fetch_from_all_events_table(query, query_params):
+def fetch_from_all_user_events_table(query, query_params):
     print(
         """
         Fetching from all events table with query: {query} and params {query_params}
@@ -182,7 +182,7 @@ def fetch_from_all_events_table(query, query_params):
         Successfully fetched from from all events table with query: {query} and params {query_params}
         """.format(query=query, query_params=query_params)
     )
-    return query_job
+    return list(query_job)
 
 
 def generate_drop_off_users_query_with_params(events, dateIntervals):
@@ -210,14 +210,14 @@ def generate_drop_off_users_query_with_params(events, dateIntervals):
                 and `timestamp` <= @endDateInMilliseconds
             )
             and `event_type` = @stepBeforeDropOff
-            and `timestamp` between @startDateInMilliseconds and @endDate
+            and `timestamp` between @startDateInMilliseconds and @endDateInMilliseconds
         """
             .format(full_table_url=FULL_TABLE_URL)
     )
 
     dropOffParams = [
         bigquery.ScalarQueryParameter("stepBeforeDropOff", "STRING", stepBeforeDropOff),
-        bigquery.ScalarQueryParameter("nextStepList", "STRING", nextStepList),
+        bigquery.ArrayQueryParameter("nextStepList", "STRING", nextStepList),
         bigquery.ScalarQueryParameter("startDateInMilliseconds", "INT64", startDateInMilliseconds),
         bigquery.ScalarQueryParameter("endDateInMilliseconds", "INT64", endDateInMilliseconds),
     ]
@@ -271,16 +271,16 @@ def generate_recovery_users_query_with_params(events, dateIntervals):
                     and `timestamp` <= @endOfYesterdayInMilliseconds
                 )
                 and `event_type` = @stepBeforeDropOff
-                and `timestamp` between @startDateInMilliseconds and @endDate
+                and `timestamp` between @beginningOfYesterdayInMilliseconds and @endOfYesterdayInMilliseconds
             )
         """
             .format(full_table_url=FULL_TABLE_URL)
     )
 
     recoveryParams = [
-        bigquery.ScalarQueryParameter("recoveryStep", "STRING", recoveryStep),
+        bigquery.ArrayQueryParameter("recoveryStep", "STRING", recoveryStep),
         bigquery.ScalarQueryParameter("stepBeforeDropOff", "STRING", stepBeforeDropOff),
-        bigquery.ScalarQueryParameter("nextStepList", "STRING", nextStepList),
+        bigquery.ArrayQueryParameter("nextStepList", "STRING", nextStepList),
         bigquery.ScalarQueryParameter("beginningOfYesterdayInMilliseconds", "INT64", beginningOfYesterdayInMilliseconds),
         bigquery.ScalarQueryParameter("endOfYesterdayInMilliseconds", "INT64", endOfYesterdayInMilliseconds),
     ]
@@ -307,12 +307,12 @@ def fetch_dropoff_and_recovery_user_count_given_steps(events, dateIntervals):
     dropOffQueryAndParams = generate_drop_off_users_query_with_params(events, dateIntervals)
     recoveryQueryAndParams = generate_recovery_users_query_with_params(events, dateIntervals)
 
-    dropOffUsers = fetch_from_all_events_table(
+    dropOffUsers = fetch_from_all_user_events_table(
         dropOffQueryAndParams["dropOffQuery"],
         dropOffQueryAndParams["dropOffParams"]
     )
 
-    recoveryUsers = fetch_from_all_events_table(
+    recoveryUsers = fetch_from_all_user_events_table(
         recoveryQueryAndParams["recoveryQuery"],
         recoveryQueryAndParams["recoveryParams"]
     )
@@ -357,21 +357,31 @@ def extract_events_and_dates_from_request(request):
     return eventsAndDatesList
 
 def fetch_dropoff_and_recovery_users_count_given_list_of_steps(request):
-    resultFromRequest = extract_events_and_dates_from_request(request)
-    defaultEventsAndDatesList = construct_default_events_and_dates_list()
-    eventsAndDatesList = defaultEventsAndDatesList if resultFromRequest == "" else resultFromRequest
+    print("Fetching user count list for dropoff/recovery")
+    try:
+        eventsAndDatesFromRequest = extract_events_and_dates_from_request(request)
+        defaultEventsAndDatesList = construct_default_events_and_dates_list()
+        eventsAndDatesList = defaultEventsAndDatesList if eventsAndDatesFromRequest == "" else eventsAndDatesFromRequest
 
-    print(
-        """
-        Fetching dropoff and recovery users count given list of steps. Events and dates list: {}
-        """.format(eventsAndDatesList)
-    )
+        print(
+            """
+            Fetching dropoff and recovery users count given list of steps. Events and dates list: {}
+            """.format(eventsAndDatesList)
+        )
 
-    userCountList = []
-    for item in eventsAndDatesList:
-        events = item["events"]
-        dateIntervals = item["dateIntervals"]
-        dropOffAndRecoveryUsersCount = fetch_dropoff_and_recovery_user_count_given_steps(events, dateIntervals)
-        dropOffAndRecoveryUsersCount["dropOffStep"] = events["stepBeforeDropOff"]
-        userCountList.append(dropOffAndRecoveryUsersCount)
-    return userCountList
+        userCountList = []
+        for item in eventsAndDatesList:
+            events = item["events"]
+            dateIntervals = item["dateIntervals"]
+
+            dropOffAndRecoveryUsersCountPerItem = fetch_dropoff_and_recovery_user_count_given_steps(events, dateIntervals)
+            dropOffAndRecoveryUsersCountPerItem["dropOffStep"] = events["stepBeforeDropOff"]
+
+            userCountList.append(dropOffAndRecoveryUsersCountPerItem)
+        print("COMPLETED FETCHING USER COUNT LIST for dropoff/recovery======> User count list: {}".format(userCountList))
+        return userCountList
+    except Exception as err:
+        print(
+            "Error occurred while fetching user count list for dropoff/recovery. Error: {}"
+            .format(err)
+        )

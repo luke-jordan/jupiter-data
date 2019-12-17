@@ -13,7 +13,7 @@ from main \
     extract_required_keys_for_generate_recovery_query, \
     fetch_dropoff_and_recovery_user_count_given_steps, \
     fetch_dropoff_and_recovery_users_count_given_list_of_steps, \
-    fetch_from_all_events_table, \
+    fetch_from_all_user_events_table, \
     calculate_date_n_days_ago_at_utc, \
     extract_events_and_dates_from_request, \
     extract_required_keys_for_generate_dropoff_query
@@ -25,11 +25,11 @@ load_dotenv()
 # these credentials are used to access google cloud services. See https://cloud.google.com/docs/authentication/getting-started
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="service-account-credentials.json"
 
-project_id = os.getenv("GOOGLE_PROJECT_ID")
-BIG_QUERY_DATASET_LOCATION =  os.getenv("BIG_QUERY_DATASET_LOCATION")
-dataset_id = 'ops'
-table_id = 'all_events_table'
-FULL_TABLE_URL="{project_id}.{dataset_id}.{table_id}".format(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
+project_id = main.project_id
+BIG_QUERY_DATASET_LOCATION =  main.BIG_QUERY_DATASET_LOCATION
+dataset_id = main.dataset_id
+table_id = main.table_id
+FULL_TABLE_URL=main.FULL_TABLE_URL
 
 HOUR_MARKING_START_OF_DAY=constant.HOUR_MARKING_START_OF_DAY
 HOUR_MARKING_END_OF_DAY=constant.HOUR_MARKING_END_OF_DAY
@@ -119,18 +119,18 @@ def test_generate_drop_off_users_query_with_params():
             (
                 select `user_id`
                 from `{full_table_url}`
-                where `event_type` in @nextStepList
+                where `event_type` in UNNEST(@nextStepList)
                 and `timestamp` <= @endDateInMilliseconds
             )
             and `event_type` = @stepBeforeDropOff
-            and `timestamp` between @startDateInMilliseconds and @endDate
+            and `timestamp` between @startDateInMilliseconds and @endDateInMilliseconds
         """
-        .format(full_table_url=FULL_TABLE_URL)
+            .format(full_table_url=FULL_TABLE_URL)
     )
 
     expectedDropOffParams = [
         bigquery.ScalarQueryParameter("stepBeforeDropOff", "STRING", stepBeforeDropOff),
-        bigquery.ScalarQueryParameter("nextStepList", "STRING", nextStepList),
+        bigquery.ArrayQueryParameter("nextStepList", "STRING", nextStepList),
         bigquery.ScalarQueryParameter("startDateInMilliseconds", "INT64", startDateInMilliseconds),
         bigquery.ScalarQueryParameter("endDateInMilliseconds", "INT64", endDateInMilliseconds),
     ]
@@ -152,7 +152,7 @@ def test_generate_recovery_users_query_with_params():
         """
             select distinct(`user_id`)
             from `{full_table_url}`
-            where `event_type` in @recoveryStep
+            where `event_type` in UNNEST(@recoveryStep)
             and `timestamp` between @beginningOfYesterdayInMilliseconds and @endOfYesterdayInMilliseconds
             and `user_id` in
             (
@@ -162,20 +162,20 @@ def test_generate_recovery_users_query_with_params():
                 (
                     select `user_id`
                     from `{full_table_url}`
-                    where `event_type` in @nextStepList
+                    where `event_type` in UNNEST(@nextStepList)
                     and `timestamp` <= @endOfYesterdayInMilliseconds
                 )
                 and `event_type` = @stepBeforeDropOff
-                and `timestamp` between @startDateInMilliseconds and @endDate
+                and `timestamp` between @beginningOfYesterdayInMilliseconds and @endOfYesterdayInMilliseconds
             )
         """
             .format(full_table_url=FULL_TABLE_URL)
     )
 
     expectedRecoveryParams = [
-        bigquery.ScalarQueryParameter("recoveryStep", "STRING", recoveryStep),
+        bigquery.ArrayQueryParameter("recoveryStep", "STRING", recoveryStep),
         bigquery.ScalarQueryParameter("stepBeforeDropOff", "STRING", stepBeforeDropOff),
-        bigquery.ScalarQueryParameter("nextStepList", "STRING", nextStepList),
+        bigquery.ArrayQueryParameter("nextStepList", "STRING", nextStepList),
         bigquery.ScalarQueryParameter("beginningOfYesterdayInMilliseconds", "INT64", beginningOfYesterdayInMilliseconds),
         bigquery.ScalarQueryParameter("endOfYesterdayInMilliseconds", "INT64", endOfYesterdayInMilliseconds),
     ]
@@ -188,7 +188,7 @@ def test_generate_recovery_users_query_with_params():
     assert generate_recovery_users_query_with_params(sampleEvents, sampleDateIntervals) == expectedRecoveryQueryAndParams
 
 
-def test_fetch_from_all_events_table(mock_big_query):
+def test_fetch_from_all_user_events_table(mock_big_query):
     sampleEventType = "ENTERED_ONBOARD_SCREEN"
     sampleQuery = (
         """
@@ -207,7 +207,7 @@ def test_fetch_from_all_events_table(mock_big_query):
     main.client = mock_big_query
     mock_big_query.query.return_value = expectedUserIdList
 
-    result = fetch_from_all_events_table(sampleQuery, sampleParams)
+    result = fetch_from_all_user_events_table(sampleQuery, sampleParams)
     assert result == expectedUserIdList
     mock_big_query.query.assert_called_once()
 
