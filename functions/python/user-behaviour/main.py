@@ -404,7 +404,7 @@ def formatPayloadForUserBehaviourTable(payloadList):
     accountId = ""
     print("formatting payload for user behaviour table {}".format(payloadList))
     formattedPayloadList = []
-    for eventMessage in payloadList: # only one eventMessage is expected
+    for eventMessage in payloadList:
         if missingParameterInPayload(eventMessage):
             print("a required parameter is missing")
             break
@@ -419,7 +419,7 @@ def formatPayloadForUserBehaviourTable(payloadList):
             )
             break
 
-        userId = eventMessage["user_id"]
+        userId = eventMessage["user_id"] # only one eventMessage is expected, hence the assignment of user info
         accountId = context["accountId"]
 
         singleFormattedPayload = {
