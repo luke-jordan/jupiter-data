@@ -1,0 +1,37 @@
+[
+  {
+    "mode": "REQUIRED",
+    "name": "user_id",
+    "type": "STRING"
+  },
+  {
+    "mode": "REQUIRED",
+    "name": "event_type",
+    "type": "STRING"
+  },
+  {
+    "mode": "REQUIRED",
+    "name": "timestamp",
+    "type": "INTEGER"
+  },
+  {
+    "mode": "REQUIRED",
+    "name": "source_of_event",
+    "type": "STRING"
+  },
+  {
+    "mode": "REQUIRED",
+    "name": "created_at",
+    "type": "TIMESTAMP"
+  },
+  {
+    "mode": "REQUIRED",
+    "name": "updated_at",
+    "type": "TIMESTAMP"
+  },
+  {
+    "mode": "NULLABLE",
+    "name": "context",
+    "type": "STRING"
+  }
+]

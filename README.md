@@ -44,7 +44,7 @@ on receiving the message `javascript/sns-to-pubsub` publishes said message to GC
 
 We have a second function `python/pubsub-to-big-query-for-sns` that is subscribed to the Pub/Sub topic: `sns-events`.
 When there is a new message on `sns-events`, `python/pubsub-to-big-query-for-sns` receives that message and loads the
-message into the Big Query table `ops.sns_events`
+message into the Big Query table `ops.all_user_events`
 
 This entire flow is best explained with the diagram below:
 
@@ -148,3 +148,21 @@ pipenv install
 ``` 
 
 That is all as per setup. You can now proceed to write your function and install needed libraries as you go from within the virtual environment.
+
+
+## Python Tests
+Instructions for tests and test coverage in python functions i.e. functions in the folder: `functions/python`
+1. To run the tests only:
+```
+pytest
+```
+
+2. To run the tests with code coverage of the tests:
+```
+coverage run -m --source=. pytest
+```
+
+3. To view the test coverage report:
+```
+coverage report
+```
