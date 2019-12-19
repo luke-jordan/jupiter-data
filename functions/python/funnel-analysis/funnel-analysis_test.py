@@ -1,4 +1,5 @@
 import os
+import json
 import constant
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
@@ -260,14 +261,14 @@ def test_fetch_dropoff_and_recovery_users_count_given_list_of_steps(mock_big_que
 
     expectedUserCountList = [
         {
+        "dropOffCount": len(expectedUserIdList),
+        "recoveryCount": len(expectedUserIdList),
         "dropOffStep": "ENTERED_ONBOARD_SCREEN",
+        }, {
         "dropOffCount": len(expectedUserIdList),
         "recoveryCount": len(expectedUserIdList),
-    }, {
         "dropOffStep": "ENTERED_REFERRAL_CODE",
-        "dropOffCount": len(expectedUserIdList),
-        "recoveryCount": len(expectedUserIdList),
-    }]
+        }]
 
     main.EVENTS_AND_DATES_LIST = sampleEventsAndDatesList
     main.client = mock_big_query
@@ -277,4 +278,4 @@ def test_fetch_dropoff_and_recovery_users_count_given_list_of_steps(mock_big_que
     result = fetch_dropoff_and_recovery_users_count_given_list_of_steps(mock_json_request)
     main.client.query.assert_called()
     assert main.client.query.call_count == 4
-    assert result == expectedUserCountList
+    assert result == json.dumps(expectedUserCountList)
