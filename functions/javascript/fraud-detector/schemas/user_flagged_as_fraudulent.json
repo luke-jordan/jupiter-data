@@ -11,6 +11,11 @@
     },
     {
       "mode": "REQUIRED",
+      "name": "rule_label",
+      "type": "STRING"
+    },
+    {
+      "mode": "REQUIRED",
       "name": "reason",
       "type": "STRING"
     },

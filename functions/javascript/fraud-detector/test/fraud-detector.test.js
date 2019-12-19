@@ -10,14 +10,20 @@ const utils = require('../utils');
 const uuid = require('uuid/v4');
 
 const bigQueryTableInsertStub = sinon.stub();
+const bigQueryFetchStub = sinon.stub();
 const requestRetryStub = sinon.stub();
 const timestampStub = sinon.stub(utils, 'createTimestampForSQLDatabase');
 
 const resetStubs = () => {
     bigQueryTableInsertStub.reset();
+    bigQueryFetchStub.reset();
     requestRetryStub.reset();
     timestampStub.reset();
 };
+
+const sampleFlagTime = "2019-12-10 13:42:59 UTC";
+const sampleRuleLabel = 'single_very_large_deposit';
+const sampleRuleListWithLatestFlagTime = [[{ rule_label: sampleRuleLabel, latest_flag_time: { value: sampleFlagTime }}]];
 
 class MockBigQueryClass {
     // eslint-disable-next-line class-methods-use-this
@@ -27,6 +33,10 @@ class MockBigQueryClass {
                 insert: bigQueryTableInsertStub
             })
         };
+    }
+
+    query() {
+        return sampleRuleListWithLatestFlagTime;
     }
 }
 
@@ -76,9 +86,14 @@ const sampleUserAccountInfo = {
     userId: '1a',
     accountId: '3b43'
 };
+
+const formattedRulesWithLatestFlagTime = {
+    [sampleRuleLabel]: sampleFlagTime
+};
 const sampleReasonForFlaggingUser = `User has deposited 50,000 rands 3 or more times in the last 6 months`;
 const sampleEvent = {
     params: {
+        ruleLabel: sampleRuleLabel,
         reasonForFlaggingUser: sampleReasonForFlaggingUser
     }
 };
@@ -99,6 +114,7 @@ const sampleRow = [
     {
         user_id: sampleUserAccountInfo.userId,
         account_id: sampleUserAccountInfo.accountId,
+        rule_label: sampleRuleLabel,
         reason: sampleReasonForFlaggingUser,
         accuracy: accuracyStates.pending,
         created_at: sampleTimestamp,
@@ -187,12 +203,16 @@ describe('Fraud Detector', () => {
     it(`should construct payload for user flag table successfully`, async () => {
         timestampStub.returns(sampleTimestamp);
 
-        const result = await constructPayloadForUserFlagTable(sampleUserAccountInfo, sampleReasonForFlaggingUser);
+        const result = await constructPayloadForUserFlagTable(
+            sampleUserAccountInfo,
+            sampleRuleLabel,
+            sampleReasonForFlaggingUser
+        );
         expect(result).to.exist;
         expect(result).to.deep.equal(sampleRow);
     });
 
-    it(`should 'fetch facts about user and run engine' successfully`, async () => {
+    it.only(`should 'fetch facts about user and run engine' successfully`, async () => {
         requestRetryStub.onFirstCall().resolves({
             body: sampleFactsFromUserBehaviour
         });
@@ -216,8 +236,13 @@ describe('Fraud Detector', () => {
         } = samplePayloadFromFetchFactsTrigger;
 
         const extraConfigForFetchUserBehaviour = {
-            url: `${FETCH_USER_BEHAVIOUR_URL}?userId=${userId}&accountId=${accountId}`,
-            method: GET
+            url: `${FETCH_USER_BEHAVIOUR_URL}`,
+            method: POST,
+            body: {
+                userId,
+                accountId,
+                ruleCutOffTimes: formattedRulesWithLatestFlagTime
+            }
         };
 
         const req = {
@@ -270,8 +295,13 @@ describe('Fraud Detector', () => {
         } = samplePayloadFromFetchFactsTrigger;
 
         const extraConfigForFetchUserBehaviour = {
-            url: `${FETCH_USER_BEHAVIOUR_URL}?userId=${userId}&accountId=${accountId}`,
-            method: GET
+            url: `${FETCH_USER_BEHAVIOUR_URL}`,
+            method: POST,
+            body: {
+                userId,
+                accountId,
+                ruleCutOffTimes: formattedRulesWithLatestFlagTime
+            }
         };
 
         const req = {

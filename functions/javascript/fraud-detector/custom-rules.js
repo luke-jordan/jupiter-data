@@ -12,7 +12,7 @@ module.exports = {
                     }
                 ]
             },
-            event: { // define the event to fire when the conditions evaluate truthy
+            event: {
                 type: 'flaggedAsFraudulent',
                 params: {
                     ruleLabel: `single_very_large_deposit`,
@@ -33,6 +33,7 @@ module.exports = {
             event: {
                 type: 'flaggedAsFraudulent',
                 params: {
+                    ruleLabel: `deposits_greater_than_benchmark_within_six_months`,
                     reasonForFlaggingUser: `User has deposited 50,000 rands 3 or more times in the last 6 months`
                 }
             }
@@ -52,6 +53,7 @@ module.exports = {
             event: {
                 type: 'flaggedAsFraudulent',
                 params: {
+                    ruleLabel: `latest_deposit_greater_than_six_months_average`,
                     reasonForFlaggingUser: `User's latest inward transfer > 10x past 6 month average transfer`
                 }
             }
@@ -70,6 +72,7 @@ module.exports = {
             event: {
                 type: 'flaggedAsFraudulent',
                 params: {
+                    ruleLabel: `withdrawals_within_two_days_of_deposits_during_one_month`,
                     reasonForFlaggingUser: `User has more than 3 instances within a 30 day cycle, of withdrawal of deposit within 48 hours of depositing`
                 }
             }
@@ -88,6 +91,7 @@ module.exports = {
             event: {
                 type: 'flaggedAsFraudulent',
                 params: {
+                    ruleLabel: `withdrawals_within_one_day_of_deposits_during_one_week`,
                     reasonForFlaggingUser: `User has more than 1 instance within a 7 day cycle, of withdrawal instruction of deposit transferred within 24 hours`
                 }
             }
