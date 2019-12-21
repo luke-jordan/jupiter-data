@@ -21,6 +21,7 @@ client = bigquery.Client()
 SECOND_TO_MILLISECOND_FACTOR=constant.SECOND_TO_MILLISECOND_FACTOR
 HOUR_MARKING_START_OF_DAY=constant.HOUR_MARKING_START_OF_DAY
 HOUR_MARKING_END_OF_DAY=constant.HOUR_MARKING_END_OF_DAY
+THREE_DAYS_AGO=constant.THREE_DAYS_AGO
 
 EVENTS_LIST = [
     {
@@ -208,10 +209,10 @@ def generate_drop_off_users_query_with_params(events, dateIntervals):
                 select `user_id`
                 from `{full_table_url}`
                 where `event_type` in UNNEST(@nextStepList)
-                and `timestamp` <= @endDateInMilliseconds
+                and `time_transaction_occurred` <= @endDateInMilliseconds
             )
             and `event_type` = @stepBeforeDropOff
-            and `timestamp` between @startDateInMilliseconds and @endDateInMilliseconds
+            and `time_transaction_occurred` between @startDateInMilliseconds and @endDateInMilliseconds
         """
             .format(full_table_url=FULL_TABLE_URL)
     )
@@ -259,7 +260,7 @@ def generate_recovery_users_query_with_params(events, dateIntervals):
             select distinct(`user_id`)
             from `{full_table_url}`
             where `event_type` in UNNEST(@recoveryStep)
-            and `timestamp` between @beginningOfYesterdayInMilliseconds and @endOfYesterdayInMilliseconds
+            and `time_transaction_occurred` between @beginningOfYesterdayInMilliseconds and @endOfYesterdayInMilliseconds
             and `user_id` in
             (
                 select `user_id`
@@ -269,10 +270,10 @@ def generate_recovery_users_query_with_params(events, dateIntervals):
                     select `user_id`
                     from `{full_table_url}`
                     where `event_type` in UNNEST(@nextStepList)
-                    and `timestamp` <= @endOfYesterdayInMilliseconds
+                    and `time_transaction_occurred` <= @endOfYesterdayInMilliseconds
                 )
                 and `event_type` = @stepBeforeDropOff
-                and `timestamp` between @beginningOfYesterdayInMilliseconds and @endOfYesterdayInMilliseconds
+                and `time_transaction_occurred` between @beginningOfYesterdayInMilliseconds and @endOfYesterdayInMilliseconds
             )
         """
             .format(full_table_url=FULL_TABLE_URL)
@@ -333,16 +334,15 @@ def fetch_dropoff_and_recovery_user_count_given_steps(events, dateIntervals):
     return dropOffAndRecoveryUsersCount
 
 def construct_default_events_and_dates_list():
-    eventsList = EVENTS_LIST
-    THREE_DAYS_AGO = 3
+    eventsAndDatesList = EVENTS_LIST
     startDate = calculate_date_n_days_ago_at_utc(THREE_DAYS_AGO)
     endDate = calculate_date_of_yesterday_at_utc()
-    for item in eventsList:
+    for item in eventsAndDatesList:
         item["dateIntervals"] = {
             "startDate": startDate,
             "endDate": endDate,
         }
-    eventsAndDatesList = eventsList
+
     print("Constructed Default Events and Dates list: {}".format(eventsAndDatesList))
     return eventsAndDatesList
 

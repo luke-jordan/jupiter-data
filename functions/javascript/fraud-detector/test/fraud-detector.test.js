@@ -12,7 +12,7 @@ const uuid = require('uuid/v4');
 const bigQueryTableInsertStub = sinon.stub();
 const bigQueryFetchStub = sinon.stub();
 const requestRetryStub = sinon.stub();
-const timestampStub = sinon.stub(utils, 'createTimestampForSQLDatabase');
+const timestampStub = sinon.stub(utils, 'generateCurrentTimeInMilliseconds');
 
 const resetStubs = () => {
     bigQueryTableInsertStub.reset();
@@ -50,7 +50,6 @@ const fraudDetector = proxyquire('../fraud-detector', {
 });
 const {
     logFraudulentUserAndNotifyAdmins,
-    extractReasonForFlaggingUserFromEvent,
     logFraudulentUserFlag,
     constructNotificationPayload,
     notifyAdminsOfNewlyFlaggedUser,
@@ -130,9 +129,9 @@ const samplePayloadFromFetchFactsTrigger = {
 describe('Utils for Fraud Detector', () => {
     it('should create timestamp for database successfully', async () => {
         timestampStub.callThrough();
-        const result = await utils.createTimestampForSQLDatabase();
+        const result = await utils.generateCurrentTimeInMilliseconds();
         expect(result).to.exist;
-        expect(result).to.be.a('string');
+        expect(result).to.be.a('number');
     });
 });
 
@@ -187,12 +186,6 @@ describe('Fraud Detector', () => {
         sinon.assert.callOrder(bigQueryTableInsertStub, requestRetryStub);
     });
 
-    it(`shoule extract 'reason' for flagging user from event`, async () => {
-        const result = await extractReasonForFlaggingUserFromEvent(sampleEvent);
-        expect(result).to.exist;
-        expect(result).to.equal(sampleReasonForFlaggingUser);
-    });
-
     it(`should insert user flag into table`, async () => {
         bigQueryTableInsertStub.resolves();
         const result = await insertUserFlagIntoTable(sampleRow);
@@ -212,7 +205,7 @@ describe('Fraud Detector', () => {
         expect(result).to.deep.equal(sampleRow);
     });
 
-    it.only(`should 'fetch facts about user and run engine' successfully`, async () => {
+    it(`should 'fetch facts about user and run engine' successfully`, async () => {
         requestRetryStub.onFirstCall().resolves({
             body: sampleFactsFromUserBehaviour
         });

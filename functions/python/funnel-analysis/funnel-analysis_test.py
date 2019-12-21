@@ -121,10 +121,10 @@ def test_generate_drop_off_users_query_with_params():
                 select `user_id`
                 from `{full_table_url}`
                 where `event_type` in UNNEST(@nextStepList)
-                and `timestamp` <= @endDateInMilliseconds
+                and `time_transaction_occurred` <= @endDateInMilliseconds
             )
             and `event_type` = @stepBeforeDropOff
-            and `timestamp` between @startDateInMilliseconds and @endDateInMilliseconds
+            and `time_transaction_occurred` between @startDateInMilliseconds and @endDateInMilliseconds
         """
             .format(full_table_url=FULL_TABLE_URL)
     )
@@ -154,7 +154,7 @@ def test_generate_recovery_users_query_with_params():
             select distinct(`user_id`)
             from `{full_table_url}`
             where `event_type` in UNNEST(@recoveryStep)
-            and `timestamp` between @beginningOfYesterdayInMilliseconds and @endOfYesterdayInMilliseconds
+            and `time_transaction_occurred` between @beginningOfYesterdayInMilliseconds and @endOfYesterdayInMilliseconds
             and `user_id` in
             (
                 select `user_id`
@@ -164,10 +164,10 @@ def test_generate_recovery_users_query_with_params():
                     select `user_id`
                     from `{full_table_url}`
                     where `event_type` in UNNEST(@nextStepList)
-                    and `timestamp` <= @endOfYesterdayInMilliseconds
+                    and `time_transaction_occurred` <= @endOfYesterdayInMilliseconds
                 )
                 and `event_type` = @stepBeforeDropOff
-                and `timestamp` between @beginningOfYesterdayInMilliseconds and @endOfYesterdayInMilliseconds
+                and `time_transaction_occurred` between @beginningOfYesterdayInMilliseconds and @endOfYesterdayInMilliseconds
             )
         """
             .format(full_table_url=FULL_TABLE_URL)

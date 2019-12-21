@@ -32,6 +32,16 @@
     {
       "mode": "REQUIRED",
       "name": "time_transaction_occurred",
-      "type": "TIMESTAMP"
+      "type": "INTEGER"
+    },
+    {
+      "mode": "REQUIRED",
+      "name": "created_at",
+      "type": "INTEGER"
+    },
+    {
+      "mode": "REQUIRED",
+      "name": "updated_at",
+      "type": "INTEGER"
     }
-  ]
+]

@@ -27,11 +27,11 @@
     {
       "mode": "REQUIRED",
       "name": "created_at",
-      "type": "TIMESTAMP"
+      "type": "INTEGER"
     },
     {
       "mode": "REQUIRED",
       "name": "updated_at",
-      "type": "TIMESTAMP"
+      "type": "INTEGER"
     }
   ]

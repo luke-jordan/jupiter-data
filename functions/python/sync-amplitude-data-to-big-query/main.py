@@ -6,6 +6,7 @@ import gzip
 import json
 import os
 import zipfile
+import time
 
 from datetime import datetime, timedelta, timezone
 from os import walk
@@ -47,17 +48,16 @@ storage_client = storage.Client()
 SOURCE_OF_EVENT = 'AMPLITUDE'
 SECOND_TO_MILLISECOND_FACTOR=1000
 
-def fetch_current_datetime_at_utc():
-    print("Fetching current datetime at UTC for created_at and updated_at datetime")
-    date_time_format = '%Y-%m-%d %H:%M:%S'
-    date_time_at_UTC = datetime.now(timezone.utc).strftime(date_time_format) + ' UTC'
+def fetch_current_time_in_milliseconds():
+    print("Fetching current time at UTC in milliseconds for created_at and updated_at datetime")
+    currentTimeInMilliseconds = int(round(time.time() * SECOND_TO_MILLISECOND_FACTOR))
     print(
         """
-        Successfully fetched current datetime at UTC. Date time at UTC: {}".format(date_time_at_UTC)
+        Successfully fetched current time at UTC in milliseconds. Time at UTC: {}
         for created_at and updated_at datetime
-        """
+        """.format(currentTimeInMilliseconds)
     )
-    return date_time_at_UTC
+    return currentTimeInMilliseconds
 
 
 def unzip_gzip(file, remove_original=True):
@@ -240,13 +240,13 @@ def process_line_json(line):
         context_data['event_properties'] = properties
 
         row_for_all_events_table = {}
-        timestamp_now = fetch_current_datetime_at_utc()
+        time_in_milliseconds_now = fetch_current_time_in_milliseconds()
         row_for_all_events_table['user_id'] = value_def(parsed['user_id'])
         row_for_all_events_table['event_type'] = value_def(parsed['event_type'])
-        row_for_all_events_table['timestamp'] = convert_date_string_to_millisecond_int(value_def(parsed['client_event_time']))
+        row_for_all_events_table['time_transaction_occurred'] = convert_date_string_to_millisecond_int(value_def(parsed['client_event_time']))
         row_for_all_events_table['source_of_event'] = SOURCE_OF_EVENT
-        row_for_all_events_table['created_at'] = timestamp_now
-        row_for_all_events_table['updated_at'] = timestamp_now
+        row_for_all_events_table['created_at'] = time_in_milliseconds_now
+        row_for_all_events_table['updated_at'] = time_in_milliseconds_now
         row_for_all_events_table['context'] = json.dumps(context_data)
 
     return json.dumps(row_for_all_events_table)

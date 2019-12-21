@@ -15,7 +15,7 @@ const serviceUrls = config.get('serviceUrls');
 const EMAIL_SUBJECT_FOR_ADMINS = config.get('emailSubjectForAdmins');
 
 const {
-    createTimestampForSQLDatabase
+    generateCurrentTimeInMilliseconds
 } = require('./utils');
 
 const {
@@ -44,7 +44,7 @@ const VERBOSE_MODE = config.get('verboseMode');
 const bigQueryClient = new BigQuery();
 
 const sendHttpRequest = async (extraConfig, specifiedRequestTitle) => {
-    logger(`sending '${specifiedRequestTitle}' request with extra config: ${JSON.stringify(extraConfig)}`);
+    logger(`Sending '${specifiedRequestTitle}' request with extra config: ${JSON.stringify(extraConfig)}`);
 
     const response = await requestRetry({
         ...baseConfigForRequestRetry,
@@ -57,12 +57,12 @@ const sendHttpRequest = async (extraConfig, specifiedRequestTitle) => {
 };
 
 const constructPayloadForUserFlagTable = (userAccountInfo, ruleLabel, reasonForFlaggingUser) => {
-    logger(`constructing payload for user flag table with user info: ${JSON.stringify(userAccountInfo)}`);
+    logger(`Constructing payload for user flag table with user info: ${JSON.stringify(userAccountInfo)}`);
     const {
         userId,
         accountId
     } = userAccountInfo;
-    const timestamp = createTimestampForSQLDatabase();
+    const currentTimeInMilliseconds = generateCurrentTimeInMilliseconds();
 
     /*eslint-disable */
     /**
@@ -75,8 +75,8 @@ const constructPayloadForUserFlagTable = (userAccountInfo, ruleLabel, reasonForF
         rule_label: ruleLabel,
         reason: reasonForFlaggingUser,
         accuracy: accuracyStates.pending,
-        created_at: timestamp,
-        updated_at: timestamp
+        created_at: currentTimeInMilliseconds,
+        updated_at: currentTimeInMilliseconds
     };
     /* eslint-enable */
 
@@ -98,11 +98,8 @@ const isRuleSafeOrIsExperimentalModeOn = (rule) => {
 };
 
 const constructNewEngineAndAddRules = (rules) => {
-    logger(`constructing new engine and adding new rules to the engine. Rules: ${JSON.stringify(rules)}`);
+    logger(`Constructing new engine and adding new rules to the engine. Rules: ${JSON.stringify(rules)}`);
 
-    /**
-     * Setup a new engine
-     */
     const engine = new Engine();
 
     rules.filter((rule) => isRuleSafeOrIsExperimentalModeOn(rule)).
@@ -147,7 +144,7 @@ const obtainLastAlertTimesForUser = async (rules, userId) => {
 };
 
 const notifyAdminsOfNewlyFlaggedUser = async (payload) => {
-    logger('notifying admins of newly flagged user');
+    logger('Notifying admins of newly flagged user');
     try {
         const extraConfig = {
             url: `${NOTIFICATION_SERVICE_URL}`,
@@ -177,7 +174,7 @@ const insertUserFlagIntoTable = async (row) => {
 };
 
 const logFraudulentUserFlag = async (userAccountInfo, ruleLabel, reasonForFlaggingUser) => {
-    logger(`save new fraudulent flag for user with info: ${JSON.stringify(userAccountInfo)} for reason: '${reasonForFlaggingUser}'`);
+    logger(`Save new fraudulent flag for user with info: ${JSON.stringify(userAccountInfo)} for reason: '${reasonForFlaggingUser}'`);
     const row = constructPayloadForUserFlagTable(userAccountInfo, reasonForFlaggingUser);
 
     await insertUserFlagIntoTable(row);
@@ -189,8 +186,6 @@ const constructNotificationPayload = (userAccountInfo, reasonForFlaggingUser) =>
         message: `User: ${userAccountInfo.userId} with account: ${userAccountInfo.accountId} has been flagged as fraudulent. Reason for flagging User: ${reasonForFlaggingUser}`,
         subject: EMAIL_SUBJECT_FOR_ADMINS
     });
-
-const extractReasonForFlaggingUserFromEvent = (event) => event.params.reasonForFlaggingUser;
 
 const logFraudulentUserAndNotifyAdmins = async (event, userAccountInfo) => {
     logger(`Processing success result of rules engines with event: ${JSON.stringify(event)}`);
@@ -347,7 +342,6 @@ const fetchFactsAboutUserAndRunEngine = async (req, res) => {
 
 module.exports = {
     logFraudulentUserAndNotifyAdmins,
-    extractReasonForFlaggingUserFromEvent,
     logFraudulentUserFlag,
     createEngineAndRunFactsAgainstRules,
     constructNotificationPayload,

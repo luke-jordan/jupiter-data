@@ -4,6 +4,7 @@ import base64
 import constant
 import datetime
 import requests
+import time
 
 from google.cloud import bigquery
 from dotenv import load_dotenv
@@ -36,11 +37,31 @@ HOURS_IN_TWO_DAYS = constant.HOURS_IN_TWO_DAYS
 DAYS_IN_A_MONTH = constant.DAYS_IN_A_MONTH
 DAYS_IN_A_WEEK = constant.DAYS_IN_A_WEEK
 ERROR_TOLERANCE_PERCENTAGE_FOR_DEPOSITS = constant.ERROR_TOLERANCE_PERCENTAGE_FOR_DEPOSITS
-DEFAULT_LATEST_FLAG_TIME = constant.DEFAULT_LATEST_FLAG_TIME
+DEFAULT_LATEST_FLAG_TIME = constant.DEFAULT_LATEST_FLAG_TIME # date is before any user was flagged so as to include all user transactions
+SECOND_TO_MILLISECOND_FACTOR = constant.SECOND_TO_MILLISECOND_FACTOR
+HOUR_MARKING_START_OF_DAY=constant.HOUR_MARKING_START_OF_DAY
+HOUR_MARKING_END_OF_DAY=constant.HOUR_MARKING_END_OF_DAY
 
 
 FULL_TABLE_URL="{project_id}.{dataset_id}.{table_id}".format(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
 
+def convert_date_string_to_millisecond_int(dateString, hour):
+    print(
+        "Converting date string: {dateString} and hour: {hour} to milliseconds"
+            .format(dateString=dateString, hour=hour)
+    )
+
+    # TODO: do conversion for given timezone and default to UTC if timezone not specified
+    dateAndHour = "{dateString} {hour}".format(dateString=dateString, hour=hour)
+    date_object = datetime.strptime(dateAndHour, '%Y-%m-%d %H:%M:%S')
+    epoch = datetime.utcfromtimestamp(0)
+    timeInMilliSecond = (date_object - epoch).total_seconds() * SECOND_TO_MILLISECOND_FACTOR
+
+    print(
+        "Successfully converted date string: {dateString} and hour: {hour} to milliseconds: {timeInMilliSecond}"
+            .format(dateString=dateString, hour=hour, timeInMilliSecond=timeInMilliSecond)
+    )
+    return int(timeInMilliSecond)
 
 def convertAmountFromGivenUnitToHundredthCent(amount, unit):
     if unit == 'HUNDREDTH_CENT':
@@ -117,9 +138,8 @@ def fetch_user_latest_transaction(userId, config):
 def fetch_user_average_transaction_within_months_period(userId, config):
     transactionType = config["transactionTypeDeposit"]
     periodInMonths = config["sixMonthsPeriod"]
-    givenDate = calculate_date_n_months_ago(periodInMonths)
+    givenDateInMilliseconds = convert_date_string_to_millisecond_int(calculate_date_n_months_ago(periodInMonths), HOUR_MARKING_START_OF_DAY)
     mostRecentFlagTimeForRule = config["latestFlagTime"]
-
 
     print(
         """
@@ -136,7 +156,7 @@ def fetch_user_average_transaction_within_months_period(userId, config):
         'and user_id = "{user_id}" '
         'and time_transaction_occurred >= "{given_date}" '
         'and time_transaction_occurred > "{latest_flag_time}" '
-            .format(transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=givenDate, latest_flag_time=mostRecentFlagTimeForRule)
+            .format(transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
     )
 
     bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(QUERY)
@@ -179,8 +199,7 @@ def fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(
     periodInMonths = config["sixMonthsPeriod"]
     mostRecentFlagTimeForRule = config["latestFlagTime"]
 
-
-    givenDate = calculate_date_n_months_ago(periodInMonths)
+    givenDateInMilliseconds = convert_date_string_to_millisecond_int(calculate_date_n_months_ago(periodInMonths), HOUR_MARKING_START_OF_DAY)
 
     print(
         """
@@ -198,7 +217,7 @@ def fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(
         'and user_id = "{user_id}" '
         'and time_transaction_occurred >= "{given_date}"'
         'and time_transaction_occurred > "{latest_flag_time}" '
-            .format(benchmark=benchmark, transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=givenDate, latest_flag_time=mostRecentFlagTimeForRule)
+            .format(benchmark=benchmark, transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
     )
 
     bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(QUERY)
@@ -210,13 +229,13 @@ def fetch_withdrawals_during_days_cycle(userId, config):
     numOfDays = config["numOfDays"]
     mostRecentFlagTimeForRule = config["latestFlagTime"]
 
-    givenDate = calculate_date_n_days_ago(numOfDays)
+    givenDateInMilliseconds = convert_date_string_to_millisecond_int(calculate_date_n_days_ago(numOfDays), HOUR_MARKING_START_OF_DAY)
     print(
         """
         Fetching the withdrawals during '{numOfDays}' days of user id '{userId}'. Given date to consider: '{leastDate}'.
         Considering transactions after most recent flag time for rule: {latest_flag_time}
         """
-        .format(userId=userId, numOfDays=numOfDays, leastDate=givenDate, latest_flag_time=mostRecentFlagTimeForRule)
+        .format(userId=userId, numOfDays=numOfDays, leastDate=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
     )
     QUERY = (
         'select `amount`, `time_transaction_occurred` '
@@ -225,7 +244,7 @@ def fetch_withdrawals_during_days_cycle(userId, config):
         'and user_id = "{user_id}" '
         'and time_transaction_occurred >= "{given_date}" '
         'and time_transaction_occurred > "{latest_flag_time}" '
-        .format(transaction_type=WITHDRAWAL_TRANSACTION_TYPE, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=givenDate, latest_flag_time=mostRecentFlagTimeForRule)
+        .format(transaction_type=WITHDRAWAL_TRANSACTION_TYPE, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
     )
 
     withdrawalsDuringDaysList = fetch_data_as_list_from_user_behaviour_table(QUERY)
@@ -235,14 +254,14 @@ def fetch_deposits_during_days_cycle(userId, config):
     numOfDays = config["numOfDays"]
     mostRecentFlagTimeForRule = config["latestFlagTime"]
 
-    givenDate = calculate_date_n_days_ago(numOfDays)
+    givenDateInMilliseconds = convert_date_string_to_millisecond_int(calculate_date_n_days_ago(numOfDays), HOUR_MARKING_START_OF_DAY)
 
     print(
         """
         Fetching the deposits during {numOfDays} days of user id {userId}. Given date to consider: {leastDate}
         Considering transactions after most recent flag time for rule: {latest_flag_time}
         """
-        .format(userId=userId, numOfDays=numOfDays, leastDate=givenDate, latest_flag_time=mostRecentFlagTimeForRule)
+        .format(userId=userId, numOfDays=numOfDays, leastDate=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
     )
     QUERY = (
         'select `amount`, `time_transaction_occurred` '
@@ -251,7 +270,7 @@ def fetch_deposits_during_days_cycle(userId, config):
         'and user_id = "{user_id}" '
         'and time_transaction_occurred >= "{given_date}" '
         'and time_transaction_occurred > "{latest_flag_time}" '
-            .format(transaction_type=DEPOSIT_TRANSACTION_TYPE, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=givenDate, latest_flag_time=mostRecentFlagTimeForRule)
+            .format(transaction_type=DEPOSIT_TRANSACTION_TYPE, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
     )
 
     depositsDuringDaysList = fetch_data_as_list_from_user_behaviour_table(QUERY)
@@ -495,6 +514,10 @@ def fetchUserBehaviourBasedOnRules(request):
 '''
 
 def missingParameterInPayload (payload):
+    if ("time_transaction_occurred" not in payload):
+        print("time_transaction_occurred not in extracted context")
+        return True
+
     if ("context" not in payload):
         print("context not in payload")
         return True
@@ -507,10 +530,6 @@ def missingParameterInPayload (payload):
 
     if ("savedAmount" not in extractedContext):
         print("savedAmount not in extracted context")
-        return True
-
-    if ("timeInMillis" not in extractedContext):
-        print("timeInMillis not in extracted context")
         return True
 
     return False
@@ -538,6 +557,17 @@ def determineTransactionTypeFromEventType(eventType):
 
     return ""
 
+def fetch_current_time_in_milliseconds():
+    print("Fetching current time at UTC in milliseconds for created_at and updated_at datetime")
+    currentTimeInMilliseconds = int(round(time.time() * SECOND_TO_MILLISECOND_FACTOR))
+    print(
+        """
+        Successfully fetched current time at UTC in milliseconds. Time at UTC: {}
+        for created_at and updated_at datetime
+        """.format(currentTimeInMilliseconds)
+    )
+    return currentTimeInMilliseconds
+
 def formatPayloadForUserBehaviourTable(payloadList):
     userId = ""
     accountId = ""
@@ -560,6 +590,7 @@ def formatPayloadForUserBehaviourTable(payloadList):
 
         userId = eventMessage["user_id"] # only one eventMessage is expected, hence the assignment of user info
         accountId = context["accountId"]
+        time_in_milliseconds_now = fetch_current_time_in_milliseconds()
 
         singleFormattedPayload = {
             "user_id": userId,
@@ -568,7 +599,9 @@ def formatPayloadForUserBehaviourTable(payloadList):
             "amount": amountUnitAndCurrency["amount"],
             "unit": amountUnitAndCurrency["unit"],
             "currency": amountUnitAndCurrency["currency"],
-            "time_transaction_occurred": context["timeInMillis"]
+            "time_transaction_occurred": eventMessage["time_transaction_occurred"],
+            "created_at": time_in_milliseconds_now,
+            "updated_at": time_in_milliseconds_now
         }
 
         formattedPayloadList.append(singleFormattedPayload)

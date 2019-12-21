@@ -1,5 +1,5 @@
 import base64
-from datetime import datetime, timezone
+import time
 
 from google.cloud import bigquery
 from dotenv import load_dotenv
@@ -11,6 +11,7 @@ table_id = 'all_user_events'
 table_ref = client.dataset(dataset_id).table(table_id)
 table = client.get_table(table_ref)
 SOURCE_OF_EVENT = 'INTERNAL_SERVICES'
+SECOND_TO_MILLISECOND_FACTOR=1000
 
 def insert_into_table(message):
     print("Inserting message: {msg} into table: {table} of big query".format(msg=message, table=table_id))
@@ -32,19 +33,24 @@ def decode_message_from_pubsub(event):
     print("successfully decoded message: {msg}".format(msg=message))
     return message
 
-def fetch_current_datetime_at_utc():
-    print("Fetching current datetime at UTC")
-    dateTimeFormat = '%Y-%m-%d %H:%M:%S'
-    dateTimeAtUTC = datetime.now(timezone.utc).strftime(dateTimeFormat) + ' UTC'
-    print("Successfully fetched current datetime at UTC. Date time at UTC: {}".format(dateTimeAtUTC))
-    return dateTimeAtUTC
+def fetch_current_time_in_milliseconds():
+    print("Fetching current time at UTC in milliseconds for created_at and updated_at datetime")
+    currentTimeInMilliseconds = int(round(time.time() * SECOND_TO_MILLISECOND_FACTOR))
+    print(
+        """
+        Successfully fetched current time at UTC in milliseconds. Time at UTC: {}
+        for created_at and updated_at datetime
+        """.format(currentTimeInMilliseconds)
+    )
+    return currentTimeInMilliseconds
 
 def add_extra_params_to_message(messageList):
     print("Add extra params to each message in list: {}".format(messageList))
-    timestampNow = fetch_current_datetime_at_utc()
+    time_in_milliseconds_now = fetch_current_time_in_milliseconds()
+
     for message in messageList:
-        message["created_at"] = timestampNow
-        message["updated_at"] = timestampNow
+        message["created_at"] = time_in_milliseconds_now
+        message["updated_at"] = time_in_milliseconds_now
         message["source_of_event"] = SOURCE_OF_EVENT
 
     print("Message list with extra params: {}".format(messageList))
@@ -61,4 +67,4 @@ def main(event, context):
         print("Acknowledging message to pub/sub")
         return 'OK', 200
     except Exception as e:
-        print('error decoding message and inserting into events table. Error: {}' .format(e))
+        print('Error decoding message and inserting into events table. Error: {}' .format(e))
