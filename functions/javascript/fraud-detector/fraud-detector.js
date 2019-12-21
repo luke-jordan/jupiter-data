@@ -33,7 +33,7 @@ const {
 
 const { EMAIL_TYPE } = notificationTypes;
 const {
-    POST,
+    POST
 } = httpMethods;
 const {
     NOTIFICATION,
@@ -107,8 +107,16 @@ const constructNewEngineAndAddRules = (rules) => {
     return engine;
 };
 
+const attachRuleLabelsToLatestFlagTime = (ruleListWithLatestFlagTime) => {
+    const formattedAlertTimes = {};
+    ruleListWithLatestFlagTime.forEach((row) => {
+        formattedAlertTimes[row.rule_label] = row.latest_flag_time.value;
+    });
+    return formattedAlertTimes;
+};
+
 const obtainLastAlertTimesForUser = async (rules, userId) => {
-    const ruleLabels = (rules).map((rule) => rule.event.params.ruleLabel);
+    const ruleLabels = rules.map((rule) => rule.event.params.ruleLabel);
     logger(`Obtaining last alert times for user with id: ${userId} and rule labels: ${JSON.stringify(ruleLabels)}`);
 
     const sqlQuery = `
@@ -125,7 +133,7 @@ const obtainLastAlertTimesForUser = async (rules, userId) => {
         params: {
             userId,
             ruleLabels
-        },
+        }
     };
 
     const [ruleListWithLatestFlagTime] = await bigQueryClient.query(options);
@@ -134,8 +142,7 @@ const obtainLastAlertTimesForUser = async (rules, userId) => {
         Alert times: ${JSON.stringify(ruleListWithLatestFlagTime)}`
     );
 
-    const formattedAlertTimes = {};
-    ruleListWithLatestFlagTime.forEach(row => formattedAlertTimes[row.rule_label] = row.latest_flag_time.value);
+    const formattedAlertTimes = attachRuleLabelsToLatestFlagTime(ruleListWithLatestFlagTime);
     logger(
         `Formatted last alert times with latest flag dates for user with id: ${userId}.
         Formatted alert times: ${JSON.stringify(formattedAlertTimes)}`

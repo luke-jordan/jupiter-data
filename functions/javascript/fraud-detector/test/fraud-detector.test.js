@@ -21,8 +21,9 @@ const resetStubs = () => {
     timestampStub.reset();
 };
 
-const sampleFlagTime = "2019-12-10 13:42:59 UTC";
+const sampleFlagTime = '2019-12-10 13:42:59 UTC';
 const sampleRuleLabel = 'single_very_large_deposit';
+// eslint-disable-next-line camelcase
 const sampleRuleListWithLatestFlagTime = [[{ rule_label: sampleRuleLabel, latest_flag_time: { value: sampleFlagTime }}]];
 
 class MockBigQueryClass {
@@ -35,7 +36,8 @@ class MockBigQueryClass {
         };
     }
 
-    query() {
+    // eslint-disable-next-line class-methods-use-this
+    query () {
         return sampleRuleListWithLatestFlagTime;
     }
 }
@@ -70,8 +72,7 @@ const indexNotExist = -1;
 
 const { EMAIL_TYPE } = notificationTypes;
 const {
-    POST,
-    GET
+    POST
 } = httpMethods;
 const CONTACTS_TO_BE_NOTIFIED = config.get('contactsToBeNotified');
 const serviceUrls = config.get('serviceUrls');
@@ -124,6 +125,62 @@ const sampleRow = [
 const samplePayloadFromFetchFactsTrigger = {
   userId: 'bkc-3a',
   accountId: 'fdla'
+};
+
+const ruleWithExperimentalModeTrue = {
+    experimental: true,
+    conditions: {
+        any: [
+            {
+                fact: 'countOfDepositsGreaterThanHundredThousand',
+                operator: 'greaterThan',
+                value: 0
+            }
+        ]
+    },
+    event: { // define the event to fire when the conditions evaluate truthy
+        type: 'flaggedAsFraudulent',
+        params: {
+            reasonForFlaggingUser: `User has a deposit greater than 100,000 rands`
+        }
+    }
+};
+
+const ruleWithExperimentalModeFalse = {
+    experimental: false,
+    conditions: {
+        any: [
+            {
+                fact: 'countOfDepositsGreaterThanHundredThousand',
+                operator: 'greaterThan',
+                value: 0
+            }
+        ]
+    },
+    event: { // define the event to fire when the conditions evaluate truthy
+        type: 'flaggedAsFraudulent',
+        params: {
+            reasonForFlaggingUser: `User has a deposit greater than 100,000 rands`
+        }
+    }
+};
+
+const ruleWithoutExperimentalMode = {
+    conditions: {
+        any: [
+            {
+                fact: 'countOfDepositsGreaterThanHundredThousand',
+                operator: 'greaterThan',
+                value: 0
+            }
+        ]
+    },
+    event: { // define the event to fire when the conditions evaluate truthy
+        type: 'flaggedAsFraudulent',
+        params: {
+            reasonForFlaggingUser: `User has a deposit greater than 100,000 rands`
+        }
+    }
 };
 
 describe('Utils for Fraud Detector', () => {
@@ -263,7 +320,6 @@ describe('Fraud Detector', () => {
             ...baseConfigForRequestRetry,
             ...extraConfigForVerbose
         });
-
     });
 
     it(`should notify properly on failure -> 'fetch facts about user and run engine'`, async () => {
@@ -470,62 +526,6 @@ describe('Fraud Detector', () => {
     });
 
     it(`should allow only 'non-experimental' rules when 'general experimental mode is off'`, async () => {
-        const ruleWithExperimentalModeTrue = {
-                    experimental: true,
-                    conditions: {
-                        any: [
-                            {
-                                fact: 'countOfDepositsGreaterThanHundredThousand',
-                                operator: 'greaterThan',
-                                value: 0
-                            }
-                        ]
-                    },
-                    event: { // define the event to fire when the conditions evaluate truthy
-                        type: 'flaggedAsFraudulent',
-                        params: {
-                            reasonForFlaggingUser: `User has a deposit greater than 100,000 rands`
-                        }
-                    }
-                };
-
-        const ruleWithExperimentalModeFalse = {
-                    experimental: false,
-                    conditions: {
-                        any: [
-                            {
-                                fact: 'countOfDepositsGreaterThanHundredThousand',
-                                operator: 'greaterThan',
-                                value: 0
-                            }
-                        ]
-                    },
-                    event: { // define the event to fire when the conditions evaluate truthy
-                        type: 'flaggedAsFraudulent',
-                        params: {
-                            reasonForFlaggingUser: `User has a deposit greater than 100,000 rands`
-                        }
-                    }
-                };
-
-        const ruleWithoutExperimentalMode = {
-                    conditions: {
-                        any: [
-                            {
-                                fact: 'countOfDepositsGreaterThanHundredThousand',
-                                operator: 'greaterThan',
-                                value: 0
-                            }
-                        ]
-                    },
-                    event: { // define the event to fire when the conditions evaluate truthy
-                        type: 'flaggedAsFraudulent',
-                        params: {
-                            reasonForFlaggingUser: `User has a deposit greater than 100,000 rands`
-                        }
-                    }
-                };
-
         const resultOfExperimentalModeTrue = await isRuleSafeOrIsExperimentalModeOn(ruleWithExperimentalModeTrue);
         expect(resultOfExperimentalModeTrue).to.equal(false);
 
