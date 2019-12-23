@@ -41,6 +41,7 @@ DEFAULT_LATEST_FLAG_TIME = constant.DEFAULT_LATEST_FLAG_TIME # date was arbitrar
 SECOND_TO_MILLISECOND_FACTOR = constant.SECOND_TO_MILLISECOND_FACTOR
 HOUR_MARKING_START_OF_DAY=constant.HOUR_MARKING_START_OF_DAY
 HOUR_MARKING_END_OF_DAY=constant.HOUR_MARKING_END_OF_DAY
+DEFAULT_COUNT_FOR_RULE=constant.DEFAULT_COUNT_FOR_RULE
 
 
 FULL_TABLE_URL="{project_id}.{dataset_id}.{table_id}".format(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
@@ -74,7 +75,8 @@ def convertAmountFromGivenUnitToHundredthCent(amount, unit):
         return amount * FACTOR_TO_CONVERT_WHOLE_CENT_TO_HUNDREDTH_CENT
 
 def convertAmountFromHundredthCentToWholeCurrency(amount):
-    return float(amount) * FACTOR_TO_CONVERT_HUNDREDTH_CENT_TO_WHOLE_CURRENCY
+    print("Converting amount from 'hundredth cent' to 'whole currency'. Amount: {}".format(amount))
+    return (float(amount) * FACTOR_TO_CONVERT_HUNDREDTH_CENT_TO_WHOLE_CURRENCY) if amount else DEFAULT_COUNT_FOR_RULE
 
 def calculate_date_n_months_ago(num):
     print("calculating date: {n} months before today".format(n=num))
@@ -154,9 +156,9 @@ def fetch_user_average_transaction_within_months_period(userId, config):
         'from `{full_table_url}` '
         'where transaction_type = "{transaction_type}" '
         'and user_id = "{user_id}" '
-        'and time_transaction_occurred >= "{given_date}" '
+        'and time_transaction_occurred >= {given_time} '
         'and time_transaction_occurred > {latest_flag_time} '
-            .format(transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
+            .format(transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL, given_time=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
     )
 
     bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(QUERY)
@@ -215,9 +217,9 @@ def fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(
         'from `{full_table_url}` '
         'where amount > {benchmark} and transaction_type = "{transaction_type}" '
         'and user_id = "{user_id}" '
-        'and time_transaction_occurred >= "{given_date}"'
+        'and time_transaction_occurred >= {given_time} '
         'and time_transaction_occurred > {latest_flag_time} '
-            .format(benchmark=benchmark, transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
+            .format(benchmark=benchmark, transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL, given_time=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
     )
 
     bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(QUERY)
@@ -242,9 +244,9 @@ def fetch_withdrawals_during_days_cycle(userId, config):
         'from `{full_table_url}` '
         'where transaction_type = "{transaction_type}" '
         'and user_id = "{user_id}" '
-        'and time_transaction_occurred >= "{given_date}" '
+        'and time_transaction_occurred >= {given_time} '
         'and time_transaction_occurred > {latest_flag_time} '
-        .format(transaction_type=WITHDRAWAL_TRANSACTION_TYPE, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
+        .format(transaction_type=WITHDRAWAL_TRANSACTION_TYPE, user_id=userId, full_table_url=FULL_TABLE_URL, given_time=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
     )
 
     withdrawalsDuringDaysList = fetch_data_as_list_from_user_behaviour_table(QUERY)
@@ -268,9 +270,9 @@ def fetch_deposits_during_days_cycle(userId, config):
         'from `{full_table_url}` '
         'where transaction_type = "{transaction_type}" '
         'and user_id = "{user_id}" '
-        'and time_transaction_occurred >= "{given_date}" '
+        'and time_transaction_occurred >= {given_time} '
         'and time_transaction_occurred > {latest_flag_time} '
-            .format(transaction_type=DEPOSIT_TRANSACTION_TYPE, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
+            .format(transaction_type=DEPOSIT_TRANSACTION_TYPE, user_id=userId, full_table_url=FULL_TABLE_URL, given_time=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
     )
 
     depositsDuringDaysList = fetch_data_as_list_from_user_behaviour_table(QUERY)
@@ -423,7 +425,6 @@ def assembleConfigForRule(ruleLabel, ruleCutOffTimes, ruleDefaults):
 def fetchUserBehaviourBasedOnRules(request):
     try:
         requestParams = extract_params_from_fetch_user_behaviour_request(request)
-
         userId = requestParams["userId"]
         accountId = requestParams["accountId"]
         userAccountInfo = {

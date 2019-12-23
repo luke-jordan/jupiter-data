@@ -249,7 +249,7 @@ const fetchFactsFromUserBehaviourService = async (userId, accountId) => {
         const response = await sendHttpRequest(extraConfig, FETCH_USER_BEHAVIOUR);
         logger(`Successfully fetched facts from user behaviour. Facts: ${JSON.stringify(response.body)}`);
 
-        if (!response || !response.body) {
+        if (!response || !response.body || response.statusCode !== httpStatus.OK) {
             throw new Error('Could not fetch facts from user behaviour');
         }
 
