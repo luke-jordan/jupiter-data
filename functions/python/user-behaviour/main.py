@@ -37,7 +37,7 @@ HOURS_IN_TWO_DAYS = constant.HOURS_IN_TWO_DAYS
 DAYS_IN_A_MONTH = constant.DAYS_IN_A_MONTH
 DAYS_IN_A_WEEK = constant.DAYS_IN_A_WEEK
 ERROR_TOLERANCE_PERCENTAGE_FOR_DEPOSITS = constant.ERROR_TOLERANCE_PERCENTAGE_FOR_DEPOSITS
-DEFAULT_LATEST_FLAG_TIME = constant.DEFAULT_LATEST_FLAG_TIME # date is before any user was flagged so as to include all user transactions
+DEFAULT_LATEST_FLAG_TIME = constant.DEFAULT_LATEST_FLAG_TIME # date was arbitrarily chosen as one before any user was flagged so as to include all user transactions
 SECOND_TO_MILLISECOND_FACTOR = constant.SECOND_TO_MILLISECOND_FACTOR
 HOUR_MARKING_START_OF_DAY=constant.HOUR_MARKING_START_OF_DAY
 HOUR_MARKING_END_OF_DAY=constant.HOUR_MARKING_END_OF_DAY
@@ -105,7 +105,7 @@ def fetch_data_as_list_from_user_behaviour_table(QUERY):
     return rowsAsList
 
 def extract_last_flag_time_or_default_time(ruleLabel, ruleCutOffTimes):
-    return ruleCutOffTimes[ruleLabel] if (ruleLabel in ruleCutOffTimes.keys()) else DEFAULT_LATEST_FLAG_TIME
+    return int(ruleCutOffTimes[ruleLabel] if (ruleLabel in ruleCutOffTimes.keys()) else DEFAULT_LATEST_FLAG_TIME)
 
 
 def fetch_user_latest_transaction(userId, config):
@@ -399,11 +399,20 @@ def extract_params_from_fetch_user_behaviour_request(request):
             """
         )
 
-    return {
+    extractedParams = {
         "userId": userId,
         "accountId": accountId,
         "ruleCutOffTimes": ruleCutOffTimes
     }
+
+    print(
+        """
+        Successfully extracted required params from fetch user behaviour request.
+        Params: {}
+        """.format(extractedParams)
+    )
+
+    return extractedParams
 
 def assembleConfigForRule(ruleLabel, ruleCutOffTimes, ruleDefaults):
     return {

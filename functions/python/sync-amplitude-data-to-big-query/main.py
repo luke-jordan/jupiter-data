@@ -6,7 +6,6 @@ import gzip
 import json
 import os
 import zipfile
-import time
 
 from datetime import datetime, timedelta, timezone
 from os import walk
@@ -100,12 +99,22 @@ def remove_file(file, folder=''):
 
 def unzip_file_to_root_location(filename):
     print("unzipping: {filename} to location: {extract_to}".format(filename=filename, extract_to=UNZIPPED_FILE_ROOT_LOCATION))
-    zip_ref = zipfile.ZipFile(filename, 'r')
-    zip_ref.extractall(UNZIPPED_FILE_ROOT_LOCATION)
-    zip_ref.close()
-    print("successfully unzipped: {filename} to location: {extract_to}".format(filename=filename, extract_to=UNZIPPED_FILE_ROOT_LOCATION))
-    print("===========================================================================")
-    print("===========================================================================")
+    try:
+        zip_ref = zipfile.ZipFile(filename, 'r')
+        zip_ref.extractall(UNZIPPED_FILE_ROOT_LOCATION)
+        zip_ref.close()
+        print("successfully unzipped: {filename} to location: {extract_to}".format(filename=filename, extract_to=UNZIPPED_FILE_ROOT_LOCATION))
+        print("===========================================================================")
+        print("===========================================================================")
+    except Exception as err:
+        raise Exception(
+            """
+            Error while unzipping file downloaded from amplitude.
+            Note that the unzip error might be due to the file downloaded not containing any data, 
+            and the file might not contain any data because there was no user activity that day.
+            Error: {}
+            """.format(err)
+        )
 
 def file_list(extension):
     files = []
@@ -265,7 +274,7 @@ def fetch_data_from_amplitude(day):
     print("downloading data for {day} from amplitude".format(day=day))
     os.system("curl -u " + API_KEY + ":" + API_SECRET + " \
                  'https://amplitude.com/api/2/export?start=" + day + "T00&end="
-                  + day + "T23'  >> " + storage_location)
+              + day + "T23'  >> " + storage_location)
     print("completed download from amplitude for {day} to {storage_location}".format(day=day, storage_location=storage_location))
     print("===========================================================================")
     print("===========================================================================")
@@ -306,13 +315,13 @@ def retrieve_yesterdays_date():
     print("Getting date for Yesterday")
     # this date must not be calculated as a global variable as cloud function global variables are set once deployed and do not change
     # setting as a global variable would lead to bad data as only the data being fetched daily would be for the saame date
-    return (datetime.utcnow().date() - timedelta(days=4)).strftime("%Y%m%d")
+    return (datetime.utcnow().date() - timedelta(days=1)).strftime("%Y%m%d")
 
 def store_raw_amplitude_download_in_cloud_storage(day, raw_file_local):
-        print("storing raw amplitude data downloaded to cloud storage")
-        upload_file_to_gcs(raw_file_local, day + '.zip', RAW_DOWNLOAD_GCS_FOLDER)
-        print("===========================================================================")
-        print("===========================================================================")
+    print("storing raw amplitude data downloaded to cloud storage")
+    upload_file_to_gcs(raw_file_local, day + '.zip', RAW_DOWNLOAD_GCS_FOLDER)
+    print("===========================================================================")
+    print("===========================================================================")
 
 def signal_operation_complete(day):
     print("===========================================================================")
@@ -333,21 +342,25 @@ def signal_operation_complete(day):
 
 # `event` and `context` are parameters supplied when pub-sub calls this function, these parameters are not being used now
 def main(event, context):
-    print("Trigger received from cloud scheduler")
     YESTERDAY = retrieve_yesterdays_date()
-    download_from_amplitude_location = fetch_data_from_amplitude(YESTERDAY)
 
-    # backup the downloaded file because it might be needed in the future
-    store_raw_amplitude_download_in_cloud_storage(YESTERDAY, download_from_amplitude_location)
+    try:
+        print("Trigger received from cloud scheduler")
+        download_from_amplitude_location = fetch_data_from_amplitude(YESTERDAY)
 
-    # unzip file to root location => '/tmp/amplitude/'
-    unzip_file_to_root_location(download_from_amplitude_location)
+        # backup the downloaded file because it might be needed in the future
+        store_raw_amplitude_download_in_cloud_storage(YESTERDAY, download_from_amplitude_location)
 
-    # most of the processing happens in this function: `process_gzip_files_in_root_location`
-    # after unzipping file above, multiple '.json.gz' files are generated and we need to unravel that
-    # each '.json.gz' file represents an hour of the day requested for e.g. '240333_2019-10-23_10#327.json.gz'
-    process_gzip_files_in_root_location(YESTERDAY)
+        # unzip file to root location => '/tmp/amplitude/'
+        unzip_file_to_root_location(download_from_amplitude_location)
 
-    final_clean_up(download_from_amplitude_location, YESTERDAY)
+        # most of the processing happens in this function: `process_gzip_files_in_root_location`
+        # after unzipping file above, multiple '.json.gz' files are generated and we need to unravel that
+        # each '.json.gz' file represents an hour of the day requested for e.g. '240333_2019-10-23_10#327.json.gz'
+        process_gzip_files_in_root_location(YESTERDAY)
 
-    signal_operation_complete(YESTERDAY)
+        final_clean_up(download_from_amplitude_location, YESTERDAY)
+
+        signal_operation_complete(YESTERDAY)
+    except Exception as err:
+        print("Error while syncing data from amplitude to big query for {day}. Error {err}".format(day=YESTERDAY, err=err))

@@ -140,7 +140,7 @@ const obtainLastAlertTimesForUser = async (rules, userId) => {
     const [ruleListWithLatestFlagTime] = await bigQueryClient.query(options);
 
     let formattedAlertTimes = {};
-    if (ruleListWithLatestFlagTime) {
+    if (ruleListWithLatestFlagTime && ruleListWithLatestFlagTime.length > 0) {
         logger(
             `Successfully obtained last alert times for user with id: ${userId} and rule labels: ${JSON.stringify(ruleLabels)}.
         Alert times: ${JSON.stringify(ruleListWithLatestFlagTime)}`
