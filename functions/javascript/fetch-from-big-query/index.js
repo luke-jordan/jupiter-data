@@ -46,7 +46,7 @@ exports.fetchFromBigQuery = async function fetchFromBigQuery(req, res) {
     try {
         const parameters = JSON.parse(JSON.stringify(req.body));
 
-        console.log('parameters received', parameters);
+        console.log('Parameters received', parameters);
 
         if (confirmRequiredParameters(parameters)) {
             res.status(400).end(`Invalid parameters => 'startDate', 'endDate' and 'eventTypes' are required`);
@@ -59,13 +59,12 @@ exports.fetchFromBigQuery = async function fetchFromBigQuery(req, res) {
             eventTypes
         } = parameters;
 
-        console.log('constructing sql query');
         const sqlQuery = `SELECT event_type, COUNT(event_type) as event_count
                     FROM \`${GOOGLE_PROJECT_ID}.${DATASET}.${TABLE}\`
-                    where \`timestamp\` BETWEEN @start_date and @end_date and \`source_of_event\`="${SOURCE_OF_EVENT}" 
+                    where \`time_transaction_occurred\` BETWEEN @start_date and @end_date and \`source_of_event\`="${SOURCE_OF_EVENT}" 
                     and event_type in UNNEST(@eventTypes) GROUP BY event_type`;
 
-        console.log(`sql query to be run: ${sqlQuery}`);
+        console.log(`SQL query to be run: ${sqlQuery}`);
 
         const options = {
             query: sqlQuery,

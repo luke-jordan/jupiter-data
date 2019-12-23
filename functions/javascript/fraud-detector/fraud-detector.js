@@ -6,13 +6,16 @@ const Engine = require('json-rules-engine').Engine;
 const logger = require('debug')('jupiter:notification-service');
 const requestRetry = require('requestretry');
 const httpStatus = require('http-status');
+const GOOGLE_PROJECT_ID = config.get('GOOGLE_PROJECT_ID');
+const BIG_QUERY_DATASET_LOCATION = config.get('BIG_QUERY_DATASET_LOCATION');
 const DATASET_ID = config.get('BIG_QUERY_DATASET_ID');
 const TABLE_ID = config.get('BIG_QUERY_TABLE_ID');
 const CUSTOM_RULES = require('./custom-rules').allRules;
 const serviceUrls = config.get('serviceUrls');
 const EMAIL_SUBJECT_FOR_ADMINS = config.get('emailSubjectForAdmins');
+
 const {
-    createTimestampForSQLDatabase
+    generateCurrentTimeInMilliseconds
 } = require('./utils');
 
 const {
@@ -30,8 +33,7 @@ const {
 
 const { EMAIL_TYPE } = notificationTypes;
 const {
-    POST,
-    GET
+    POST
 } = httpMethods;
 const {
     NOTIFICATION,
@@ -42,7 +44,7 @@ const VERBOSE_MODE = config.get('verboseMode');
 const bigQueryClient = new BigQuery();
 
 const sendHttpRequest = async (extraConfig, specifiedRequestTitle) => {
-    logger(`sending '${specifiedRequestTitle}' request with extra config: ${JSON.stringify(extraConfig)}`);
+    logger(`Sending '${specifiedRequestTitle}' request with extra config: ${JSON.stringify(extraConfig)}`);
 
     const response = await requestRetry({
         ...baseConfigForRequestRetry,
@@ -54,13 +56,13 @@ const sendHttpRequest = async (extraConfig, specifiedRequestTitle) => {
     return response;
 };
 
-const constructPayloadForUserFlagTable = (userAccountInfo, reasonForFlaggingUser) => {
-    logger(`constructing payload for user flag table with user info: ${JSON.stringify(userAccountInfo)}`);
+const constructPayloadForUserFlagTable = (userAccountInfo, ruleLabel, reasonForFlaggingUser) => {
+    logger(`Constructing payload for user flag table with user info: ${JSON.stringify(userAccountInfo)}`);
     const {
         userId,
         accountId
     } = userAccountInfo;
-    const timestamp = createTimestampForSQLDatabase();
+    const currentTimeInMilliseconds = generateCurrentTimeInMilliseconds();
 
     /*eslint-disable */
     /**
@@ -70,10 +72,11 @@ const constructPayloadForUserFlagTable = (userAccountInfo, reasonForFlaggingUser
     const payloadForFlaggedTable = {
         user_id: userId,
         account_id: accountId,
+        rule_label: ruleLabel,
         reason: reasonForFlaggingUser,
         accuracy: accuracyStates.pending,
-        created_at: timestamp,
-        updated_at: timestamp
+        created_at: currentTimeInMilliseconds,
+        updated_at: currentTimeInMilliseconds
     };
     /* eslint-enable */
 
@@ -95,11 +98,8 @@ const isRuleSafeOrIsExperimentalModeOn = (rule) => {
 };
 
 const constructNewEngineAndAddRules = (rules) => {
-    logger(`constructing new engine and adding new rules to the engine. Rules: ${JSON.stringify(rules)}`);
+    logger(`Constructing new engine and adding new rules to the engine. Rules: ${JSON.stringify(rules)}`);
 
-    /**
-     * Setup a new engine
-     */
     const engine = new Engine();
 
     rules.filter((rule) => isRuleSafeOrIsExperimentalModeOn(rule)).
@@ -107,8 +107,51 @@ const constructNewEngineAndAddRules = (rules) => {
     return engine;
 };
 
+const attachRuleLabelsToLatestFlagTime = (ruleListWithLatestFlagTime) => {
+    const formattedAlertTimes = {};
+    ruleListWithLatestFlagTime.forEach((row) => {
+        formattedAlertTimes[row.rule_label] = row.latest_flag_time.value;
+    });
+    return formattedAlertTimes;
+};
+
+const obtainLastAlertTimesForUser = async (rules, userId) => {
+    const ruleLabels = rules.map((rule) => rule.event.params.ruleLabel);
+    logger(`Obtaining last alert times for user with id: ${userId} and rule labels: ${JSON.stringify(ruleLabels)}`);
+
+    const sqlQuery = `
+        select \`user_id\`, \`rule_label\`, max(\`created_at\`) as \`latest_flag_time\` 
+        from \`${GOOGLE_PROJECT_ID}.${DATASET_ID}.${TABLE_ID}\` 
+        where \`user_id\` = @userId
+        and \`rule_label\` in UNNEST(@ruleLabels)
+        group by \`user_id\`, \`rule_label\`;
+        `;
+
+    const options = {
+        query: sqlQuery,
+        location: BIG_QUERY_DATASET_LOCATION,
+        params: {
+            userId,
+            ruleLabels
+        }
+    };
+
+    const [ruleListWithLatestFlagTime] = await bigQueryClient.query(options);
+    logger(
+        `Successfully obtained last alert times for user with id: ${userId} and rule labels: ${JSON.stringify(ruleLabels)}.
+        Alert times: ${JSON.stringify(ruleListWithLatestFlagTime)}`
+    );
+
+    const formattedAlertTimes = attachRuleLabelsToLatestFlagTime(ruleListWithLatestFlagTime);
+    logger(
+        `Formatted last alert times with latest flag dates for user with id: ${userId}.
+        Formatted alert times: ${JSON.stringify(formattedAlertTimes)}`
+    );
+    return formattedAlertTimes;
+};
+
 const notifyAdminsOfNewlyFlaggedUser = async (payload) => {
-    logger('notifying admins of newly flagged user');
+    logger('Notifying admins of newly flagged user');
     try {
         const extraConfig = {
             url: `${NOTIFICATION_SERVICE_URL}`,
@@ -137,8 +180,8 @@ const insertUserFlagIntoTable = async (row) => {
     }
 };
 
-const logFraudulentUserFlag = async (userAccountInfo, reasonForFlaggingUser) => {
-    logger(`save new fraudulent flag for user with info: ${JSON.stringify(userAccountInfo)} for reason: '${reasonForFlaggingUser}'`);
+const logFraudulentUserFlag = async (userAccountInfo, ruleLabel, reasonForFlaggingUser) => {
+    logger(`Save new fraudulent flag for user with info: ${JSON.stringify(userAccountInfo)} for reason: '${reasonForFlaggingUser}'`);
     const row = constructPayloadForUserFlagTable(userAccountInfo, reasonForFlaggingUser);
 
     await insertUserFlagIntoTable(row);
@@ -151,22 +194,17 @@ const constructNotificationPayload = (userAccountInfo, reasonForFlaggingUser) =>
         subject: EMAIL_SUBJECT_FOR_ADMINS
     });
 
-const extractReasonForFlaggingUserFromEvent = (event) => event.params.reasonForFlaggingUser;
-
 const logFraudulentUserAndNotifyAdmins = async (event, userAccountInfo) => {
     logger(`Processing success result of rules engines with event: ${JSON.stringify(event)}`);
     logger(`log fraudulent user and notify admins. User Info: ${JSON.stringify(userAccountInfo)}`);
     // 'results' is an object containing successful events, and an Almanac instance containing facts
-    const reasonForFlaggingUser = extractReasonForFlaggingUserFromEvent(event);
+    const { ruleLabel, reasonForFlaggingUser } = event.params;
     
-    // log to `user_flagged_as_fraudulent`
-    await logFraudulentUserFlag(userAccountInfo, reasonForFlaggingUser);
+    await logFraudulentUserFlag(userAccountInfo, ruleLabel, reasonForFlaggingUser);
         
     const notificationPayload = constructNotificationPayload(userAccountInfo, reasonForFlaggingUser);
 
-    // tell Avish => email function accepts (email address and message)
     await notifyAdminsOfNewlyFlaggedUser(notificationPayload, NOTIFICATION);
-    
 };
 
 // Run the engine to evaluate facts against the rules
@@ -189,10 +227,18 @@ const fetchFactsFromUserBehaviourService = async (userId, accountId) => {
         `Fetching facts from user behaviour service for user id: ${userId} and account id: ${accountId}`
     );
     try {
+        const formattedRulesWithLatestFlagTime = await obtainLastAlertTimesForUser(CUSTOM_RULES, userId);
+
         const extraConfig = {
-            url: `${FETCH_USER_BEHAVIOUR_URL}?userId=${userId}&accountId=${accountId}`,
-            method: GET
+            url: FETCH_USER_BEHAVIOUR_URL,
+            body: {
+                userId,
+                accountId,
+                ruleCutOffTimes: formattedRulesWithLatestFlagTime
+            },
+            method: POST
         };
+
         const response = await sendHttpRequest(extraConfig, FETCH_USER_BEHAVIOUR);
         logger(`Successfully fetched facts from user behaviour. Facts: ${JSON.stringify(response.body)}`);
 
@@ -275,7 +321,7 @@ const sendNotificationOfResultToAdmins = async (requestStatus) => {
 
 
 const fetchFactsAboutUserAndRunEngine = async (req, res) => {
-    sendSuccessResponse(req, res);
+    sendSuccessResponse(req, res); // so that function that triggers this can exit successfully
     try {
         const payload = validateRequestAndExtractParams(req, res);
         if (!payload) {
@@ -290,7 +336,7 @@ const fetchFactsAboutUserAndRunEngine = async (req, res) => {
             await sendNotificationOfResultToAdmins({ result: 'SUCCESS'});
         }
     } catch (error) {
-        logger(`Error occurred while fetching facts about user and running engine with facts/rules. Error: ${error}`);
+        logger(`Error occurred while fetching facts about user and running engine with facts/rules. Error: ${error.message}`);
 
         const info = {
             errorMessage: error.message,
@@ -303,7 +349,6 @@ const fetchFactsAboutUserAndRunEngine = async (req, res) => {
 
 module.exports = {
     logFraudulentUserAndNotifyAdmins,
-    extractReasonForFlaggingUserFromEvent,
     logFraudulentUserFlag,
     createEngineAndRunFactsAgainstRules,
     constructNotificationPayload,

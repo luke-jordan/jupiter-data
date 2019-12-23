@@ -1,4 +1,6 @@
 {
+  "GOOGLE_PROJECT_ID": "jupiter-ml-alpha",
+  "BIG_QUERY_DATASET_LOCATION": "US",
   "BIG_QUERY_DATASET_ID": "ops",
   "BIG_QUERY_TABLE_ID": "user_flagged_as_fraudulent",
   "contactsToBeNotified": ["avish@plutosave.com", "luke@plutosave.com"],

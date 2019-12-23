@@ -11,22 +11,37 @@
     },
     {
       "mode": "REQUIRED",
-      "name": "reason",
+      "name": "transaction_type",
       "type": "STRING"
     },
     {
       "mode": "REQUIRED",
-      "name": "accuracy",
+      "name": "amount",
+      "type": "INTEGER"
+    },
+    {
+      "mode": "REQUIRED",
+      "name": "unit",
       "type": "STRING"
+    },
+    {
+        "mode": "REQUIRED",
+        "name": "currency",
+        "type": "STRING"
+    },
+    {
+      "mode": "REQUIRED",
+      "name": "time_transaction_occurred",
+      "type": "INTEGER"
     },
     {
       "mode": "REQUIRED",
       "name": "created_at",
-      "type": "TIMESTAMP"
+      "type": "INTEGER"
     },
     {
       "mode": "REQUIRED",
       "name": "updated_at",
-      "type": "TIMESTAMP"
+      "type": "INTEGER"
     }
-  ]
+]

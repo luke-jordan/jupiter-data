@@ -11,7 +11,7 @@
   },
   {
     "mode": "REQUIRED",
-    "name": "timestamp",
+    "name": "time_transaction_occurred",
     "type": "INTEGER"
   },
   {
@@ -22,12 +22,12 @@
   {
     "mode": "REQUIRED",
     "name": "created_at",
-    "type": "TIMESTAMP"
+    "type": "INTEGER"
   },
   {
     "mode": "REQUIRED",
     "name": "updated_at",
-    "type": "TIMESTAMP"
+    "type": "INTEGER"
   },
   {
     "mode": "NULLABLE",

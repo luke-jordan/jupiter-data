@@ -21,6 +21,7 @@ client = bigquery.Client()
 SECOND_TO_MILLISECOND_FACTOR=constant.SECOND_TO_MILLISECOND_FACTOR
 HOUR_MARKING_START_OF_DAY=constant.HOUR_MARKING_START_OF_DAY
 HOUR_MARKING_END_OF_DAY=constant.HOUR_MARKING_END_OF_DAY
+THREE_DAYS_AGO=constant.THREE_DAYS_AGO
 
 EVENTS_LIST = [
     {
@@ -37,55 +38,7 @@ EVENTS_LIST = [
     }
 ]
 
-# dropoffs =======>
-#
-# find users who had an onboarding event but not certain events ("referral", "logged_in") between certain dates
-#
-# 1. select users that have all considered events: ["onboarding", "referral", "logged_in"]
-# 2. selects users that have events we want to filter out: ["referral", "logged_in"]
-# loop through all users in 2 if found in 1, delete row => thus the userId
-#
-# select userId from events_table where userId not in (
-#     select userId
-# from events_table
-# where event_type in ("referral", "logged_in") and creation_time <= $end_date
-# ) and event_type = "onboarding"
-# and creation_time >= $start_date and creation_time <= $end_date
-#
-#
-# recoveries ====>
-# select users with onboarding event before yesterday but no referral screen before yesterday (between certain dates), who now entered a referral screen yesterday
-#
-# first part: select users with onboarding event before yesterday but no referral screen before yesterday (or between certain dates)
-# select userId from events_table where userId not in
-# (
-#     select userId
-# from events_table
-# where event_type in ("referral", "logged_in") and creation_time <= $yesterday
-# )
-# and event_type = "onboarding"
-# and creation_time >= $start_date and creation_time <= $yesterday
-#
-# second part: select users who entered a referral screen yesterday
-# select user_id from events_table
-# where event_type="referral"
-# and creation_time >= $yesterday (between yesterday_start and yesterday_end)
-#
-# full part:
-# select user_id from events_table
-# where event_type="referral"
-# and creation_time >= $yesterday (between yesterday_start and yesterday_end)
-# and userId in
-# (
-#     select userId from events_table where userId not in
-# (
-# select userId
-# from events_table
-# where event_type in ("referral", "logged_in") and creation_time <= $yesterday
-# )
-# and event_type = "onboarding"
-#                  and creation_time >= $end_date and creation_time <= $yesterday
-# )
+
 
 def calculate_date_n_days_ago_at_utc(num):
     print("Getting date for {} days ag".format(num))
@@ -208,10 +161,10 @@ def generate_drop_off_users_query_with_params(events, dateIntervals):
                 select `user_id`
                 from `{full_table_url}`
                 where `event_type` in UNNEST(@nextStepList)
-                and `timestamp` <= @endDateInMilliseconds
+                and `time_transaction_occurred` <= @endDateInMilliseconds
             )
             and `event_type` = @stepBeforeDropOff
-            and `timestamp` between @startDateInMilliseconds and @endDateInMilliseconds
+            and `time_transaction_occurred` between @startDateInMilliseconds and @endDateInMilliseconds
         """
             .format(full_table_url=FULL_TABLE_URL)
     )
@@ -259,7 +212,7 @@ def generate_recovery_users_query_with_params(events, dateIntervals):
             select distinct(`user_id`)
             from `{full_table_url}`
             where `event_type` in UNNEST(@recoveryStep)
-            and `timestamp` between @beginningOfYesterdayInMilliseconds and @endOfYesterdayInMilliseconds
+            and `time_transaction_occurred` between @beginningOfYesterdayInMilliseconds and @endOfYesterdayInMilliseconds
             and `user_id` in
             (
                 select `user_id`
@@ -269,10 +222,10 @@ def generate_recovery_users_query_with_params(events, dateIntervals):
                     select `user_id`
                     from `{full_table_url}`
                     where `event_type` in UNNEST(@nextStepList)
-                    and `timestamp` <= @endOfYesterdayInMilliseconds
+                    and `time_transaction_occurred` <= @endOfYesterdayInMilliseconds
                 )
                 and `event_type` = @stepBeforeDropOff
-                and `timestamp` between @beginningOfYesterdayInMilliseconds and @endOfYesterdayInMilliseconds
+                and `time_transaction_occurred` between @beginningOfYesterdayInMilliseconds and @endOfYesterdayInMilliseconds
             )
         """
             .format(full_table_url=FULL_TABLE_URL)
@@ -333,16 +286,15 @@ def fetch_dropoff_and_recovery_user_count_given_steps(events, dateIntervals):
     return dropOffAndRecoveryUsersCount
 
 def construct_default_events_and_dates_list():
-    eventsList = EVENTS_LIST
-    THREE_DAYS_AGO = 3
+    eventsAndDatesList = EVENTS_LIST
     startDate = calculate_date_n_days_ago_at_utc(THREE_DAYS_AGO)
     endDate = calculate_date_of_yesterday_at_utc()
-    for item in eventsList:
+    for item in eventsAndDatesList:
         item["dateIntervals"] = {
             "startDate": startDate,
             "endDate": endDate,
         }
-    eventsAndDatesList = eventsList
+
     print("Constructed Default Events and Dates list: {}".format(eventsAndDatesList))
     return eventsAndDatesList
 
@@ -380,7 +332,7 @@ def fetch_dropoff_and_recovery_users_count_given_list_of_steps(request):
 
             userCountList.append(dropOffAndRecoveryUsersCountPerItem)
         print("COMPLETED FETCHING USER COUNT LIST for dropoff/recovery======> User count list: {}".format(userCountList))
-        return json.dumps(userCountList), 200
+        return json.dumps(userCountList)
     except Exception as err:
         print(
             "Error occurred while fetching user count list for dropoff/recovery. Error: {}"

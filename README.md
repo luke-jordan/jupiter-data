@@ -24,11 +24,22 @@ Terraform is used to manage our infrastructure on GCP
  
 We run a serverless architecture which means our codebase is divided into functions which serve different purposes.
 
-There are four functions in this repository at the moment and they are located in the `functions` folder, they include:
-- `javascript/sns-to-pubsub` written in Javascript (Node 10)
-- `python/pubsub-to-big-query-for-sns` written in Python 3
-- `python/sync-amplitude-data-to-big-query` written in Python 3
-- `javascript/fetch-from-big-query` written in Javascript (Node 10)
+The functions in this repository are located in the `functions` folder. Within the functions folder, these functions
+are sub-divided into `javascript` and `python` folders and this represents the language they are written in.
+The functions are:
+
+JavaScript:
+- `javascript/sns-to-pubsub`: receives events from Amazon SNS and publishes it to Google Pub/Sub topic: `sns-events`
+- `javascript/fetch-from-big-query`: fetch amplitude data from big query
+- `javascript/notification-service`: sends email notifications with given message to given users
+- `javascript/fraud-detector`: runs a set of custom rules against user behaviour to determine if user is dodgy
+
+Python: 
+- `python/pubsub-to-big-query-for-sns`: takes sns events from Pub/Sub and stores into big query table: `all_user_events`
+- `python/sync-amplitude-data-to-big-query`: downloads data daily from Amplitude and stores into big query table: `all_user_events` 
+- `python/funnel-analysis`: checks for drop offs / recovery users  
+- `python/user-behaviour`: updates user behaviour when there is an event on `sns-events` topic and retrieves user behaviour 
+
 
 The functions above are all cloud functions on GCP.
 
@@ -56,7 +67,7 @@ Production Endpoint:  [https://europe-west1-jupiter-production-258809.cloudfunct
 
 Diagram of Data flow from Amazon
 
-![Diagram showcasing Data flow from Amazon](/docs/diagram_of_data_flow_from_amazon.png)
+![Diagram showcasing Data flow from Amazon](docs/diagram_of_data_flow_from_amazon.png)
 
 
 ## Data Inflow from Amplitude
@@ -72,13 +83,14 @@ that sends a message to Pub/Sub topic `daily-runs` at 3am every day. The `python
 function is subscribed to the Pub/Sub topic `daily-runs` and starts syncing amplitude data to big query for the 
 previous day on receiving the message from `daily-runs`.
 
-On receiving the data from Amplitude, `python/sync-amplitude-data-to-big-query` transforms the data and stores a copy of it in google cloud storage and then loads the data into Big Query tables `amplitude.events` and `amplitude.events_properties`.
+On receiving the data from Amplitude, `python/sync-amplitude-data-to-big-query` transforms the data and stores a copy of it in google cloud storage 
+and then loads the data into Big Query table `ops.all_user_events`
 
 Again the entire flow is best explained with the diagram below:
 
 Diagram of Data flow from Amplitude
 
-![Diagram showcasing Data flow from Amplitude](/docs/diagram_of_data_flow_from_amplitude.png)
+![Diagram showcasing Data flow from Amplitude](docs/diagram_of_data_flow_from_amplitude.png)
 
 
 ## Fetch From Amplitude
@@ -90,23 +102,99 @@ Endpoints for `javascript/fetch-from-big-query` are:
 Staging Endpoint: [https://us-central1-jupiter-ml-alpha.cloudfunctions.net/fetch-from-big-query](https://us-central1-jupiter-ml-alpha.cloudfunctions.net/fetch-from-big-query )
 Production Endpoint:  [https://europe-west1-jupiter-production-258809.cloudfunctions.net/fetch-from-big-query](https://europe-west1-jupiter-production-258809.cloudfunctions.net/fetch-from-big-query)
 
-## Google and Amplitude Credentials
 
+## Fraud Detection
+We would like to detect dodgy users. Users that are suspected to have made fraudulent transactions.
+Our architecture involves 4 different functions in order to achieve this.
+
+The flow of fraud detection starts with the `python/user-behaviour` folder which contain two functions in one file.
+The `updateUserBehaviourAndTriggerFraudDetector` (referred to as: `update user behaviour`) and `fetchUserBehaviourBasedOnRules` 
+(referred to as: `fetch user behaviour`) functions.
+
+Step 1: **`update user behaviour` logs new user behaviour**. 
+The `update user behaviour` is triggered by a new event on the `sns-events` topic
+(indicating a new user transaction), `update user behaviour` proceeds to log the user's new 
+transaction to the big query table: `ops.user_behaviour`.
+
+Step 2: **`update user behaviour` triggers fraud detector**. 
+`update user behaviour` then triggers the fraud detector via a http POST request with body 
+of the request as the user account info: `userId` and `accountId`.
+
+
+Step 3(a): **`fraud detector` retrieves the last flag times for user/rules** .
+The `javascript/fraud-detector` has the entry point: `fetchFactsAboutUserAndRunEngine` (referred to as: `fraud detector`).
+On receiving the POST request with the user account details from the `update user behaviour`
+function, the `fraud detector` retrieves the last time a user was flagged for the 
+various rules we have in the `javascript/fraud-detector/custom-rules.js` from the big query table: 
+`ops.user_flagged_as_fraudulent` table. These last flag times are then used to fetch facts about user behaviour 
+by sending a http POST request to the `fetch user behaviour` with the user account info and the last flag times for rules.
+
+Step 3(b): **`fraud detector` retrieves the user behaviour from `fetch user behaviour`** .
+On receiving the http POST request from `fraud-detector`, `fetch user behaviour` fetches the user behaviour 
+based on the aforementioned custom rules and last flag times. `fetch user behaviour` fetches the user 
+behaviour from the table: `user_behaviour`, it then returns the response to the `fraud-detector`.
+
+Step 4: **`fraud detector` runs user behaviour against rules** . 
+On receiving the response from `fetch user behaviour`, `fraud detector` runs the received user behaviour against the 
+predefined custom rules located in : `javascript/fraud-detector/custom-rules.js`.
+If any of the rules are passed by the received user behaviour, then the `fraud-detector` logs a flag to the 
+big query table: `user_flagged_as_fraudulent` indicating that the user is fraudulent. 
+Email Notifications are also sent to JupiterSave admins via a POST request to the notification service.
+
+If `verbose mode` is set to `true`, an email notification is sent via the notification service indicating that the 
+fraud detector ran.
+
+When an error occurs during the fraud detection process, an email notification is sent via the notification service 
+indicating that an error occurred during fraud detection.
+
+Fraud detector can be explained with a diagram showing the steps involved:
+
+Diagram of flow of Fraud Detection
+
+![Diagram showcasing process of Fraud Detection](docs/diagram_of_fraud_detection_process.png)
+
+
+
+No http endpoint is exposed for `user behaviour`'s first function => `updateUserBehaviourAndTriggerFraudDetector` 
+(`python/user-behaviour`) as the function is triggered by the Pub/Sub topic: `sns-events`
+ 
+Http Endpoints for `fraud detector` function => `fetchFactsAboutUserAndRunEngine` (`javascript/fraud-detector`): 
+Staging Endpoint: [https://us-central1-jupiter-ml-alpha.cloudfunctions.net/fraud-detector](https://us-central1-jupiter-ml-alpha.cloudfunctions.net/fraud-detector)
+Production Endpoint: [https://europe-west1-jupiter-production-258809.cloudfunctions.net/fraud-detector](https://europe-west1-jupiter-production-258809.cloudfunctions.net/fraud-detector)
+
+
+Http Endpoints for `user behaviour`'s second function =>`fetchUserBehaviourBasedOnRules` (`python/user-behaviour`):
+Staging Endpoint: [https://us-central1-jupiter-ml-alpha.cloudfunctions.net/fetch-user-behaviour-based-on-rules](https://us-central1-jupiter-ml-alpha.cloudfunctions.net/fetch-user-behaviour-based-on-rules)
+Production Endpoint: [https://europe-west1-jupiter-production-258809.cloudfunctions.net/fetch-user-behaviour-based-on-rules](https://europe-west1-jupiter-production-258809.cloudfunctions.net/fetch-user-behaviour-based-on-rules) 
+
+
+Http Endpoints for the `notification service` (`javascript/notification-service`): 
+Staging Endpoint: [https://us-central1-jupiter-ml-alpha.cloudfunctions.net/notification-service ](https://us-central1-jupiter-ml-alpha.cloudfunctions.net/notification-service)
+Production Endpoint: [https://europe-west1-jupiter-production-258809.cloudfunctions.net/notification-service](https://europe-west1-jupiter-production-258809.cloudfunctions.net/notification-service)
+
+
+## Funnel Analysis
+Funnel analysis is used to analyse the `all_user_events` to find the users that have dropped off or recovered while
+using the JupiterSave mobile app.
+
+
+## Google and Amplitude Credentials
 The service account, environment variables and secrets used to access Google and Amplitude's infrastructure is supplied 
 via [Circle CI's](https://circleci.com/gh/luke-jordan/jupiter-data/edit#env-vars) environment variables.   
 
 
 ## Terraform State
-The terraform state files for staging and production are stored in the staging bucket: `gs://staging-terraform-state-bucket`.
+The terraform state files for `staging` and `production` are stored in the staging bucket: `gs://staging-terraform-state-bucket`.
 
 
 ## Links to Draw.io Images
 In case you want to update the diagrams above, here are links to the draw.io files so you can edit the diagrams and update the images easily.
 
-1. [Data Inflow from Amazon](/docs/raw_xml/diagram_of_data_flow_from_amazon.xml)
-2. [Data Inflow from Amplitude](/docs/raw_xml/diagram_of_data_flow_from_amplitude.xml)
+1. [Data Inflow from Amazon](docs/raw_xml/diagram_of_data_flow_from_amazon.xml)
+2. [Data Inflow from Amplitude](docs/raw_xml/diagram_of_data_flow_from_amplitude.xml)
+2. [Fraud Detection Process](docs/raw_xml/diagram_of_fraud_detection_process.xml)
 
-## Creating a new Javacript function
+## Creating a new JavaScript function
 We have a sample function folder for javascript. Run the following command from the home directory of the repo to create a new javascript function following the sample function's format:
 ```
 cp -R functions/javascript/sample-js-function/ functions/javascript/{name_of_new_function}/

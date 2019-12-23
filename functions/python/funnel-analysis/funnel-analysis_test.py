@@ -1,4 +1,5 @@
 import os
+import json
 import constant
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
@@ -120,10 +121,10 @@ def test_generate_drop_off_users_query_with_params():
                 select `user_id`
                 from `{full_table_url}`
                 where `event_type` in UNNEST(@nextStepList)
-                and `timestamp` <= @endDateInMilliseconds
+                and `time_transaction_occurred` <= @endDateInMilliseconds
             )
             and `event_type` = @stepBeforeDropOff
-            and `timestamp` between @startDateInMilliseconds and @endDateInMilliseconds
+            and `time_transaction_occurred` between @startDateInMilliseconds and @endDateInMilliseconds
         """
             .format(full_table_url=FULL_TABLE_URL)
     )
@@ -153,7 +154,7 @@ def test_generate_recovery_users_query_with_params():
             select distinct(`user_id`)
             from `{full_table_url}`
             where `event_type` in UNNEST(@recoveryStep)
-            and `timestamp` between @beginningOfYesterdayInMilliseconds and @endOfYesterdayInMilliseconds
+            and `time_transaction_occurred` between @beginningOfYesterdayInMilliseconds and @endOfYesterdayInMilliseconds
             and `user_id` in
             (
                 select `user_id`
@@ -163,10 +164,10 @@ def test_generate_recovery_users_query_with_params():
                     select `user_id`
                     from `{full_table_url}`
                     where `event_type` in UNNEST(@nextStepList)
-                    and `timestamp` <= @endOfYesterdayInMilliseconds
+                    and `time_transaction_occurred` <= @endOfYesterdayInMilliseconds
                 )
                 and `event_type` = @stepBeforeDropOff
-                and `timestamp` between @beginningOfYesterdayInMilliseconds and @endOfYesterdayInMilliseconds
+                and `time_transaction_occurred` between @beginningOfYesterdayInMilliseconds and @endOfYesterdayInMilliseconds
             )
         """
             .format(full_table_url=FULL_TABLE_URL)
@@ -260,14 +261,14 @@ def test_fetch_dropoff_and_recovery_users_count_given_list_of_steps(mock_big_que
 
     expectedUserCountList = [
         {
+        "dropOffCount": len(expectedUserIdList),
+        "recoveryCount": len(expectedUserIdList),
         "dropOffStep": "ENTERED_ONBOARD_SCREEN",
+        }, {
         "dropOffCount": len(expectedUserIdList),
         "recoveryCount": len(expectedUserIdList),
-    }, {
         "dropOffStep": "ENTERED_REFERRAL_CODE",
-        "dropOffCount": len(expectedUserIdList),
-        "recoveryCount": len(expectedUserIdList),
-    }]
+        }]
 
     main.EVENTS_AND_DATES_LIST = sampleEventsAndDatesList
     main.client = mock_big_query
@@ -277,4 +278,4 @@ def test_fetch_dropoff_and_recovery_users_count_given_list_of_steps(mock_big_que
     result = fetch_dropoff_and_recovery_users_count_given_list_of_steps(mock_json_request)
     main.client.query.assert_called()
     assert main.client.query.call_count == 4
-    assert result == expectedUserCountList
+    assert result == json.dumps(expectedUserCountList)
