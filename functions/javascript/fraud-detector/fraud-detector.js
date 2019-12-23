@@ -108,6 +108,7 @@ const constructNewEngineAndAddRules = (rules) => {
 };
 
 const attachRuleLabelsToLatestFlagTime = (ruleListWithLatestFlagTime) => {
+    logger('Attaching rule labels to latest flag time');
     const formattedAlertTimes = {};
     ruleListWithLatestFlagTime.forEach((row) => {
         formattedAlertTimes[row.rule_label] = row.latest_flag_time.value;
@@ -137,16 +138,22 @@ const obtainLastAlertTimesForUser = async (rules, userId) => {
     };
 
     const [ruleListWithLatestFlagTime] = await bigQueryClient.query(options);
-    logger(
-        `Successfully obtained last alert times for user with id: ${userId} and rule labels: ${JSON.stringify(ruleLabels)}.
-        Alert times: ${JSON.stringify(ruleListWithLatestFlagTime)}`
-    );
 
-    const formattedAlertTimes = attachRuleLabelsToLatestFlagTime(ruleListWithLatestFlagTime);
+    let formattedAlertTimes = {};
+    if (ruleListWithLatestFlagTime) {
+        logger(
+            `Successfully obtained last alert times for user with id: ${userId} and rule labels: ${JSON.stringify(ruleLabels)}.
+        Alert times: ${JSON.stringify(ruleListWithLatestFlagTime)}`
+        );
+
+        formattedAlertTimes = attachRuleLabelsToLatestFlagTime(ruleListWithLatestFlagTime);
+    }
+
     logger(
         `Formatted last alert times with latest flag dates for user with id: ${userId}.
         Formatted alert times: ${JSON.stringify(formattedAlertTimes)}`
     );
+
     return formattedAlertTimes;
 };
 
@@ -248,7 +255,8 @@ const fetchFactsFromUserBehaviourService = async (userId, accountId) => {
 
         return response.body;
     } catch (error) {
-        logger(`Error occurred while fetching facts from user behaviour service for user id: ${userId}. Error: ${JSON.stringify(error)}`);
+        logger(`Error occurred while fetching facts from user behaviour service for user id: ${userId}. 
+        Error: ${JSON.stringify(error.message)}`);
         throw error;
     }
 };
