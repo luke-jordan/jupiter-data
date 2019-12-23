@@ -8,6 +8,7 @@ const proxyquire = require('proxyquire').noCallThru();
 const config = require('config');
 const utils = require('../utils');
 const uuid = require('uuid/v4');
+const httpStatus = require('http-status');
 
 const bigQueryTableInsertStub = sinon.stub();
 const bigQueryFetchStub = sinon.stub();
@@ -264,7 +265,8 @@ describe('Fraud Detector', () => {
 
     it(`should 'fetch facts about user and run engine' successfully`, async () => {
         requestRetryStub.onFirstCall().resolves({
-            body: sampleFactsFromUserBehaviour
+            body: sampleFactsFromUserBehaviour,
+            statusCode: httpStatus.OK
         });
         requestRetryStub.onSecondCall().resolves();
 
