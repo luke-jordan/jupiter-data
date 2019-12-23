@@ -93,11 +93,14 @@ jobs:
                echo $CIRCLE_SHA1 > last_commit.txt
                echo "setting environment variables for fraud detector"
                if [ $CIRCLE_BRANCH == 'master' ]; then
+                echo $PRODUCTION_GCLOUD_SERVICE_KEY >> service-account-credentials.json
                 echo $PRODUCTION_FRAUD_DETECTOR_JSON_SECRETS >> config/production.json
                fi
                if [ $CIRCLE_BRANCH == 'staging' ]; then
+                echo $STAGING_GCLOUD_SERVICE_KEY >> service-account-credentials.json
                 echo $STAGING_FRAUD_DETECTOR_JSON_SECRETS >> config/production.json
                fi
+               export GOOGLE_APPLICATION_CREDENTIALS="service-account-credentials.json"
                zip -rq $HOME/fraud_detector_$CIRCLE_SHA1.zip .
 
 
