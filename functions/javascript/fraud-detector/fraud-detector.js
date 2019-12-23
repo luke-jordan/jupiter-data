@@ -57,7 +57,8 @@ const sendHttpRequest = async (extraConfig, specifiedRequestTitle) => {
 };
 
 const constructPayloadForUserFlagTable = (userAccountInfo, ruleLabel, reasonForFlaggingUser) => {
-    logger(`Constructing payload for user flag table with user info: ${JSON.stringify(userAccountInfo)}`);
+    logger(`Constructing payload for user flag table with user info: ${JSON.stringify(userAccountInfo)}, 
+    ruleLabel: ${ruleLabel} and reason for flagging user: ${reasonForFlaggingUser}`);
     const {
         userId,
         accountId
@@ -188,8 +189,10 @@ const insertUserFlagIntoTable = async (row) => {
 };
 
 const logFraudulentUserFlag = async (userAccountInfo, ruleLabel, reasonForFlaggingUser) => {
-    logger(`Save new fraudulent flag for user with info: ${JSON.stringify(userAccountInfo)} for reason: '${reasonForFlaggingUser}'`);
-    const row = constructPayloadForUserFlagTable(userAccountInfo, reasonForFlaggingUser);
+    logger(`Save new fraudulent flag for user with info: ${JSON.stringify(userAccountInfo)} 
+        ruleLabel: ${ruleLabel} and reason for flagging user: ${reasonForFlaggingUser}`);
+
+    const row = constructPayloadForUserFlagTable(userAccountInfo, ruleLabel, reasonForFlaggingUser);
 
     await insertUserFlagIntoTable(row);
 };
