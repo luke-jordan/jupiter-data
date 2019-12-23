@@ -25,7 +25,7 @@ const resetStubs = () => {
 const sampleFlagTime = '2019-12-10 13:42:59 UTC';
 const sampleRuleLabel = 'single_very_large_deposit';
 // eslint-disable-next-line camelcase
-const sampleRuleListWithLatestFlagTime = [[{ rule_label: sampleRuleLabel, latest_flag_time: { value: sampleFlagTime }}]];
+const sampleRuleListWithLatestFlagTime = [[{ rule_label: sampleRuleLabel, latest_flag_time: sampleFlagTime }]];
 
 class MockBigQueryClass {
     // eslint-disable-next-line class-methods-use-this

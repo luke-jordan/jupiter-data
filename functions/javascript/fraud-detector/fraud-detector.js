@@ -109,10 +109,11 @@ const constructNewEngineAndAddRules = (rules) => {
 };
 
 const attachRuleLabelsToLatestFlagTime = (ruleListWithLatestFlagTime) => {
-    logger('Attaching rule labels to latest flag time');
+    logger(`Attaching rule labels to latest flag time. 
+    Rules with latest flag times: ${JSON.stringify(ruleListWithLatestFlagTime)}`);
     const formattedAlertTimes = {};
     ruleListWithLatestFlagTime.forEach((row) => {
-        formattedAlertTimes[row.rule_label] = row.latest_flag_time.value;
+        formattedAlertTimes[row.rule_label] = row.latest_flag_time;
     });
     return formattedAlertTimes;
 };
