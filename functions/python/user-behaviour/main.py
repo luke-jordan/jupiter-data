@@ -124,7 +124,7 @@ def fetch_user_latest_transaction(userId, config):
         'from `{full_table_url}` '
         'where transaction_type = "{transaction_type}" '
         'and user_id = "{user_id}" '
-        'and time_transaction_occurred > "{latest_flag_time}" '
+        'and time_transaction_occurred > {latest_flag_time} '
         'order by time_transaction_occurred desc '
         'limit 1 '.format(transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL, latest_flag_time=mostRecentFlagTimeForRule)
     )
@@ -155,7 +155,7 @@ def fetch_user_average_transaction_within_months_period(userId, config):
         'where transaction_type = "{transaction_type}" '
         'and user_id = "{user_id}" '
         'and time_transaction_occurred >= "{given_date}" '
-        'and time_transaction_occurred > "{latest_flag_time}" '
+        'and time_transaction_occurred > {latest_flag_time} '
             .format(transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
     )
 
@@ -184,7 +184,7 @@ def fetch_count_of_user_transactions_larger_than_benchmark(userId, config):
         'from `{full_table_url}` '
         'where amount > {benchmark} and transaction_type = "{transaction_type}" '
         'and user_id = "{user_id}" '
-        'and time_transaction_occurred > "{latest_flag_time}" '
+        'and time_transaction_occurred > {latest_flag_time} '
             .format(benchmark=benchmark, transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL, latest_flag_time=mostRecentFlagTimeForRule)
     )
 
@@ -216,7 +216,7 @@ def fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(
         'where amount > {benchmark} and transaction_type = "{transaction_type}" '
         'and user_id = "{user_id}" '
         'and time_transaction_occurred >= "{given_date}"'
-        'and time_transaction_occurred > "{latest_flag_time}" '
+        'and time_transaction_occurred > {latest_flag_time} '
             .format(benchmark=benchmark, transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
     )
 
@@ -243,7 +243,7 @@ def fetch_withdrawals_during_days_cycle(userId, config):
         'where transaction_type = "{transaction_type}" '
         'and user_id = "{user_id}" '
         'and time_transaction_occurred >= "{given_date}" '
-        'and time_transaction_occurred > "{latest_flag_time}" '
+        'and time_transaction_occurred > {latest_flag_time} '
         .format(transaction_type=WITHDRAWAL_TRANSACTION_TYPE, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
     )
 
@@ -269,7 +269,7 @@ def fetch_deposits_during_days_cycle(userId, config):
         'where transaction_type = "{transaction_type}" '
         'and user_id = "{user_id}" '
         'and time_transaction_occurred >= "{given_date}" '
-        'and time_transaction_occurred > "{latest_flag_time}" '
+        'and time_transaction_occurred > {latest_flag_time} '
             .format(transaction_type=DEPOSIT_TRANSACTION_TYPE, user_id=userId, full_table_url=FULL_TABLE_URL, given_date=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
     )
 
