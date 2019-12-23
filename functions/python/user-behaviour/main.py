@@ -87,10 +87,16 @@ def calculate_date_n_days_ago(num):
     return (datetime.date.today() - datetime.timedelta(days=num)).isoformat()
 
 def extract_key_value_from_first_item_of_big_query_response(responseList, key):
-    firstItemOfList = responseList[0]
-    value = firstItemOfList[key]
-    print("Value of key '{key}' in big query response is: {value}".format(key=key, value=value))
-    return value
+    if responseList and len(responseList) > 0:
+        firstItemOfList = responseList[0]
+        value = firstItemOfList[key]
+        print("Value of key '{key}' in big query response is: {value}".format(key=key, value=value))
+        return value
+
+    defaultValue = DEFAULT_COUNT_FOR_RULE
+    print("Big query response is empty. Defaulting Value of key '{key}' to: {value}".format(key=key, value=defaultValue))
+    return defaultValue
+
 
 def convert_big_query_response_to_list(response):
     return list(response)
