@@ -53,8 +53,8 @@ def convert_date_string_to_millisecond_int(dateString, hour):
 
     # TODO: do conversion for given timezone and default to UTC if timezone not specified
     dateAndHour = "{dateString} {hour}".format(dateString=dateString, hour=hour)
-    date_object = datetime.strptime(dateAndHour, '%Y-%m-%d %H:%M:%S')
-    epoch = datetime.utcfromtimestamp(0)
+    date_object = datetime.datetime.strptime(dateAndHour, '%Y-%m-%d %H:%M:%S')
+    epoch = datetime.datetime.utcfromtimestamp(0)
     timeInMilliSecond = (date_object - epoch).total_seconds() * SECOND_TO_MILLISECOND_FACTOR
 
     print(
