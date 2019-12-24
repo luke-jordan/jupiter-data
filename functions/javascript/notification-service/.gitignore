@@ -54,9 +54,6 @@ typings/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variables file
-.env
-
 # next.js build output
 .next
 
@@ -65,7 +62,6 @@ jupiter-ml-alpha-credentials.json
 jupiter_ml_python_credentials.json
 production-credentials.json
 staging-credentials.json
-service-account-credentials.json
 
 # temporary deployment bundles
 *.zip

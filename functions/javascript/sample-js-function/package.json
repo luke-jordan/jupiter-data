@@ -1,0 +1,29 @@
+{
+  "name": "sample-js-function",
+  "version": "0.0.1",
+  "description": "Serves as the template for javascript functions in jupiter data repo",
+  "main": "sample-js-function.js",
+  "scripts": {
+    "test": "DEBUG=* nyc mocha",
+    "generate-coverage": "nyc report --reporter=text-lcov > coverage.lcov",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "keywords": [],
+  "author": "Bolu Ajibawo",
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "chai-as-promised": "^7.1.1",
+    "eslint": "^6.6.0",
+    "eslint-config-airbnb-base": "^13.1.0",
+    "eslint-plugin-chai-friendly": "^0.5.0",
+    "mocha": "^6.1.4",
+    "nyc": "^14.1.1",
+    "sinon": "^7.4.1",
+    "sinon-chai": "^3.3.0"
+  },
+  "dependencies": {
+    "config": "^3.2.4",
+    "debug": "^4.1.1"
+  }
+}

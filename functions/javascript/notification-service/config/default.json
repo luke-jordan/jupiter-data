@@ -1,0 +1,14 @@
+{
+  "mailTransporter": {
+    "service": "gmail",
+    "auth": {
+      "user": "foo@example.com",
+      "pass": "xxxxxxxxx"
+    }
+  },
+  "environment": "[STAGING]",
+  "mailFormat": {
+    "from": "Jupiter Save",
+    "subject": "Notification"
+  }
+}

@@ -1,10 +1,23 @@
-# Overview - How it works
-This cloud function is triggered by a cloud scheduler (`fire-amplitude-to-big-query-sync`) which runs at 3am UTC every day.
+# Sync Amplitdue Data To Big Query
+## Overview - How it works
+
+`sync-amplitude-data-to-big-query` serves to retrieve data from Amplitude, process the data and
+load it into Big Query.
+
+`sync-amplitude-data-to-big-query` is triggered by a cloud scheduler (`fire-amplitude-to-big-query-sync`) which runs at 3am UTC every day.
+
 The cloud scheduler sends a message to pub/sub topic (`daily-runs`), our function `sync-amplitude-data-to-big-query` has a 
 subscription to `daily-runs` and is triggered when the message arrives from `fire-amplitude-to-big-query-sync`.
 
+When `sync-amplitude-data-to-big-query` (now referred to as `the script`) runs it hits the Amplitude API and downloads a gzipped file containing our data for the previous day, the script stores a copy of the downloaded file in Google cloud storage bucket: `gs://staging-sync-amplitude-data-to-big-query-bucket/export` (for production: `gs://production-sync-amplitude-data-to-big-query-bucket/export`). The script then unzips the file and transforms it into a data format suitable for Big Query table: `amplitude.events` and `amplitude.events_properties`. The script then stores a copy of the formatted data in 
+Google cloud storage bucket: `gs://staging-sync-amplitude-data-to-big-query-bucket/import` (for production: `gs://production-sync-amplitude-data-to-big-query-bucket/import`). 
+The script also loads the formatted data into the Big query table: `ops.all_user_events`
 
-# This documentation was written by Martijn Scheijbeler: https://github.com/martijnsch/amplitude-bigquery 
+Then the script commences cleanups which involves removing the raw downloaded files and the formatted files stored in the local directory of the script.
+
+
+
+# The below was written by Martijn Scheijbeler: https://github.com/martijnsch/amplitude-bigquery and it explains how the script is used
 
 # Amplitude > Google Cloud Storage > Google BigQuery
 Export your [Amplitude](https://amplitude.com/) data to [Google BigQuery](https://bigquery.cloud.google.com) for big data analysis.
@@ -37,36 +50,6 @@ Read more about this integration [here](http://www.martijnscheijbeler.com/import
 9. Adjust the Constant variables in `amplitude-bigquery.py`
 10. Run the script via: `python amplitude-bigquery.py`
 11. Look at the backup files in Google Cloud Storage and see the data in Google BigQuery
-
-
-## BigQuery Schemas
-
-To add the events and events properties to Google BigQuery you'll need to create the two tables. You'll find the JSON schema in the files in this repository, these are the Schema Text fields that you can also use.
-
-![Create a new table in BigQuery](https://monosnap-m.s3.amazonaws.com/Google_BigQuery_2018-03-15_11-10-05.png)
-
-*Events:* 
-```
-client_event_time:TIMESTAMP,ip_address:STRING,library:STRING,dma:STRING,user_creation_time:TIMESTAMP,insert_id:STRING,schema:INTEGER,processed_time:TIMESTAMP,client_upload_time:TIMESTAMP,app:INTEGER,user_id:STRING,city:STRING,event_type:STRING,device_carrier:STRING,location_lat:STRING,event_time:TIMESTAMP,platform:STRING,is_attribution_event:BOOLEAN,os_version:STRING,paying:BOOLEAN,amplitude_id:INTEGER,device_type:STRING,sample_rate:STRING,device_manufacturer:STRING,start_version:STRING,uuid:STRING,version_name:STRING,location_lng:STRING,server_upload_time:TIMESTAMP,event_id:INTEGER,device_id:STRING,device_family:STRING,os_name:STRING,adid:STRING,amplitude_event_type:STRING,device_brand:STRING,country:STRING,device_model:STRING,language:STRING,region:STRING,session_id:INTEGER,idfa:STRING,reference_time:TIMESTAMP
-```
-
-*Events Properties:*
-```
-property_type:STRING,insert_id:STRING,key:STRING,value:STRING
-```
-
-## History
-#### March 20, 2018
-* Initial Commit: Add the support for exporting Amplitude data to Google BigQuery.
-
-
-## Want to contribute?
-Contributions are welcome! There are just a few requested guidelines:
-
-* Please create a feature branch for your changes and squash commits.
-* Don't worry about updating the version, changelog, or minified version.
-* Please respect the original syntax/formatting stuff.
-* If proposing a new feature, it may be a good idea to create an issue first to discuss.
 
 
 ## Maintainer history

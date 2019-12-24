@@ -7,7 +7,7 @@ import json
 import os
 import zipfile
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from os import walk
 
 from google.cloud import bigquery, storage
@@ -35,7 +35,7 @@ UNZIPPED_FILE_ROOT_LOCATION = TEMP + "/amplitude/"
 ACCOUNT_ID_DIRECTORY = "{unzipped_file_root_location}{id}/".format(unzipped_file_root_location=UNZIPPED_FILE_ROOT_LOCATION, id=ACCOUNT_ID)
 
 # Initiate Google BigQuery
-DATASET_IN_USE = "amplitude"
+DATASET_IN_USE = "ops"
 RAW_DOWNLOAD_GCS_FOLDER = "export"
 FORMATTED_FILES_GCS_FOLDER = "import"
 bigquery_client = bigquery.Client(project=PROJECT_ID)
@@ -43,6 +43,21 @@ dataset_ref = bigquery_client.dataset(DATASET_IN_USE)
 
 # Initiate Google Cloud Storage
 storage_client = storage.Client()
+
+SOURCE_OF_EVENT = 'AMPLITUDE'
+SECOND_TO_MILLISECOND_FACTOR=1000
+
+def fetch_current_time_in_milliseconds():
+    print("Fetching current time at UTC in milliseconds for created_at and updated_at datetime")
+    currentTimeInMilliseconds = int(round(time.time() * SECOND_TO_MILLISECOND_FACTOR))
+    print(
+        """
+        Successfully fetched current time at UTC in milliseconds. Time at UTC: {}
+        for created_at and updated_at datetime
+        """.format(currentTimeInMilliseconds)
+    )
+    return currentTimeInMilliseconds
+
 
 def unzip_gzip(file, remove_original=True):
     path_to_file = ACCOUNT_ID_DIRECTORY + file
@@ -59,25 +74,20 @@ def unzip_gzip(file, remove_original=True):
 def convert_text_to_json(filename, lines):
     # Create a new JSON import file
     path_to_events_file_on_local = UNZIPPED_FILE_ROOT_LOCATION + filename
-    path_to_properties_file_on_local = UNZIPPED_FILE_ROOT_LOCATION + "properties_" + filename
-    print("Creating json files at {path_event} and {path_properties} for: {filename}".format(path_event=path_to_events_file_on_local, path_properties=path_to_properties_file_on_local, filename=filename))
+    print("Creating json files at {path_event} for: {filename}".format(path_event=path_to_events_file_on_local, filename=filename))
 
     import_events_file = open(path_to_events_file_on_local, "w+")
-    import_properties_file = open(path_to_properties_file_on_local, "w+")
 
     # Loop through the JSON lines
     for line in lines:
-        events_line, properties_lines = process_line_json(line)
+        events_line = process_line_json(line)
         import_events_file.write(events_line + "\r\n")
-        for property_line in properties_lines:
-            import_properties_file.write(json.dumps(property_line) + "\r\n")
 
     # Close the file
     import_events_file.close()
-    import_properties_file.close()
 
-    print("Successfully created json files at {path_event} and {path_properties} for: {filename}".format(path_event=path_to_events_file_on_local, path_properties=path_to_properties_file_on_local, filename=filename))
-    return [path_to_events_file_on_local, path_to_properties_file_on_local]
+    print("Successfully created json files at {path_event} for: {filename}".format(path_event=path_to_events_file_on_local, filename=filename))
+    return path_to_events_file_on_local
 
 
 def remove_file(file, folder=''):
@@ -89,12 +99,22 @@ def remove_file(file, folder=''):
 
 def unzip_file_to_root_location(filename):
     print("unzipping: {filename} to location: {extract_to}".format(filename=filename, extract_to=UNZIPPED_FILE_ROOT_LOCATION))
-    zip_ref = zipfile.ZipFile(filename, 'r')
-    zip_ref.extractall(UNZIPPED_FILE_ROOT_LOCATION)
-    zip_ref.close()
-    print("successfully unzipped: {filename} to location: {extract_to}".format(filename=filename, extract_to=UNZIPPED_FILE_ROOT_LOCATION))
-    print("===========================================================================")
-    print("===========================================================================")
+    try:
+        zip_ref = zipfile.ZipFile(filename, 'r')
+        zip_ref.extractall(UNZIPPED_FILE_ROOT_LOCATION)
+        zip_ref.close()
+        print("successfully unzipped: {filename} to location: {extract_to}".format(filename=filename, extract_to=UNZIPPED_FILE_ROOT_LOCATION))
+        print("===========================================================================")
+        print("===========================================================================")
+    except Exception as err:
+        raise Exception(
+            """
+            Error while unzipping file downloaded from amplitude.
+            Note that the unzip error might be due to the file downloaded not containing any data, 
+            and the file might not contain any data because there was no user activity that day.
+            Error: {}
+            """.format(err)
+        )
 
 def file_list(extension):
     files = []
@@ -149,55 +169,73 @@ def load_gcs_file_into_bigquery(path_to_file, table):
     assert job.job_type == 'load'
     assert job.state == 'DONE'
 
+def convert_date_string_to_millisecond_int(dateTimeString):
+    print(
+        "Converting date time string: {dateTimeString} to milliseconds for time of transaction"
+            .format(dateTimeString=dateTimeString)
+    )
+
+    date_object = datetime.strptime(dateTimeString, '%Y-%m-%d %H:%M:%S.%f')
+    epoch = datetime.utcfromtimestamp(0)
+    timeInMilliSecond = (date_object - epoch).total_seconds() * SECOND_TO_MILLISECOND_FACTOR
+
+    print(
+        """
+        Successfully converted date time string: {dateTimeString} to milliseconds: {timeInMilliSecond}
+        for time of transaction
+        """
+            .format(dateTimeString=dateTimeString, timeInMilliSecond=timeInMilliSecond)
+    )
+    return int(timeInMilliSecond)
 
 def process_line_json(line):
     parsed = json.loads(line)
     if parsed:
-        data = {}
+        context_data = {}
         properties = []
-        data['client_event_time'] = value_def(parsed['client_event_time'])
-        data['ip_address'] = value_def(parsed['ip_address'])
-        data['library'] = value_def(parsed['library'])
-        data['dma'] = value_def(parsed['dma'])
-        data['user_creation_time'] = value_def(parsed['user_creation_time'])
-        data['insert_id'] = value_def(parsed['$insert_id'])
-        data['schema'] = value_def(parsed['$schema'])
-        data['processed_time'] = "{d}".format(d=datetime.utcnow())
-        data['client_upload_time'] = value_def(parsed['client_upload_time'])
-        data['app'] = value_def(parsed['app'])
-        data['user_id'] = value_def(parsed['user_id'])
-        data['city'] = value_def(parsed['city'])
-        data['event_type'] = value_def(parsed['event_type'])
-        data['device_carrier'] = value_def(parsed['device_carrier'])
-        data['location_lat'] = value_def(parsed['location_lat'])
-        data['event_time'] = value_def(parsed['event_time'])
-        data['platform'] = value_def(parsed['platform'])
-        data['is_attribution_event'] = value_def(parsed['is_attribution_event'])
-        data['os_version'] = value_def(parsed['os_version'])
-        data['paying'] = value_paying(parsed['paying'])
-        data['amplitude_id'] = value_def(parsed['amplitude_id'])
-        data['device_type'] = value_def(parsed['device_type'])
-        data['sample_rate'] = value_def(parsed['sample_rate'])
-        data['device_manufacturer'] = value_def(parsed['device_manufacturer'])
-        data['start_version'] = value_def(parsed['start_version'])
-        data['uuid'] = value_def(parsed['uuid'])
-        data['version_name'] = value_def(parsed['version_name'])
-        data['location_lng'] = value_def(parsed['location_lng'])
-        data['server_upload_time'] = value_def(parsed['server_upload_time'])
-        data['event_id'] = value_def(parsed['event_id'])
-        data['device_id'] = value_def(parsed['device_id'])
-        data['device_family'] = value_def(parsed['device_family'])
-        data['os_name'] = value_def(parsed['os_name'])
-        data['adid'] = value_def(parsed['adid'])
-        data['amplitude_event_type'] = value_def(parsed['amplitude_event_type'])
-        data['device_brand'] = value_def(parsed['device_brand'])
-        data['country'] = value_def(parsed['country'])
-        data['device_model'] = value_def(parsed['device_model'])
-        data['language'] = value_def(parsed['language'])
-        data['region'] = value_def(parsed['region'])
-        data['session_id'] = value_def(parsed['session_id'])
-        data['idfa'] = value_def(parsed['idfa'])
-        data['reference_time'] = value_def(parsed['client_event_time'])
+        context_data['client_event_time'] = value_def(parsed['client_event_time'])
+        context_data['ip_address'] = value_def(parsed['ip_address'])
+        context_data['library'] = value_def(parsed['library'])
+        context_data['dma'] = value_def(parsed['dma'])
+        context_data['user_creation_time'] = value_def(parsed['user_creation_time'])
+        context_data['insert_id'] = value_def(parsed['$insert_id'])
+        context_data['schema'] = value_def(parsed['$schema'])
+        context_data['processed_time'] = "{d}".format(d=datetime.utcnow())
+        context_data['client_upload_time'] = value_def(parsed['client_upload_time'])
+        context_data['app'] = value_def(parsed['app'])
+        context_data['user_id'] = value_def(parsed['user_id'])
+        context_data['city'] = value_def(parsed['city'])
+        context_data['event_type'] = value_def(parsed['event_type'])
+        context_data['device_carrier'] = value_def(parsed['device_carrier'])
+        context_data['location_lat'] = value_def(parsed['location_lat'])
+        context_data['event_time'] = value_def(parsed['event_time'])
+        context_data['platform'] = value_def(parsed['platform'])
+        context_data['is_attribution_event'] = value_def(parsed['is_attribution_event'])
+        context_data['os_version'] = value_def(parsed['os_version'])
+        context_data['paying'] = value_paying(parsed['paying'])
+        context_data['amplitude_id'] = value_def(parsed['amplitude_id'])
+        context_data['device_type'] = value_def(parsed['device_type'])
+        context_data['sample_rate'] = value_def(parsed['sample_rate'])
+        context_data['device_manufacturer'] = value_def(parsed['device_manufacturer'])
+        context_data['start_version'] = value_def(parsed['start_version'])
+        context_data['uuid'] = value_def(parsed['uuid'])
+        context_data['version_name'] = value_def(parsed['version_name'])
+        context_data['location_lng'] = value_def(parsed['location_lng'])
+        context_data['server_upload_time'] = value_def(parsed['server_upload_time'])
+        context_data['event_id'] = value_def(parsed['event_id'])
+        context_data['device_id'] = value_def(parsed['device_id'])
+        context_data['device_family'] = value_def(parsed['device_family'])
+        context_data['os_name'] = value_def(parsed['os_name'])
+        context_data['adid'] = value_def(parsed['adid'])
+        context_data['amplitude_event_type'] = value_def(parsed['amplitude_event_type'])
+        context_data['device_brand'] = value_def(parsed['device_brand'])
+        context_data['country'] = value_def(parsed['country'])
+        context_data['device_model'] = value_def(parsed['device_model'])
+        context_data['language'] = value_def(parsed['language'])
+        context_data['region'] = value_def(parsed['region'])
+        context_data['session_id'] = value_def(parsed['session_id'])
+        context_data['idfa'] = value_def(parsed['idfa'])
+        context_data['reference_time'] = value_def(parsed['client_event_time'])
 
         # Loop through DICTs and save all properties
         for property_value in PROPERTIES:
@@ -208,8 +246,19 @@ def process_line_json(line):
                                    'insert_id': value_def(parsed['$insert_id']),
                                    'key': value_def(key),
                                    'value': value})
+        context_data['event_properties'] = properties
 
-    return json.dumps(data), properties
+        row_for_all_events_table = {}
+        time_in_milliseconds_now = fetch_current_time_in_milliseconds()
+        row_for_all_events_table['user_id'] = value_def(parsed['user_id'])
+        row_for_all_events_table['event_type'] = value_def(parsed['event_type'])
+        row_for_all_events_table['time_transaction_occurred'] = convert_date_string_to_millisecond_int(value_def(parsed['client_event_time']))
+        row_for_all_events_table['source_of_event'] = SOURCE_OF_EVENT
+        row_for_all_events_table['created_at'] = time_in_milliseconds_now
+        row_for_all_events_table['updated_at'] = time_in_milliseconds_now
+        row_for_all_events_table['context'] = json.dumps(context_data)
+
+    return json.dumps(row_for_all_events_table)
 
 
 def final_clean_up(file_location, day):
@@ -225,7 +274,7 @@ def fetch_data_from_amplitude(day):
     print("downloading data for {day} from amplitude".format(day=day))
     os.system("curl -u " + API_KEY + ":" + API_SECRET + " \
                  'https://amplitude.com/api/2/export?start=" + day + "T00&end="
-                  + day + "T23'  >> " + storage_location)
+              + day + "T23'  >> " + storage_location)
     print("completed download from amplitude for {day} to {storage_location}".format(day=day, storage_location=storage_location))
     print("===========================================================================")
     print("===========================================================================")
@@ -236,10 +285,8 @@ def remove_local_files_for_gz_extracts(file):
     # Remove JSON file
     remove_file(file, ACCOUNT_ID_DIRECTORY)
     remove_file(file_json(file), UNZIPPED_FILE_ROOT_LOCATION)
-    remove_file("properties_" + file_json(file), UNZIPPED_FILE_ROOT_LOCATION)
     print("===========================================================================")
     print("===========================================================================")
-
 
 def process_gzip_files_in_root_location(day):
     # Loop through all new files, unzip them & remove the .gz
@@ -249,14 +296,12 @@ def process_gzip_files_in_root_location(day):
         lines = unzip_gzip(file)
 
         FILE_NAME_JSON = file_json(file)
-        [path_to_events_file_on_local, path_to_properties_file_on_local] = convert_text_to_json(FILE_NAME_JSON, lines)
+        path_to_events_file_on_local = convert_text_to_json(FILE_NAME_JSON, lines)
 
         upload_file_to_gcs(path_to_events_file_on_local, FILE_NAME_JSON, FORMATTED_FILES_GCS_FOLDER)
-        upload_file_to_gcs(path_to_properties_file_on_local, "properties_" + FILE_NAME_JSON, FORMATTED_FILES_GCS_FOLDER)
 
         # Import data from Google Cloud Storage into Google BigQuery
-        load_gcs_file_into_bigquery(import_json_url(FILE_NAME_JSON), 'events$' + day)
-        load_gcs_file_into_bigquery(import_json_url("properties_" + FILE_NAME_JSON), 'events_properties$' + day)
+        load_gcs_file_into_bigquery(import_json_url(FILE_NAME_JSON), 'all_user_events')
         print("===========================================================================")
         print("===========================================================================")
         print("======Completed Import from Amplitude to Big Query for: {file}======".format(file=FILE_NAME_JSON))
@@ -273,10 +318,10 @@ def retrieve_yesterdays_date():
     return (datetime.utcnow().date() - timedelta(days=1)).strftime("%Y%m%d")
 
 def store_raw_amplitude_download_in_cloud_storage(day, raw_file_local):
-        print("storing raw amplitude data downloaded to cloud storage")
-        upload_file_to_gcs(raw_file_local, day + '.zip', RAW_DOWNLOAD_GCS_FOLDER)
-        print("===========================================================================")
-        print("===========================================================================")
+    print("storing raw amplitude data downloaded to cloud storage")
+    upload_file_to_gcs(raw_file_local, day + '.zip', RAW_DOWNLOAD_GCS_FOLDER)
+    print("===========================================================================")
+    print("===========================================================================")
 
 def signal_operation_complete(day):
     print("===========================================================================")
@@ -289,7 +334,7 @@ def signal_operation_complete(day):
     print("===========================================================================")
     print("===========================================================================")
     print("===========================================================================")
-    print("===========ALL OPERATIONS COMPLETED for {day}! Gracias===========".format(day=day))
+    print("===========AMPLITUDE IMPORT COMPLETED for day: {day}! Gracias===========".format(day=day))
     # the `return` signals that the function is complete and can be terminated by the system
     return "Job Complete"
 
@@ -297,21 +342,25 @@ def signal_operation_complete(day):
 
 # `event` and `context` are parameters supplied when pub-sub calls this function, these parameters are not being used now
 def main(event, context):
-    print("Trigger received from cloud scheduler")
     YESTERDAY = retrieve_yesterdays_date()
-    download_from_amplitude_location = fetch_data_from_amplitude(YESTERDAY)
 
-    # backup the downloaded file because it might be needed in the future
-    store_raw_amplitude_download_in_cloud_storage(YESTERDAY, download_from_amplitude_location)
+    try:
+        print("Trigger received from cloud scheduler")
+        download_from_amplitude_location = fetch_data_from_amplitude(YESTERDAY)
 
-    # unzip file to root location => '/tmp/amplitude/'
-    unzip_file_to_root_location(download_from_amplitude_location)
+        # backup the downloaded file because it might be needed in the future
+        store_raw_amplitude_download_in_cloud_storage(YESTERDAY, download_from_amplitude_location)
 
-    # most of the processing happens in this function: `process_gzip_files_in_root_location`
-    # after unzipping file above, multiple '.json.gz' files are generated and we need to unravel that
-    # each '.json.gz' file represents an hour of the day requested for e.g. '240333_2019-10-23_10#327.json.gz'
-    process_gzip_files_in_root_location(YESTERDAY)
+        # unzip file to root location => '/tmp/amplitude/'
+        unzip_file_to_root_location(download_from_amplitude_location)
 
-    final_clean_up(download_from_amplitude_location, YESTERDAY)
+        # most of the processing happens in this function: `process_gzip_files_in_root_location`
+        # after unzipping file above, multiple '.json.gz' files are generated and we need to unravel that
+        # each '.json.gz' file represents an hour of the day requested for e.g. '240333_2019-10-23_10#327.json.gz'
+        process_gzip_files_in_root_location(YESTERDAY)
 
-    signal_operation_complete(YESTERDAY)
+        final_clean_up(download_from_amplitude_location, YESTERDAY)
+
+        signal_operation_complete(YESTERDAY)
+    except Exception as err:
+        print("Error while syncing data from amplitude to big query for {day}. Error {err}".format(day=YESTERDAY, err=err))
