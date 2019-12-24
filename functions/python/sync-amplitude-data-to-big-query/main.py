@@ -6,6 +6,7 @@ import gzip
 import json
 import os
 import zipfile
+import time
 
 from datetime import datetime, timedelta, timezone
 from os import walk
@@ -59,7 +60,7 @@ def fetch_current_time_in_milliseconds():
     return currentTimeInMilliseconds
 
 
-def unzip_gzip(file, remove_original=True):
+def unzip_gzip(file):
     path_to_file = ACCOUNT_ID_DIRECTORY + file
     print("Performing a gzip open of {path_to_file}".format(path_to_file=path_to_file))
 
