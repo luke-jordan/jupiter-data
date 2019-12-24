@@ -9,6 +9,12 @@ resource "google_cloudfunctions_function" "fraud-detector-function" {
   trigger_http = true
   runtime = "nodejs10"
   environment_variables = {
-    DEBUG = "*"
+    DEBUG = "*",
+    NODE_CONFIG = "${
+      jsonencode(
+        {
+          "contactsToBeNotified": terraform.workspace == "master" ? ["luke@jupitersave.com", "avish@jupitersave.com"] : ["luke@jupitersave.com"]
+        }
+    )}" 
   }
 }

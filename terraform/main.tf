@@ -1,8 +1,8 @@
 provider "google" {
   credentials = file(var.credentials_file)
-  project = "${var.project[terraform.workspace]}"
-  region = "${var.gcp_default_region[terraform.workspace]}"
-  zone = "${var.gcp_default_zone[terraform.workspace]}"
+  project = var.project[terraform.workspace]
+  region = var.gcp_default_region[terraform.workspace]
+  zone = var.gcp_default_zone[terraform.workspace]
 }
 
 terraform {
