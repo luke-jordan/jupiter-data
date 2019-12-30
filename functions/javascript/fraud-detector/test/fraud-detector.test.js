@@ -475,7 +475,7 @@ describe('Fraud Detector', () => {
         expect(res.status().end.secondCall.args[0]).to.equal('Unable to check for fraudulent user');
     });
 
-    it(`should exit gracefully  when it cannot 'fetch facts from user behaviour service'`, async () => {
+    it(`should exit gracefully when it cannot 'fetch facts from user behaviour service'`, async () => {
         const req = {
             method: POST,
             body: { ...samplePayloadFromFetchFactsTrigger }
