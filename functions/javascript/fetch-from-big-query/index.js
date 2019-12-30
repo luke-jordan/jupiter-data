@@ -89,7 +89,7 @@ const validateRequestAndExtractParams = (req, res) => {
         }
         return payload;
     } catch (error) {
-        logger(`Error while json parsing body of request. Request Body: ${JSON.stringify(req.body)}`);
+        logger(`Error while json parsing body of request. Body: ${JSON.stringify(req.body)}`);
         throw error;
     }
 };
