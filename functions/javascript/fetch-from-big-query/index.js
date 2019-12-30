@@ -2,7 +2,7 @@
 
 const {BigQuery} = require('@google-cloud/bigquery');
 const bigqueryClient = new BigQuery();
-const logger = require('debug')('jupiter:');
+const logger = require('debug')('jupiter:fetch-amplitude-data-from-big-query');
 const httpStatus = require('http-status');
 
 const dotenv = require('dotenv');
