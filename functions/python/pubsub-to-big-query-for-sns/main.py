@@ -1,5 +1,6 @@
 import base64
 import time
+import constant
 
 from google.cloud import bigquery
 from dotenv import load_dotenv
@@ -10,8 +11,8 @@ dataset_id = 'ops'
 table_id = 'all_user_events'
 table_ref = client.dataset(dataset_id).table(table_id)
 table = client.get_table(table_ref)
-SOURCE_OF_EVENT = 'INTERNAL_SERVICES'
-SECOND_TO_MILLISECOND_FACTOR=1000
+SOURCE_OF_EVENT = constant.SOURCE_OF_EVENT
+SECOND_TO_MILLISECOND_FACTOR=constant.SECOND_TO_MILLISECOND_FACTOR
 
 def insert_into_table(message):
     print("Inserting message: {msg} into table: {table} of big query".format(msg=message, table=table_id))
@@ -44,24 +45,24 @@ def fetch_current_time_in_milliseconds():
     )
     return currentTimeInMilliseconds
 
-def add_extra_params_to_message(messageList):
+def add_extra_params_to_message(messageList, currentTime):
     print("Add extra params to each message in list: {}".format(messageList))
-    time_in_milliseconds_now = fetch_current_time_in_milliseconds()
 
     for message in messageList:
-        message["created_at"] = time_in_milliseconds_now
-        message["updated_at"] = time_in_milliseconds_now
+        message["created_at"] = currentTime
+        message["updated_at"] = currentTime
         message["source_of_event"] = SOURCE_OF_EVENT
 
     print("Message list with extra params: {}".format(messageList))
     return messageList
 
-def main(event, context):
+def format_message_and_insert_into_all_user_events(event, context):
     print("Message received from pubsub")
 
     try:
         messageList = decode_message_from_pubsub(event)
-        messageForAllEventsTable = add_extra_params_to_message(messageList)
+        time_in_milliseconds_now = fetch_current_time_in_milliseconds()
+        messageForAllEventsTable = add_extra_params_to_message(messageList, time_in_milliseconds_now)
         insert_into_table(messageForAllEventsTable)
 
         print("Acknowledging message to pub/sub")

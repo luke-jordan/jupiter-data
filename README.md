@@ -239,13 +239,41 @@ That is all as per setup. You can now proceed to write your function and install
 
 
 ## Python Tests
+### Adding the test libraries to a python function
+1. Launch virtual environment. Run the following command from the terminal:
+```
+pipenv shell
+```
+
+2. To install the python testing tool:
+```
+pipenv install pytest
+```
+
+3. To install the python test coverage tool:
+```
+pipenv install coverage
+```
+
+4. To install the python mock tool:
+```
+pipenv install mock
+```
+
+
+### Running Tests
 Instructions for tests and test coverage in python functions i.e. functions in the folder: `functions/python`
-1. To run the tests only:
+1. To run the tests:
 ```
 pytest
 ```
 
-2. To run the tests with code coverage of the tests:
+1. To run a single test:
+```
+pytest -k {test_name}
+```
+
+2. To run the tests with code coverage:
 ```
 coverage run -m --source=. pytest
 ```

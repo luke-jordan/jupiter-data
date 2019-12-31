@@ -90,3 +90,7 @@ terraform.tfstate
 
 tmp/
 .terraform.tfstate.lock.info
+
+# python test coverage files
+.coverage
+htmlcov/
