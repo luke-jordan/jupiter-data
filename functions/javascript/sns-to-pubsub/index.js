@@ -56,8 +56,9 @@ const confirmSubscriptionToBroker = async (message, res) => {
             res.status(httpStatus.OK).end('ok');
         });
     }).on('error', (err) => {
-        logger(err);
-        res.status(httpStatus.INTERNAL_SERVER_ERROR).end('Confirmation failed');
+        logger(`Error occurred while confirming subscription at url: ${message.SubscribeURL}.
+        Error: ${JSON.stringify(err.message)}`);
+        res.status(httpStatus.INTERNAL_SERVER_ERROR).end('Subscription Confirmation failed');
     });
 };
 
@@ -70,7 +71,6 @@ const processMessageBasedOnType = async (message, res) => {
     // here we handle either a request to confirm subscription
     if (message.Type && message.Type.toLowerCase() === SUBSCRIPTION_CONFIRMATION) {
         await confirmSubscriptionToBroker(message, res);
-        
     }
 };
 
