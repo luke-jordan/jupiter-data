@@ -275,10 +275,5 @@ pytest -k {test_name}
 
 2. To run the tests with code coverage:
 ```
-coverage run -m --source=. pytest
-```
-
-3. To view the test coverage report:
-```
-coverage report
+coverage run -m --source=. pytest && coverage report
 ```
