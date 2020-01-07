@@ -9,11 +9,28 @@ load it into Big Query.
 The cloud scheduler sends a message to pub/sub topic (`daily-runs`), our function `sync-amplitude-data-to-big-query` has a 
 subscription to `daily-runs` and is triggered when the message arrives from `fire-amplitude-to-big-query-sync`.
 
-When `sync-amplitude-data-to-big-query` (now referred to as `the script`) runs it hits the Amplitude API and downloads a gzipped file containing our data for the previous day, the script stores a copy of the downloaded file in Google cloud storage bucket: `gs://staging-sync-amplitude-data-to-big-query-bucket/export` (for production: `gs://production-sync-amplitude-data-to-big-query-bucket/export`). The script then unzips the file and transforms it into a data format suitable for Big Query table: `amplitude.events` and `amplitude.events_properties`. The script then stores a copy of the formatted data in 
-Google cloud storage bucket: `gs://staging-sync-amplitude-data-to-big-query-bucket/import` (for production: `gs://production-sync-amplitude-data-to-big-query-bucket/import`). 
-The script also loads the formatted data into the Big query table: `ops.all_user_events`
+When `sync-amplitude-data-to-big-query` (now referred to as `the script`) runs it hits the Amplitude API and downloads a gzipped file 
+containing our data for the previous day, the script stores a copy of the downloaded file in Google cloud 
+storage bucket: `gs://staging-sync-amplitude-data-to-big-query-bucket/export` 
+(for production: `gs://production-sync-amplitude-data-to-big-query-bucket/export`). 
 
-Then the script commences cleanups which involves removing the raw downloaded files and the formatted files stored in the local directory of the script.
+### Processing Each File representing an Hour in the Day:
+1. The script then unzips the downloaded file and transforms it into a data format suitable for Big Query table: `ops.all_user_events`.
+`N/B`: The unzipped file is a list of `.gz.json` files per hour e.g. `240333_2019-11-14_01#327.gz.json` and `240333_2019-11-14_21#327.gz.json`
+representing the amplitude data for `14th of November, 2019` at the hours of `1am` and `9pm` respectively.
+Each file is first gzip opened and then `.json` files are created from the `.gz.json` one 
+using the schema of the big query table: `ops.all_user_events`.
+
+2. The script then proceeds to store a copy of the formatted data in the  
+Google cloud storage bucket: `gs://staging-sync-amplitude-data-to-big-query-bucket/import` 
+(for production: `gs://production-sync-amplitude-data-to-big-query-bucket/import`) as `.json` files. 
+The script then loads the file it just stored in the `import` bucket of cloud storage 
+into the Big query table: `ops.all_user_events`.
+Processing of 
+
+It does the above process for each `.gz.json` file. On completion, the script commences cleanups which involves 
+removing the raw downloaded files and the formatted files stored in the local directory of the script 
+(i.e. running cloud function).
 
 
 
