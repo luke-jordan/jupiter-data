@@ -116,7 +116,7 @@ sample_processed_line = {
 
 @pytest.fixture
 def mock_bigquery_client():
-    return Mock(spec=bigquery.Client())\
+    return Mock(spec=bigquery.Client())
 
 @pytest.fixture
 def mock_open_file():

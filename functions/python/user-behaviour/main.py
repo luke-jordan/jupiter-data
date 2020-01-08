@@ -46,6 +46,16 @@ DEFAULT_COUNT_FOR_RULE=constant.DEFAULT_COUNT_FOR_RULE
 
 FULL_TABLE_URL="{project_id}.{dataset_id}.{table_id}".format(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
 
+def convert_amount_from_given_unit_to_hundredth_cent(amount, unit):
+    if unit == 'HUNDREDTH_CENT':
+        return amount
+
+    if unit == 'WHOLE_CURRENCY':
+        return amount * FACTOR_TO_CONVERT_WHOLE_CURRENCY_TO_HUNDREDTH_CENT
+
+    if unit == 'WHOLE_CENT':
+        return amount * FACTOR_TO_CONVERT_WHOLE_CENT_TO_HUNDREDTH_CENT
+
 def convert_date_string_to_millisecond_int(dateString, hour):
     print(
         "Converting date string: {dateString} and hour: {hour} to milliseconds"
@@ -64,17 +74,7 @@ def convert_date_string_to_millisecond_int(dateString, hour):
     )
     return int(timeInMilliSecond)
 
-def convertAmountFromGivenUnitToHundredthCent(amount, unit):
-    if unit == 'HUNDREDTH_CENT':
-        return amount
-
-    if unit == 'WHOLE_CURRENCY':
-        return amount * FACTOR_TO_CONVERT_WHOLE_CURRENCY_TO_HUNDREDTH_CENT
-
-    if unit == 'WHOLE_CENT':
-        return amount * FACTOR_TO_CONVERT_WHOLE_CENT_TO_HUNDREDTH_CENT
-
-def convertAmountFromHundredthCentToWholeCurrency(amount):
+def convert_amount_from_hundredth_cent_to_whole_currency(amount):
     print("Converting amount from 'hundredth cent' to 'whole currency'. Amount: {}".format(amount))
     return (float(amount) * FACTOR_TO_CONVERT_HUNDREDTH_CENT_TO_WHOLE_CURRENCY) if amount else DEFAULT_COUNT_FOR_RULE
 
@@ -97,7 +97,6 @@ def extract_key_value_from_first_item_of_big_query_response(responseList, key):
     print("Big query response is empty. Defaulting Value of key '{key}' to: {value}".format(key=key, value=defaultValue))
     return defaultValue
 
-
 def convert_big_query_response_to_list(response):
     return list(response)
 
@@ -114,7 +113,6 @@ def fetch_data_as_list_from_user_behaviour_table(QUERY):
 
 def extract_last_flag_time_or_default_time(ruleLabel, ruleCutOffTimes):
     return int(ruleCutOffTimes[ruleLabel] if (ruleLabel in ruleCutOffTimes.keys()) else DEFAULT_LATEST_FLAG_TIME)
-
 
 def fetch_user_latest_transaction(userId, config):
     transactionType = config["transactionTypeDeposit"]
@@ -139,7 +137,7 @@ def fetch_user_latest_transaction(userId, config):
 
     bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(QUERY)
     latestDepositInHundredthCentList = extract_key_value_from_first_item_of_big_query_response(bigQueryResponse, 'latestDeposit')
-    latestDepositInWholeCurrency = convertAmountFromHundredthCentToWholeCurrency(latestDepositInHundredthCentList) 
+    latestDepositInWholeCurrency = convert_amount_from_hundredth_cent_to_whole_currency(latestDepositInHundredthCentList)
     return latestDepositInWholeCurrency
 
 
@@ -169,13 +167,13 @@ def fetch_user_average_transaction_within_months_period(userId, config):
 
     bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(QUERY)
     averageDepositInHundredthCentList = extract_key_value_from_first_item_of_big_query_response(bigQueryResponse, 'averageDepositDuringPastPeriodInMonths')
-    averageDepositInWholeCurrency = convertAmountFromHundredthCentToWholeCurrency(averageDepositInHundredthCentList)
+    averageDepositInWholeCurrency = convert_amount_from_hundredth_cent_to_whole_currency(averageDepositInHundredthCentList)
     return averageDepositInWholeCurrency
 
 
 def fetch_count_of_user_transactions_larger_than_benchmark(userId, config):
     transactionType = config["transactionTypeDeposit"]
-    benchmark = convertAmountFromGivenUnitToHundredthCent(config["hundredThousandBenchmark"], 'WHOLE_CURRENCY')
+    benchmark = convert_amount_from_given_unit_to_hundredth_cent(config["hundredThousandBenchmark"], 'WHOLE_CURRENCY')
     mostRecentFlagTimeForRule = config["latestFlagTime"]
 
     print(
@@ -203,7 +201,7 @@ def fetch_count_of_user_transactions_larger_than_benchmark(userId, config):
 
 def fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(userId, config):
     transactionType = config["transactionTypeDeposit"]
-    benchmark = convertAmountFromGivenUnitToHundredthCent(config["fiftyThousandBenchmark"], 'WHOLE_CURRENCY')
+    benchmark = convert_amount_from_given_unit_to_hundredth_cent(config["fiftyThousandBenchmark"], 'WHOLE_CURRENCY')
     periodInMonths = config["sixMonthsPeriod"]
     mostRecentFlagTimeForRule = config["latestFlagTime"]
 
@@ -231,7 +229,6 @@ def fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(
     bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(QUERY)
     countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriodList = extract_key_value_from_first_item_of_big_query_response(bigQueryResponse, "countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriod")
     return countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriodList
-
 
 def fetch_withdrawals_during_days_cycle(userId, config):
     numOfDays = config["numOfDays"]
@@ -313,11 +310,7 @@ def withdrawal_within_tolerance_range_of_deposit_amount(withdrawalAmount, deposi
         "Checking if withdrawal amount: {withdrawalAmount} is within tolerance range of minimum amount: {minimumAmount} to deposited amount: {depositAmount}"
         .format(withdrawalAmount=withdrawalAmount, minimumAmount=minimumMatchingDepositForToleranceRange, depositAmount=depositAmount)
     )
-
-    if minimumMatchingDepositForToleranceRange <= withdrawalAmount <= depositAmount:
-        return True
-    else:
-        return False
+    return minimumMatchingDepositForToleranceRange <= withdrawalAmount <= depositAmount
 
 def time_difference_less_than_or_equal_given_hours(timeDifference, numOfHours):
     print(
@@ -422,13 +415,7 @@ def extract_params_from_fetch_user_behaviour_request(request):
 
     return extractedParams
 
-def assembleConfigForRule(ruleLabel, ruleCutOffTimes, ruleDefaults):
-    return {
-        "cutOffDateTime": ruleCutOffTimes[ruleLabel],
-        "defaults": ruleDefaults["ruleLabel"]
-    }
-
-def fetchUserBehaviourBasedOnRules(request):
+def fetch_user_behaviour_based_on_rules(request):
     try:
         requestParams = extract_params_from_fetch_user_behaviour_request(request)
         userId = requestParams["userId"]
@@ -529,7 +516,7 @@ def fetchUserBehaviourBasedOnRules(request):
 =========== BEGINNING OF UPDATE USER BEHAVIOUR ===========
 '''
 
-def missingParameterInPayload (payload):
+def missing_parameter_in_payload (payload):
     if ("time_transaction_occurred" not in payload):
         print("time_transaction_occurred not in extracted context")
         return True
@@ -550,7 +537,7 @@ def missingParameterInPayload (payload):
 
     return False
     
-def extractAmountUnitAndCurrency(savedAmount):
+def extract_amount_unit_and_currency(savedAmount):
     print("extract amount and currency from savedAmount: {savedAmount}".format(savedAmount=savedAmount))
     amountBrokenIntoParts = savedAmount.split("::")
     print("amount broken into parts: ", amountBrokenIntoParts)
@@ -559,12 +546,12 @@ def extractAmountUnitAndCurrency(savedAmount):
     givenCurrency = amountBrokenIntoParts[2]
 
     return {
-        "amount": convertAmountFromGivenUnitToHundredthCent(givenAmount, givenUnit),
+        "amount": convert_amount_from_given_unit_to_hundredth_cent(givenAmount, givenUnit),
         "unit": 'HUNDREDTH_CENT',
         "currency": givenCurrency,
     }
 
-def determineTransactionTypeFromEventType(eventType):
+def determine_transaction_type_from_event_type(eventType):
     if eventType == SUPPORTED_EVENT_TYPES["deposit_event"]:
         return DEPOSIT_TRANSACTION_TYPE
 
@@ -584,19 +571,19 @@ def fetch_current_time_in_milliseconds():
     )
     return currentTimeInMilliseconds
 
-def formatPayloadForUserBehaviourTable(payloadList):
+def format_payload_for_user_behaviour_table(payloadList, time_in_milliseconds_now):
     userId = ""
     accountId = ""
     print("formatting payload for user behaviour table {}".format(payloadList))
     formattedPayloadList = []
     for eventMessage in payloadList:
-        if missingParameterInPayload(eventMessage):
+        if missing_parameter_in_payload(eventMessage):
             print("a required parameter is missing")
             break
         
         context = json.loads(eventMessage["context"])
-        amountUnitAndCurrency = extractAmountUnitAndCurrency(context["savedAmount"])
-        transactionType = determineTransactionTypeFromEventType(eventMessage["event_type"])
+        amountUnitAndCurrency = extract_amount_unit_and_currency(context["savedAmount"])
+        transactionType = determine_transaction_type_from_event_type(eventMessage["event_type"])
         if transactionType == "":
             print(
                 "Given event type is not supported. We only support the following event types: {}"
@@ -606,7 +593,6 @@ def formatPayloadForUserBehaviourTable(payloadList):
 
         userId = eventMessage["user_id"] # only one eventMessage is expected, hence the assignment of user info
         accountId = context["accountId"]
-        time_in_milliseconds_now = fetch_current_time_in_milliseconds()
 
         singleFormattedPayload = {
             "user_id": userId,
@@ -632,7 +618,7 @@ def formatPayloadForUserBehaviourTable(payloadList):
     }
 
 
-def insertRowsIntoUserBehaviourTable(formattedPayloadList):
+def insert_rows_into_user_behaviour_table(formattedPayloadList):
     if len(formattedPayloadList) > 0:
         print("inserting formatted payload {msg} into table: {table} of big query".format(msg=formattedPayloadList, table=table_id))
         try:
@@ -647,13 +633,13 @@ def insertRowsIntoUserBehaviourTable(formattedPayloadList):
         raise Exception("Invalid formatted payload list provided to insert rows into behaviour table function. Formatted Payload list: {}".format(formattedPayloadList))
 
 
-def constructPayloadForFraudDetector(payload):
+def construct_payload_for_fraud_detector(payload):
     return {
         "userId": payload["userId"],
         "accountId": payload["accountId"]
     }
 
-def triggerFraudDetector(payload):
+def trigger_fraud_detector(payload):
     print(
         "trigger fraud detector with payload: {}".format(payload)
     )
@@ -661,28 +647,31 @@ def triggerFraudDetector(payload):
 
     print("Response from fraud detector {}".format(response.text))
 
-def decodePubSubMessage(event):
+def decode_pub_sub_message(event):
     print("Decoding raw message 'data' from event: {evt}".format(evt=event))
     msg = eval(base64.b64decode(event['data']).decode('utf-8'))
     print("Successfully decoded message from pubsub. Message: {msg}".format(msg=msg))
     return msg
 
-def formatPayloadAndLogAccountTransaction(event):
+def format_payload_and_log_account_transaction(event):
     print("Message received from pubsub")
 
     try:
-        messageFromPubSub = decodePubSubMessage(event)
-        responseFromPayloadFormatter = formatPayloadForUserBehaviourTable(messageFromPubSub)
-        insertRowsIntoUserBehaviourTable(responseFromPayloadFormatter["formattedPayloadList"])
+        messageFromPubSub = decode_pub_sub_message(event)
+        responseFromPayloadFormatter = format_payload_for_user_behaviour_table(
+            messageFromPubSub,
+            fetch_current_time_in_milliseconds()
+        )
+        insert_rows_into_user_behaviour_table(responseFromPayloadFormatter["formattedPayloadList"])
         return responseFromPayloadFormatter
     except Exception as e:
         raise Exception("Error formatting payload and logging account transaction. Error: {}".format(e))
 
-def updateUserBehaviourAndTriggerFraudDetector(event, context):
+def update_user_behaviour_and_trigger_fraud_detector(event, context):
     try:
-        responseFromPayloadFormatter = formatPayloadAndLogAccountTransaction(event)
-        payloadForFraudDetector = constructPayloadForFraudDetector(responseFromPayloadFormatter)
-        triggerFraudDetector(payloadForFraudDetector)
+        responseFromPayloadFormatter = format_payload_and_log_account_transaction(event)
+        payloadForFraudDetector = construct_payload_for_fraud_detector(responseFromPayloadFormatter)
+        trigger_fraud_detector(payloadForFraudDetector)
         print("acknowledging message to pub/sub")
         return 'OK', 200
     except Exception as e:

@@ -108,7 +108,7 @@ We would like to detect dodgy users. Users that are suspected to have made fraud
 Our architecture involves 4 different functions in order to achieve this.
 
 The flow of fraud detection starts with the `python/user-behaviour` folder which contain two functions in one file.
-The `updateUserBehaviourAndTriggerFraudDetector` (referred to as: `update user behaviour`) and `fetchUserBehaviourBasedOnRules` 
+The `update_user_behaviour_and_trigger_fraud_detector` (referred to as: `update user behaviour`) and `fetch_user_behaviour_based_on_rules` 
 (referred to as: `fetch user behaviour`) functions.
 
 Step 1: **`update user behaviour` logs new user behaviour**. 
@@ -155,7 +155,7 @@ Diagram of flow of Fraud Detection
 
 
 
-No http endpoint is exposed for `user behaviour`'s first function => `updateUserBehaviourAndTriggerFraudDetector` 
+No http endpoint is exposed for `user behaviour`'s first function => `update_user_behaviour_and_trigger_fraud_detector` 
 (`python/user-behaviour`) as the function is triggered by the Pub/Sub topic: `sns-events`
  
 Http Endpoints for `fraud detector` function => `fetchFactsAboutUserAndRunEngine` (`javascript/fraud-detector`): 
@@ -163,7 +163,7 @@ Staging Endpoint: [https://us-central1-jupiter-ml-alpha.cloudfunctions.net/fraud
 Production Endpoint: [https://europe-west1-jupiter-production-258809.cloudfunctions.net/fraud-detector](https://europe-west1-jupiter-production-258809.cloudfunctions.net/fraud-detector)
 
 
-Http Endpoints for `user behaviour`'s second function =>`fetchUserBehaviourBasedOnRules` (`python/user-behaviour`):
+Http Endpoints for `user behaviour`'s second function =>`fetch_user_behaviour_based_on_rules` (`python/user-behaviour`):
 Staging Endpoint: [https://us-central1-jupiter-ml-alpha.cloudfunctions.net/fetch-user-behaviour-based-on-rules](https://us-central1-jupiter-ml-alpha.cloudfunctions.net/fetch-user-behaviour-based-on-rules)
 Production Endpoint: [https://europe-west1-jupiter-production-258809.cloudfunctions.net/fetch-user-behaviour-based-on-rules](https://europe-west1-jupiter-production-258809.cloudfunctions.net/fetch-user-behaviour-based-on-rules) 
 
