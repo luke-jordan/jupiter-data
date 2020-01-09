@@ -32,7 +32,7 @@ FACTOR_TO_CONVERT_HUNDREDTH_CENT_TO_WHOLE_CURRENCY = constant.FACTOR_TO_CONVERT_
 SUPPORTED_EVENT_TYPES = constant.SUPPORTED_EVENT_TYPES
 MULTIPLIER_OF_SIX_MONTHS_AVERAGE_DEPOSIT = constant.MULTIPLIER_OF_SIX_MONTHS_AVERAGE_DEPOSIT
 HOURS_IN_A_DAY = constant.HOURS_IN_A_DAY
-MINUTES_IN_A_DAY = constant.MINUTES_IN_A_DAY
+SECONDS_IN_AN_HOUR = constant.SECONDS_IN_AN_HOUR
 HOURS_IN_TWO_DAYS = constant.HOURS_IN_TWO_DAYS
 DAYS_IN_A_MONTH = constant.DAYS_IN_A_MONTH
 DAYS_IN_A_WEEK = constant.DAYS_IN_A_WEEK
@@ -143,9 +143,9 @@ def fetch_user_latest_transaction(userId, config):
 
 def fetch_user_average_transaction_within_months_period(userId, config):
     transactionType = config["transactionTypeDeposit"]
+    mostRecentFlagTimeForRule = config["latestFlagTime"]
     periodInMonths = config["sixMonthsPeriod"]
     givenDateInMilliseconds = convert_date_string_to_millisecond_int(calculate_date_n_months_ago(periodInMonths), HOUR_MARKING_START_OF_DAY)
-    mostRecentFlagTimeForRule = config["latestFlagTime"]
 
     print(
         """
@@ -170,11 +170,10 @@ def fetch_user_average_transaction_within_months_period(userId, config):
     averageDepositInWholeCurrency = convert_amount_from_hundredth_cent_to_whole_currency(averageDepositInHundredthCentList)
     return averageDepositInWholeCurrency
 
-
 def fetch_count_of_user_transactions_larger_than_benchmark(userId, config):
     transactionType = config["transactionTypeDeposit"]
-    benchmark = convert_amount_from_given_unit_to_hundredth_cent(config["hundredThousandBenchmark"], 'WHOLE_CURRENCY')
     mostRecentFlagTimeForRule = config["latestFlagTime"]
+    benchmark = convert_amount_from_given_unit_to_hundredth_cent(config["hundredThousandBenchmark"], 'WHOLE_CURRENCY')
 
     print(
         """
@@ -201,9 +200,9 @@ def fetch_count_of_user_transactions_larger_than_benchmark(userId, config):
 
 def fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(userId, config):
     transactionType = config["transactionTypeDeposit"]
+    mostRecentFlagTimeForRule = config["latestFlagTime"]
     benchmark = convert_amount_from_given_unit_to_hundredth_cent(config["fiftyThousandBenchmark"], 'WHOLE_CURRENCY')
     periodInMonths = config["sixMonthsPeriod"]
-    mostRecentFlagTimeForRule = config["latestFlagTime"]
 
     givenDateInMilliseconds = convert_date_string_to_millisecond_int(calculate_date_n_months_ago(periodInMonths), HOUR_MARKING_START_OF_DAY)
 
@@ -230,18 +229,19 @@ def fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(
     countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriodList = extract_key_value_from_first_item_of_big_query_response(bigQueryResponse, "countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriod")
     return countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriodList
 
-def fetch_withdrawals_during_days_cycle(userId, config):
+def fetch_transactions_during_days_cycle(userId, config, transactionType):
     numOfDays = config["numOfDays"]
     mostRecentFlagTimeForRule = config["latestFlagTime"]
 
     givenDateInMilliseconds = convert_date_string_to_millisecond_int(calculate_date_n_days_ago(numOfDays), HOUR_MARKING_START_OF_DAY)
     print(
         """
-        Fetching the withdrawals during '{numOfDays}' days of user id '{userId}'. Given date to consider: '{leastDate}'.
+        Fetching the {transaction_type} during '{numOfDays}' days of user id '{userId}'. Given date to consider: '{leastDate}'.
         Considering transactions after most recent flag time for rule: {latest_flag_time}
         """
-        .format(userId=userId, numOfDays=numOfDays, leastDate=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
+            .format(userId=userId, transaction_type=transactionType, numOfDays=numOfDays, leastDate=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
     )
+
     QUERY = (
         'select `amount`, `time_transaction_occurred` '
         'from `{full_table_url}` '
@@ -249,58 +249,34 @@ def fetch_withdrawals_during_days_cycle(userId, config):
         'and user_id = "{user_id}" '
         'and time_transaction_occurred >= {given_time} '
         'and time_transaction_occurred > {latest_flag_time} '
-        .format(transaction_type=WITHDRAWAL_TRANSACTION_TYPE, user_id=userId, full_table_url=FULL_TABLE_URL, given_time=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
+            .format(transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL, given_time=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
     )
 
-    withdrawalsDuringDaysList = fetch_data_as_list_from_user_behaviour_table(QUERY)
+    transactionsDuringDaysList = fetch_data_as_list_from_user_behaviour_table(QUERY)
+    return transactionsDuringDaysList
+
+def fetch_withdrawals_during_days_cycle(userId, config):
+    withdrawalsDuringDaysList = fetch_transactions_during_days_cycle(userId, config, WITHDRAWAL_TRANSACTION_TYPE)
     return withdrawalsDuringDaysList
 
 def fetch_deposits_during_days_cycle(userId, config):
-    numOfDays = config["numOfDays"]
-    mostRecentFlagTimeForRule = config["latestFlagTime"]
-
-    givenDateInMilliseconds = convert_date_string_to_millisecond_int(calculate_date_n_days_ago(numOfDays), HOUR_MARKING_START_OF_DAY)
-
-    print(
-        """
-        Fetching the deposits during {numOfDays} days of user id {userId}. Given date to consider: {leastDate}
-        Considering transactions after most recent flag time for rule: {latest_flag_time}
-        """
-        .format(userId=userId, numOfDays=numOfDays, leastDate=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
-    )
-    QUERY = (
-        'select `amount`, `time_transaction_occurred` '
-        'from `{full_table_url}` '
-        'where transaction_type = "{transaction_type}" '
-        'and user_id = "{user_id}" '
-        'and time_transaction_occurred >= {given_time} '
-        'and time_transaction_occurred > {latest_flag_time} '
-            .format(transaction_type=DEPOSIT_TRANSACTION_TYPE, user_id=userId, full_table_url=FULL_TABLE_URL, given_time=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
-    )
-
-    depositsDuringDaysList = fetch_data_as_list_from_user_behaviour_table(QUERY)
+    depositsDuringDaysList = fetch_transactions_during_days_cycle(userId, config, DEPOSIT_TRANSACTION_TYPE)
     return depositsDuringDaysList
 
-def convert_string_to_datetime(date_time_str):
-    return datetime.datetime.strptime(date_time_str, '%Y-%m-%d %H:%M:%S')
+def convert_milliseconds_to_hours(millisecond_value):
+    return int(millisecond_value) / (SECOND_TO_MILLISECOND_FACTOR * SECONDS_IN_AN_HOUR)
 
-def calculate_time_difference_in_hours_between_timestamps(withdrawalTimestampString, depositTimestampString):
+def calculate_time_difference_in_hours_between_timestamps(withdrawalTimestampInMilliseconds, savingEventTimestampInMilliseconds):
     print(
-        "Calculating the time difference in hours between withdrawal timestamp: {withdrawalTimestampString} and deposit timestamp: {depositTimestampString}"
-        .format(withdrawalTimestampString=withdrawalTimestampString, depositTimestampString=depositTimestampString)
+        "Calculating the time difference in hours between withdrawal timestamp: {withdrawalTimestampInMilliseconds} and deposit timestamp: {savingEventTimestampInMilliseconds}"
+        .format(withdrawalTimestampInMilliseconds=withdrawalTimestampInMilliseconds, savingEventTimestampInMilliseconds=savingEventTimestampInMilliseconds)
           )
 
-    withdrawalTimestampAsDateTime = convert_string_to_datetime(str(withdrawalTimestampString).replace(" UTC", "")[:19])
-    depositTimestampAsDateTime = convert_string_to_datetime(str(depositTimestampString).replace(" UTC", "")[:19])
-
-    timeDifference = withdrawalTimestampAsDateTime - depositTimestampAsDateTime
-
-    timeDifferenceInDays, timeDifferenceInSeconds = timeDifference.days, timeDifference.seconds
-    timeDifferenceInHours = timeDifferenceInDays * HOURS_IN_A_DAY + timeDifferenceInSeconds // MINUTES_IN_A_DAY
+    timeDifferenceInHours = convert_milliseconds_to_hours(withdrawalTimestampInMilliseconds - savingEventTimestampInMilliseconds)
 
     print(
-        "Time difference in hours between withdrawal at: {withdrawalTimestampString} and deposit at {depositTimestampString} is {timeDifferenceInHours} hours"
-        .format(withdrawalTimestampString=withdrawalTimestampString, depositTimestampString=depositTimestampString, timeDifferenceInHours=timeDifferenceInHours)
+        "Time difference in hours between withdrawal at: {withdrawalTimestampInMilliseconds} and deposit at {savingEventTimestampInMilliseconds} is {timeDifferenceInHours} hours"
+        .format(withdrawalTimestampInMilliseconds=withdrawalTimestampInMilliseconds, savingEventTimestampInMilliseconds=savingEventTimestampInMilliseconds, timeDifferenceInHours=timeDifferenceInHours)
     )
     return timeDifferenceInHours
 

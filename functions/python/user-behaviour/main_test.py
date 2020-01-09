@@ -29,8 +29,20 @@ from main \
     fetch_data_as_list_from_user_behaviour_table, \
     time_difference_less_than_or_equal_given_hours, \
     withdrawal_within_tolerance_range_of_deposit_amount, \
-    convert_string_to_datetime, \
+    convert_milliseconds_to_hours, \
     extract_last_flag_time_or_default_time, \
+    fetch_user_latest_transaction, \
+    fetch_count_of_user_transactions_larger_than_benchmark, \
+    fetch_count_of_user_transactions_larger_than_benchmark_within_months_period, \
+    fetch_transactions_during_days_cycle, \
+    fetch_withdrawals_during_days_cycle, \
+    fetch_deposits_during_days_cycle, \
+    calculate_time_difference_in_hours_between_timestamps, \
+    check_each_withdrawal_against_deposit_for_flagged_withdrawals, \
+    calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle, \
+    extract_params_from_fetch_user_behaviour_request, \
+    fetch_user_behaviour_based_on_rules, \
+    fetch_user_average_transaction_within_months_period, \
     convert_amount_from_given_unit_to_hundredth_cent
 
 import main
@@ -46,8 +58,21 @@ FACTOR_TO_CONVERT_HUNDREDTH_CENT_TO_WHOLE_CURRENCY = main.FACTOR_TO_CONVERT_HUND
 DEFAULT_COUNT_FOR_RULE = main.DEFAULT_COUNT_FOR_RULE
 DEFAULT_LATEST_FLAG_TIME = main.DEFAULT_LATEST_FLAG_TIME
 ERROR_TOLERANCE_PERCENTAGE_FOR_DEPOSITS = main.ERROR_TOLERANCE_PERCENTAGE_FOR_DEPOSITS
+SECONDS_IN_AN_HOUR = main.SECONDS_IN_AN_HOUR
+FULL_TABLE_URL = main.FULL_TABLE_URL
+DEPOSIT_TRANSACTION_TYPE = main.DEPOSIT_TRANSACTION_TYPE
+SIX_MONTHS_INTERVAL = main.SIX_MONTHS_INTERVAL
+HOUR_MARKING_START_OF_DAY = main.HOUR_MARKING_START_OF_DAY
+FIRST_BENCHMARK_DEPOSIT = main.FIRST_BENCHMARK_DEPOSIT
+SECOND_BENCHMARK_DEPOSIT = main.SECOND_BENCHMARK_DEPOSIT
+WITHDRAWAL_TRANSACTION_TYPE = main.WITHDRAWAL_TRANSACTION_TYPE
+HOURS_IN_A_DAY = main.HOURS_IN_A_DAY
+DAYS_IN_A_WEEK = main.DAYS_IN_A_WEEK
 
 sample_user_id = "kig2"
+sample_hours = 30
+sample_days = 5
+sample_last_flag_time = 1488138244035
 sample_time_transaction_occurred = 1577136139690
 sample_amount = 10000000000
 sample_unit = "HUNDREDTH_CENT"
@@ -91,6 +116,8 @@ sample_response_from_payload_formatter = {
 
 
 sample_age = 25
+one_hour_in_milliseconds = 3600000
+five_hours_in_milliseconds = 18000000
 sample_expected_users = [{ "age": sample_age }]
 
 class SampleUserBehaviourResponse:
@@ -110,9 +137,31 @@ sample_rule_cut_off_times = {
     "rule2": cutoff_time_rule2
 }
 
+sample_request_payload = {
+    "userId": sample_user_id,
+    "accountId": sample_account_id,
+    "ruleCutOffTimes": sample_rule_cut_off_times
+}
+
+class SampleHttpRequestObject:
+    def __init__(self):
+        self.get_json_method_called = False
+
+    def get_json(self):
+        self.get_json_method_called = True
+        return sample_request_payload
+
 @pytest.fixture
 def mock_big_query():
     return Mock(spec=bigquery.Client())
+
+@pytest.fixture
+def mock_date_string_to_millisecond_conversion():
+    return Mock(spec=convert_date_string_to_millisecond_int)\
+
+@pytest.fixture
+def mock_extract_params_from_fetch_user_behaviour_request():
+    return Mock(spec=extract_params_from_fetch_user_behaviour_request)
 
 
 # function is shared by update/fetch user behaviour
@@ -207,11 +256,397 @@ def test_withdrawal_within_tolerance_range_of_deposit_amount():
         sample_deposit_amount
     ) == ((sample_deposit_amount * ERROR_TOLERANCE_PERCENTAGE_FOR_DEPOSITS) <= sample_withdrawal_amount <= sample_deposit_amount)
 
-# def test_convert_string_to_datetime():
-#     sample_date_time_string = ""
-#     assert convert_string_to_datetime(
-#         sample_date_time_string
-#     ) == datetime.datetime.strptime(sample_date_time_string, '%Y-%m-%d %H:%M:%S')
+def test_convert_milliseconds_to_hours():
+    sample_millisecond_value = 54000
+    assert convert_milliseconds_to_hours(
+        sample_millisecond_value
+    ) == 0.015
+
+
+@patch('main.fetch_data_as_list_from_user_behaviour_table')
+@patch('main.extract_key_value_from_first_item_of_big_query_response')
+@patch('main.convert_amount_from_hundredth_cent_to_whole_currency')
+def test_fetch_user_latest_transaction(
+        convert_amount_from_hundredth_cent_to_whole_currency_patch,
+        extract_key_value_of_first_item_big_query_response_patch,
+        fetch_from_table_patch
+):
+    sample_config = {
+        "transactionTypeDeposit": DEPOSIT_TRANSACTION_TYPE,
+        "latestFlagTime": sample_last_flag_time
+    }
+    sample_query =  (
+        'select amount as latestDeposit '
+        'from `{full_table_url}` '
+        'where transaction_type = "{transaction_type}" '
+        'and user_id = "{user_id}" '
+        'and time_transaction_occurred > {latest_flag_time} '
+        'order by time_transaction_occurred desc '
+        'limit 1 '.format(transaction_type=DEPOSIT_TRANSACTION_TYPE, user_id=sample_user_id, full_table_url=FULL_TABLE_URL, latest_flag_time=sample_last_flag_time)
+    )
+
+    fetch_user_latest_transaction(sample_user_id, sample_config)
+
+    fetch_from_table_patch.assert_called_once_with(sample_query)
+    extract_key_value_of_first_item_big_query_response_patch.assert_called_once()
+    convert_amount_from_hundredth_cent_to_whole_currency_patch.assert_called_once()
+
+
+@patch('main.fetch_data_as_list_from_user_behaviour_table')
+@patch('main.extract_key_value_from_first_item_of_big_query_response')
+@patch('main.convert_amount_from_hundredth_cent_to_whole_currency')
+def test_fetch_user_average_transaction_within_months_period(
+        convert_amount_from_hundredth_cent_to_whole_currency_patch,
+        extract_key_value_of_first_item_big_query_response_patch,
+        fetch_from_table_patch
+):
+    sample_config = {
+        "transactionTypeDeposit": DEPOSIT_TRANSACTION_TYPE,
+        "latestFlagTime": sample_last_flag_time,
+        "sixMonthsPeriod": SIX_MONTHS_INTERVAL,
+    }
+    sample_given_date_in_milliseconds = convert_date_string_to_millisecond_int(
+        calculate_date_n_months_ago(sample_config["sixMonthsPeriod"]),
+        HOUR_MARKING_START_OF_DAY
+    )
+
+    sample_query =  (
+        'select avg(amount) as averageDepositDuringPastPeriodInMonths '
+        'from `{full_table_url}` '
+        'where transaction_type = "{transaction_type}" '
+        'and user_id = "{user_id}" '
+        'and time_transaction_occurred >= {given_time} '
+        'and time_transaction_occurred > {latest_flag_time} '
+            .format(transaction_type=DEPOSIT_TRANSACTION_TYPE, user_id=sample_user_id, full_table_url=FULL_TABLE_URL, given_time=sample_given_date_in_milliseconds, latest_flag_time=sample_last_flag_time)
+    )
+
+    fetch_user_average_transaction_within_months_period(sample_user_id, sample_config)
+
+    fetch_from_table_patch.assert_called_once_with(sample_query)
+    extract_key_value_of_first_item_big_query_response_patch.assert_called_once()
+    convert_amount_from_hundredth_cent_to_whole_currency_patch.assert_called_once()
+
+
+@patch('main.fetch_data_as_list_from_user_behaviour_table')
+@patch('main.extract_key_value_from_first_item_of_big_query_response')
+def test_fetch_count_of_user_transactions_larger_than_benchmark(
+        extract_key_value_of_first_item_big_query_response_patch,
+        fetch_from_table_patch
+):
+    sample_config = {
+        "transactionTypeDeposit": DEPOSIT_TRANSACTION_TYPE,
+        "latestFlagTime": sample_last_flag_time,
+        "hundredThousandBenchmark": FIRST_BENCHMARK_DEPOSIT,
+    }
+    sample_benchmark = convert_amount_from_given_unit_to_hundredth_cent(
+        sample_config["hundredThousandBenchmark"],
+        'WHOLE_CURRENCY'
+    )
+
+    sample_query =  (
+        'select count(*) as countOfDepositsGreaterThanBenchMarkDeposit '
+        'from `{full_table_url}` '
+        'where amount > {benchmark} and transaction_type = "{transaction_type}" '
+        'and user_id = "{user_id}" '
+        'and time_transaction_occurred > {latest_flag_time} '
+            .format(benchmark=sample_benchmark, transaction_type=DEPOSIT_TRANSACTION_TYPE, user_id=sample_user_id, full_table_url=FULL_TABLE_URL, latest_flag_time=sample_last_flag_time)
+    )
+
+    fetch_count_of_user_transactions_larger_than_benchmark(sample_user_id, sample_config)
+
+    fetch_from_table_patch.assert_called_once_with(sample_query)
+    extract_key_value_of_first_item_big_query_response_patch.assert_called_once()
+
+
+@patch('main.fetch_data_as_list_from_user_behaviour_table')
+@patch('main.extract_key_value_from_first_item_of_big_query_response')
+def test_fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(
+        extract_key_value_of_first_item_big_query_response_patch,
+        fetch_from_table_patch
+):
+    sample_config = {
+        "transactionTypeDeposit": DEPOSIT_TRANSACTION_TYPE,
+        "latestFlagTime": sample_last_flag_time,
+        "fiftyThousandBenchmark": SECOND_BENCHMARK_DEPOSIT,
+        "sixMonthsPeriod": SIX_MONTHS_INTERVAL,
+    }
+
+    sample_given_date_in_milliseconds = convert_date_string_to_millisecond_int(
+        calculate_date_n_months_ago(sample_config["sixMonthsPeriod"]),
+        HOUR_MARKING_START_OF_DAY
+    )
+
+    sample_benchmark = convert_amount_from_given_unit_to_hundredth_cent(
+        sample_config["fiftyThousandBenchmark"],
+        'WHOLE_CURRENCY'
+    )
+
+    sample_query =   (
+        'select count(*) as countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriod '
+        'from `{full_table_url}` '
+        'where amount > {benchmark} and transaction_type = "{transaction_type}" '
+        'and user_id = "{user_id}" '
+        'and time_transaction_occurred >= {given_time} '
+        'and time_transaction_occurred > {latest_flag_time} '
+            .format(benchmark=sample_benchmark, transaction_type=DEPOSIT_TRANSACTION_TYPE, user_id=sample_user_id, full_table_url=FULL_TABLE_URL, given_time=sample_given_date_in_milliseconds, latest_flag_time=sample_last_flag_time)
+    )
+
+    fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(sample_user_id, sample_config)
+
+    fetch_from_table_patch.assert_called_once_with(sample_query)
+    extract_key_value_of_first_item_big_query_response_patch.assert_called_once()
+
+
+
+@patch('main.fetch_data_as_list_from_user_behaviour_table')
+def test_fetch_transactions_during_days_cycle(
+        fetch_from_table_patch,
+        mock_date_string_to_millisecond_conversion
+):
+   
+    sample_config = {
+        "numOfHours": sample_hours,
+        "numOfDays": sample_days,
+        "latestFlagTime": sample_last_flag_time,
+    }
+
+    sample_given_date_in_milliseconds = convert_date_string_to_millisecond_int(
+        calculate_date_n_months_ago(sample_config["numOfDays"]),
+        HOUR_MARKING_START_OF_DAY
+    )
+
+    main.convert_date_string_to_millisecond_int = mock_date_string_to_millisecond_conversion
+    mock_date_string_to_millisecond_conversion.return_value = sample_given_date_in_milliseconds
+    
+    given_transaction_type = DEPOSIT_TRANSACTION_TYPE
+
+    sample_query = (
+        'select `amount`, `time_transaction_occurred` '
+        'from `{full_table_url}` '
+        'where transaction_type = "{transaction_type}" '
+        'and user_id = "{user_id}" '
+        'and time_transaction_occurred >= {given_time} '
+        'and time_transaction_occurred > {latest_flag_time} '
+            .format(transaction_type=given_transaction_type, user_id=sample_user_id, full_table_url=FULL_TABLE_URL, given_time=sample_given_date_in_milliseconds, latest_flag_time=sample_last_flag_time)
+    )
+
+    fetch_transactions_during_days_cycle(sample_user_id, sample_config, given_transaction_type)
+
+    mock_date_string_to_millisecond_conversion.assert_called_once_with(
+        calculate_date_n_days_ago(sample_config["numOfDays"]),
+        HOUR_MARKING_START_OF_DAY
+    )
+
+    fetch_from_table_patch.assert_called_once_with(sample_query)
+
+
+@patch('main.fetch_transactions_during_days_cycle')
+def test_fetch_withdrawals_during_days_cycle(
+        fetch_transactions_during_days_cycle_patch
+):
+    sample_config = {
+        "numOfHours": sample_hours,
+        "numOfDays": sample_days,
+        "latestFlagTime": sample_last_flag_time,
+    }
+    
+    fetch_withdrawals_during_days_cycle(sample_user_id, sample_config)
+
+    fetch_transactions_during_days_cycle_patch.assert_called_once_with(
+        sample_user_id,
+        sample_config,
+        WITHDRAWAL_TRANSACTION_TYPE
+    )
+
+
+@patch('main.fetch_transactions_during_days_cycle')
+def test_fetch_deposits_during_days_cycle(
+        fetch_transactions_during_days_cycle_patch
+):
+    sample_config = {
+        "numOfHours": sample_hours,
+        "numOfDays": sample_days,
+        "latestFlagTime": sample_last_flag_time,
+    }
+
+    fetch_deposits_during_days_cycle(sample_user_id, sample_config)
+
+    fetch_transactions_during_days_cycle_patch.assert_called_once_with(
+        sample_user_id,
+        sample_config,
+        DEPOSIT_TRANSACTION_TYPE
+    )
+
+def test_calculate_time_difference_in_hours_between_timestamps():
+    sample_withdrawal_timestamp_in_milliseconds = five_hours_in_milliseconds
+    sample_saving_event_timestamp_in_milliseconds = one_hour_in_milliseconds
+    expected_response = 4
+
+    assert calculate_time_difference_in_hours_between_timestamps(
+        sample_withdrawal_timestamp_in_milliseconds,
+        sample_saving_event_timestamp_in_milliseconds
+    ) == expected_response
+
+def test_check_each_withdrawal_against_deposit_for_flagged_withdrawals():
+    sample_map_of_saved_amount_and_time_transaction_occurred = {
+        "amount": 100,
+        "time_transaction_occurred": one_hour_in_milliseconds,
+    }
+    sample_saved_amounts_list = [sample_map_of_saved_amount_and_time_transaction_occurred]
+
+    sample_map_of_withdrawal_amount_and_time_transaction_occurred = {
+        "amount": 98,
+        "time_transaction_occurred": five_hours_in_milliseconds,
+    }
+    sample_withdrawals_list = [sample_map_of_withdrawal_amount_and_time_transaction_occurred]
+    sample_number_of_hours = 6
+
+    expected_response = 1
+
+    assert check_each_withdrawal_against_deposit_for_flagged_withdrawals(
+        sample_withdrawals_list,
+        sample_saved_amounts_list,
+        sample_number_of_hours
+    ) == expected_response
+
+def test_withdrawal_not_within_tolerance_range_for_comparisons():
+    sample_map_of_saved_amount_and_time_transaction_occurred = {
+        "amount": 100,
+        "time_transaction_occurred": one_hour_in_milliseconds,
+    }
+    sample_saved_amounts_list = [sample_map_of_saved_amount_and_time_transaction_occurred]
+
+    sample_map_of_withdrawal_amount_and_time_transaction_occurred = {
+        "amount": 30,
+        "time_transaction_occurred": five_hours_in_milliseconds,
+    }
+    sample_withdrawals_list = [sample_map_of_withdrawal_amount_and_time_transaction_occurred]
+    sample_number_of_hours = 2
+
+    expected_response = 0
+
+    assert check_each_withdrawal_against_deposit_for_flagged_withdrawals(
+        sample_withdrawals_list,
+        sample_saved_amounts_list,
+        sample_number_of_hours
+    ) == expected_response
+
+def test_withdrawal_within_tolerance_range_but_time_difference_check_fails_for_comparisons():
+    sample_map_of_saved_amount_and_time_transaction_occurred = {
+        "amount": 100,
+        "time_transaction_occurred": one_hour_in_milliseconds,
+    }
+    sample_saved_amounts_list = [sample_map_of_saved_amount_and_time_transaction_occurred]
+
+    sample_map_of_withdrawal_amount_and_time_transaction_occurred = {
+        "amount": 98,
+        "time_transaction_occurred": five_hours_in_milliseconds,
+    }
+    sample_withdrawals_list = [sample_map_of_withdrawal_amount_and_time_transaction_occurred]
+    sample_number_of_hours = 1
+
+    expected_response = 0
+
+    assert check_each_withdrawal_against_deposit_for_flagged_withdrawals(
+        sample_withdrawals_list,
+        sample_saved_amounts_list,
+        sample_number_of_hours
+    ) == expected_response
+
+
+@patch('main.fetch_withdrawals_during_days_cycle')
+@patch('main.fetch_deposits_during_days_cycle')
+@patch('main.check_each_withdrawal_against_deposit_for_flagged_withdrawals')
+def test_calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(
+    check_each_withdrawal_against_deposit_for_flagged_withdrawals_patch,
+    fetch_deposits_during_days_cycle_patch,
+    fetch_withdrawals_during_days_cycle_patch,
+):
+    sample_config = {
+        "numOfHours": sample_hours,
+        "numOfDays": sample_days,
+        "latestFlagTime": sample_last_flag_time,
+    }
+
+    calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(sample_user_id, sample_config)
+
+    fetch_withdrawals_during_days_cycle_patch.assert_called_once_with(sample_user_id, sample_config)
+    fetch_deposits_during_days_cycle_patch.assert_called_once_with(sample_user_id, sample_config)
+    check_each_withdrawal_against_deposit_for_flagged_withdrawals_patch.assert_called_once()
+
+
+def test_extract_params_from_fetch_user_behaviour_request():
+    sample_request_payload_instance = SampleHttpRequestObject()
+
+    assert extract_params_from_fetch_user_behaviour_request(
+        sample_request_payload_instance
+    ) == sample_request_payload
+
+    assert sample_request_payload_instance.get_json_method_called == True
+
+
+
+@patch('main.fetch_count_of_user_transactions_larger_than_benchmark')
+@patch('main.fetch_count_of_user_transactions_larger_than_benchmark_within_months_period')
+@patch('main.fetch_user_latest_transaction')
+@patch('main.fetch_user_average_transaction_within_months_period')
+@patch('main.calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle')
+def test_fetch_user_behaviour_based_on_rules(
+    count_of_withdrawals_within_hours_of_deposits_during_days_cycle_patch,
+    fetch_user_average_transaction_within_months_period_patch,
+    fetch_user_latest_transaction_patch,
+    count_of_user_transactions_larger_than_benchmark_within_months_period_patch,
+    count_of_user_transactions_larger_than_benchmark_patch,
+    mock_extract_params_from_fetch_user_behaviour_request
+):
+
+    sample_http_request_object = {}
+    main.extract_params_from_fetch_user_behaviour_request = mock_extract_params_from_fetch_user_behaviour_request
+    mock_extract_params_from_fetch_user_behaviour_request.return_value = sample_request_payload
+
+    fetch_user_behaviour_based_on_rules(sample_http_request_object)
+
+    mock_extract_params_from_fetch_user_behaviour_request.assert_called_once_with(sample_http_request_object)
+    count_of_user_transactions_larger_than_benchmark_patch.assert_called_once_with(
+        sample_user_id,
+        {
+            "transactionTypeDeposit": DEPOSIT_TRANSACTION_TYPE,
+            "hundredThousandBenchmark": FIRST_BENCHMARK_DEPOSIT,
+            "latestFlagTime": DEFAULT_LATEST_FLAG_TIME
+        }
+    )
+
+    count_of_user_transactions_larger_than_benchmark_within_months_period_patch.assert_called_once_with(
+        sample_user_id,
+        {
+            "transactionTypeDeposit": DEPOSIT_TRANSACTION_TYPE,
+            "fiftyThousandBenchmark": SECOND_BENCHMARK_DEPOSIT,
+            "sixMonthsPeriod": SIX_MONTHS_INTERVAL,
+            "latestFlagTime": DEFAULT_LATEST_FLAG_TIME
+        }
+    )
+
+    fetch_user_latest_transaction_patch.assert_called_once_with(
+        sample_user_id,
+        {
+            "transactionTypeDeposit": DEPOSIT_TRANSACTION_TYPE,
+            "latestFlagTime": DEFAULT_LATEST_FLAG_TIME
+        }
+    )
+
+    fetch_user_average_transaction_within_months_period_patch.assert_called_once_with(
+        sample_user_id,
+        {
+            "transactionTypeDeposit": DEPOSIT_TRANSACTION_TYPE,
+            "sixMonthsPeriod": SIX_MONTHS_INTERVAL,
+            "latestFlagTime": DEFAULT_LATEST_FLAG_TIME
+        }
+    )
+
+    assert count_of_withdrawals_within_hours_of_deposits_during_days_cycle_patch.call_count == 2
+
+
+
 
 '''
 =========== END OF FETCH USER BEHAVIOUR Tests ===========
