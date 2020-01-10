@@ -270,18 +270,6 @@ describe('Fraud Detector', () => {
         });
         requestRetryStub.onSecondCall().resolves();
 
-        const payload = {
-            message: 'Just so you know, fraud detector ran',
-            contacts: CONTACTS_TO_BE_NOTIFIED,
-            notificationType: EMAIL_TYPE,
-            subject: '[SUCCESS] => Fraud Detector just ran'
-        };
-        const extraConfigForVerbose = {
-            url: `${NOTIFICATION_SERVICE_URL}`,
-            method: POST,
-            body: payload
-        };
-
         const {
             userId,
             accountId
@@ -313,14 +301,10 @@ describe('Fraud Detector', () => {
         const result = await fetchFactsAboutUserAndRunEngine(req, res);
         expect(result).to.be.undefined;
         expect(endResponseStub).to.have.been.calledOnce;
-        expect(requestRetryStub).to.have.been.calledTwice;
+        expect(requestRetryStub).to.have.been.calledOnce;
         expect(requestRetryStub.firstCall.args[0]).to.deep.equal({
             ...baseConfigForRequestRetry,
             ...extraConfigForFetchUserBehaviour
-        });
-        expect(requestRetryStub.secondCall.args[0]).to.deep.equal({
-            ...baseConfigForRequestRetry,
-            ...extraConfigForVerbose
         });
     });
 
