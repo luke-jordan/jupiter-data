@@ -7,12 +7,12 @@ This file holds two functions: `update-user-behaviour` and `fetch-user-behaviour
 `update-user-behaviour` function serves to update the user behaviour when there is a change.
 `update-user-behaviour` is triggered by a new event on the Pub/Sub topic `sns-events`.
  The data coming from the topic `sns-events` contains the following attributes:
- ```
- "user_id": <string>,
- "event_type": <string>,
- "timestamp": <string>,
- "context": <string>,
- ```
+```
+user_id: <string>,
+event_type: <string>,
+time_transaction_occurred: <string>,
+context: <string>,
+```
 
 `update-user-behaviour` takes the payload, formats it for the big query table: `ops.user_behaviour` table 
 and then saves it into that table.
@@ -43,7 +43,10 @@ At the moment, the data fetched about the user includes:
 The crunched data is then sent to the `fraud detector` function in the below format:
 ```
 {
-    "userAccountInfo": <int>,
+    "userAccountInfo": {
+         "userId": <string>,
+         "accountId": <string>
+    },
     "countOfDepositsGreaterThanHundredThousand": <int>,
     "countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod": <int>,
     "latestDeposit": <int>,

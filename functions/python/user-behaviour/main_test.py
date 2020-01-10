@@ -68,6 +68,7 @@ SECOND_BENCHMARK_DEPOSIT = main.SECOND_BENCHMARK_DEPOSIT
 WITHDRAWAL_TRANSACTION_TYPE = main.WITHDRAWAL_TRANSACTION_TYPE
 HOURS_IN_A_DAY = main.HOURS_IN_A_DAY
 DAYS_IN_A_WEEK = main.DAYS_IN_A_WEEK
+BIG_QUERY_DATASET_LOCATION = main.BIG_QUERY_DATASET_LOCATION
 
 sample_user_id = "kig2"
 sample_hours = 30
@@ -221,19 +222,23 @@ def test_convert_big_query_response_to_list():
     assert convert_big_query_response_to_list(sample_response_list) == list(sample_response_list)
 
 def test_fetch_data_as_list_from_user_behaviour_table(mock_big_query):
-    user_behaviour_response_instance = SampleUserBehaviourResponse()
-    sample_query = "select user from table"
+    sample_query = "select user from table where `user_id` = @userId"
+    sample_params = [
+        bigquery.ScalarQueryParameter("userId", "STRING", sample_user_id),
+    ]
 
     main.client = mock_big_query
-    mock_big_query.query.return_value = user_behaviour_response_instance
+    mock_big_query.query.return_value = sample_expected_users
 
-    result = fetch_data_as_list_from_user_behaviour_table(sample_query)
-    assert result == list(user_behaviour_response_instance.result())
+    result = fetch_data_as_list_from_user_behaviour_table(sample_query, sample_params)
+    assert result == list(sample_expected_users)
     mock_big_query.query.assert_called_once()
 
     query_args = mock_big_query.query.call_args.args
+    query_keyword_args = mock_big_query.query.call_args.kwargs
+    
     assert query_args[0] == sample_query
-    assert user_behaviour_response_instance.result_method_called == True
+    assert query_keyword_args['location'] == BIG_QUERY_DATASET_LOCATION
 
 def test_extract_last_flag_time_or_default_time():
     assert extract_last_flag_time_or_default_time(sample_rule_label, sample_rule_cut_off_times) == cutoff_time_rule1
@@ -275,19 +280,31 @@ def test_fetch_user_latest_transaction(
         "transactionTypeDeposit": DEPOSIT_TRANSACTION_TYPE,
         "latestFlagTime": sample_last_flag_time
     }
-    sample_query =  (
-        'select amount as latestDeposit '
-        'from `{full_table_url}` '
-        'where transaction_type = "{transaction_type}" '
-        'and user_id = "{user_id}" '
-        'and time_transaction_occurred > {latest_flag_time} '
-        'order by time_transaction_occurred desc '
-        'limit 1 '.format(transaction_type=DEPOSIT_TRANSACTION_TYPE, user_id=sample_user_id, full_table_url=FULL_TABLE_URL, latest_flag_time=sample_last_flag_time)
+
+    sample_query = (
+        """
+        select `amount` as `latestDeposit`
+        from `{full_table_url}`
+        where `transaction_type` = @transactionType
+        and `user_id` = @userId
+        and `time_transaction_occurred` > @latestFlagTime
+        order by `time_transaction_occurred` desc
+        limit 1
+        """.format(full_table_url=FULL_TABLE_URL)
     )
+
+    sample_query_params = [
+        bigquery.ScalarQueryParameter("transactionType", "STRING", DEPOSIT_TRANSACTION_TYPE),
+        bigquery.ScalarQueryParameter("userId", "STRING", sample_user_id),
+        bigquery.ScalarQueryParameter("latestFlagTime", "INT64", sample_last_flag_time),
+    ]
 
     fetch_user_latest_transaction(sample_user_id, sample_config)
 
-    fetch_from_table_patch.assert_called_once_with(sample_query)
+    fetch_from_table_patch.assert_called_once_with(
+        sample_query,
+        sample_query_params
+    )
     extract_key_value_of_first_item_big_query_response_patch.assert_called_once()
     convert_amount_from_hundredth_cent_to_whole_currency_patch.assert_called_once()
 
@@ -310,19 +327,27 @@ def test_fetch_user_average_transaction_within_months_period(
         HOUR_MARKING_START_OF_DAY
     )
 
-    sample_query =  (
-        'select avg(amount) as averageDepositDuringPastPeriodInMonths '
-        'from `{full_table_url}` '
-        'where transaction_type = "{transaction_type}" '
-        'and user_id = "{user_id}" '
-        'and time_transaction_occurred >= {given_time} '
-        'and time_transaction_occurred > {latest_flag_time} '
-            .format(transaction_type=DEPOSIT_TRANSACTION_TYPE, user_id=sample_user_id, full_table_url=FULL_TABLE_URL, given_time=sample_given_date_in_milliseconds, latest_flag_time=sample_last_flag_time)
+    sample_query = (
+        """
+        select avg(`amount`) as `averageDepositDuringPastPeriodInMonths` 
+        from `{full_table_url}` 
+        where transaction_type = @transactionType 
+        and `user_id` = @userId
+        and `time_transaction_occurred` >= @givenTime
+        and `time_transaction_occurred` > @latestFlagTime
+        """.format(full_table_url=FULL_TABLE_URL)
     )
+
+    sample_query_params = [
+        bigquery.ScalarQueryParameter("transactionType", "STRING", DEPOSIT_TRANSACTION_TYPE),
+        bigquery.ScalarQueryParameter("userId", "STRING", sample_user_id),
+        bigquery.ScalarQueryParameter("givenTime", "INT64", sample_given_date_in_milliseconds),
+        bigquery.ScalarQueryParameter("latestFlagTime", "INT64", sample_last_flag_time),
+    ]
 
     fetch_user_average_transaction_within_months_period(sample_user_id, sample_config)
 
-    fetch_from_table_patch.assert_called_once_with(sample_query)
+    fetch_from_table_patch.assert_called_once_with(sample_query, sample_query_params)
     extract_key_value_of_first_item_big_query_response_patch.assert_called_once()
     convert_amount_from_hundredth_cent_to_whole_currency_patch.assert_called_once()
 
@@ -343,18 +368,26 @@ def test_fetch_count_of_user_transactions_larger_than_benchmark(
         'WHOLE_CURRENCY'
     )
 
-    sample_query =  (
-        'select count(*) as countOfDepositsGreaterThanBenchMarkDeposit '
-        'from `{full_table_url}` '
-        'where amount > {benchmark} and transaction_type = "{transaction_type}" '
-        'and user_id = "{user_id}" '
-        'and time_transaction_occurred > {latest_flag_time} '
-            .format(benchmark=sample_benchmark, transaction_type=DEPOSIT_TRANSACTION_TYPE, user_id=sample_user_id, full_table_url=FULL_TABLE_URL, latest_flag_time=sample_last_flag_time)
+    sample_query = (
+        """
+        select count(*) as `countOfDepositsGreaterThanBenchMarkDeposit`
+        from `{full_table_url}`
+        where `amount` > @benchmark and transaction_type = @transactionType
+        and `user_id` = @userId
+        and `time_transaction_occurred` > @latestFlagTime
+        """.format(full_table_url=FULL_TABLE_URL)
     )
+
+    sample_query_params = [
+        bigquery.ScalarQueryParameter("transactionType", "STRING", DEPOSIT_TRANSACTION_TYPE),
+        bigquery.ScalarQueryParameter("userId", "STRING", sample_user_id),
+        bigquery.ScalarQueryParameter("benchmark", "INT64", sample_benchmark),
+        bigquery.ScalarQueryParameter("latestFlagTime", "INT64", sample_last_flag_time),
+    ]
 
     fetch_count_of_user_transactions_larger_than_benchmark(sample_user_id, sample_config)
 
-    fetch_from_table_patch.assert_called_once_with(sample_query)
+    fetch_from_table_patch.assert_called_once_with(sample_query, sample_query_params)
     extract_key_value_of_first_item_big_query_response_patch.assert_called_once()
 
 
@@ -381,19 +414,28 @@ def test_fetch_count_of_user_transactions_larger_than_benchmark_within_months_pe
         'WHOLE_CURRENCY'
     )
 
-    sample_query =   (
-        'select count(*) as countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriod '
-        'from `{full_table_url}` '
-        'where amount > {benchmark} and transaction_type = "{transaction_type}" '
-        'and user_id = "{user_id}" '
-        'and time_transaction_occurred >= {given_time} '
-        'and time_transaction_occurred > {latest_flag_time} '
-            .format(benchmark=sample_benchmark, transaction_type=DEPOSIT_TRANSACTION_TYPE, user_id=sample_user_id, full_table_url=FULL_TABLE_URL, given_time=sample_given_date_in_milliseconds, latest_flag_time=sample_last_flag_time)
+    sample_query = (
+        """
+        select count(*) as `countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriod`
+        from `{full_table_url}`
+        where `amount` > @benchmark and transaction_type = @transactionType
+        and `user_id` = @userId
+        and `time_transaction_occurred` >= @givenTime
+        and `time_transaction_occurred` > @latestFlagTime
+        """.format(full_table_url=FULL_TABLE_URL)
     )
+
+    sample_query_params = [
+        bigquery.ScalarQueryParameter("transactionType", "STRING", DEPOSIT_TRANSACTION_TYPE),
+        bigquery.ScalarQueryParameter("userId", "STRING", sample_user_id),
+        bigquery.ScalarQueryParameter("benchmark", "INT64", sample_benchmark),
+        bigquery.ScalarQueryParameter("givenTime", "INT64", sample_given_date_in_milliseconds),
+        bigquery.ScalarQueryParameter("latestFlagTime", "INT64", sample_last_flag_time),
+    ]
 
     fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(sample_user_id, sample_config)
 
-    fetch_from_table_patch.assert_called_once_with(sample_query)
+    fetch_from_table_patch.assert_called_once_with(sample_query, sample_query_params)
     extract_key_value_of_first_item_big_query_response_patch.assert_called_once()
 
 
@@ -421,14 +463,22 @@ def test_fetch_transactions_during_days_cycle(
     given_transaction_type = DEPOSIT_TRANSACTION_TYPE
 
     sample_query = (
-        'select `amount`, `time_transaction_occurred` '
-        'from `{full_table_url}` '
-        'where transaction_type = "{transaction_type}" '
-        'and user_id = "{user_id}" '
-        'and time_transaction_occurred >= {given_time} '
-        'and time_transaction_occurred > {latest_flag_time} '
-            .format(transaction_type=given_transaction_type, user_id=sample_user_id, full_table_url=FULL_TABLE_URL, given_time=sample_given_date_in_milliseconds, latest_flag_time=sample_last_flag_time)
+        """
+        select `amount`, `time_transaction_occurred`
+        from `{full_table_url}`
+        where `transaction_type` = @transactionType
+        and `user_id` = @userId
+        and `time_transaction_occurred` >= @givenTime
+        and `time_transaction_occurred` > @latestFlagTime
+        """.format(full_table_url=FULL_TABLE_URL)
     )
+
+    sample_query_params = [
+        bigquery.ScalarQueryParameter("transactionType", "STRING", DEPOSIT_TRANSACTION_TYPE),
+        bigquery.ScalarQueryParameter("userId", "STRING", sample_user_id),
+        bigquery.ScalarQueryParameter("givenTime", "INT64", sample_given_date_in_milliseconds),
+        bigquery.ScalarQueryParameter("latestFlagTime", "INT64", sample_last_flag_time),
+    ]
 
     fetch_transactions_during_days_cycle(sample_user_id, sample_config, given_transaction_type)
 
@@ -437,7 +487,7 @@ def test_fetch_transactions_during_days_cycle(
         HOUR_MARKING_START_OF_DAY
     )
 
-    fetch_from_table_patch.assert_called_once_with(sample_query)
+    fetch_from_table_patch.assert_called_once_with(sample_query, sample_query_params)
 
 
 @patch('main.fetch_transactions_during_days_cycle')

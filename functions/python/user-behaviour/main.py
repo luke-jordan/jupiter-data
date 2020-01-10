@@ -16,6 +16,7 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="service-account-credentials.json"
 client = bigquery.Client()
 FRAUD_DETECTOR_ENDPOINT = os.getenv("FRAUD_DETECTOR_ENDPOINT")
 project_id = os.getenv("GOOGLE_PROJECT_ID")
+BIG_QUERY_DATASET_LOCATION =  os.getenv("BIG_QUERY_DATASET_LOCATION")
 dataset_id = 'ops'
 table_id = 'user_behaviour'
 table_ref = client.dataset(dataset_id).table(table_id)
@@ -100,16 +101,28 @@ def extract_key_value_from_first_item_of_big_query_response(responseList, key):
 def convert_big_query_response_to_list(response):
     return list(response)
 
-def fetch_data_as_list_from_user_behaviour_table(QUERY):
-    print("fetching data from table: {table} with query: {query}".format(query=QUERY, table=table_id))
-    query_job = client.query(QUERY)  # API request
-    rows = query_job.result()  # Waits for query to finish. Rows has type: <class 'google.cloud.bigquery.table.RowIterator'>
-    rowsAsList = convert_big_query_response_to_list(rows) # convert to list to enable easy iteration in python.
+def fetch_data_as_list_from_user_behaviour_table(query, query_params):
     print(
-        "successfully fetched rows list: {rows} from table: {table} with query: {query}"
-          .format(query=QUERY, table=table_id, rows=rowsAsList)
+        """
+        Fetching from table: {table} with query: {query} and params {query_params}
+        """.format(query=query, query_params=query_params, table=table_id)
     )
-    return rowsAsList
+    job_config = bigquery.QueryJobConfig()
+    job_config.query_parameters = query_params
+
+    query_result = client.query(
+        query,
+        location=BIG_QUERY_DATASET_LOCATION,
+        job_config=job_config,
+    )
+
+    print(
+        """
+        Successfully fetched from table: {table} with query: {query} and params {query_params}.
+        """.format(query=query, query_params=query_params, table=table_id)
+    )
+
+    return convert_big_query_response_to_list(query_result)
 
 def extract_last_flag_time_or_default_time(ruleLabel, ruleCutOffTimes):
     return int(ruleCutOffTimes[ruleLabel] if (ruleLabel in ruleCutOffTimes.keys()) else DEFAULT_LATEST_FLAG_TIME)
@@ -125,17 +138,26 @@ def fetch_user_latest_transaction(userId, config):
         """
         .format(transaction_type=transactionType, user_id=userId, latest_flag_time=mostRecentFlagTimeForRule)
     )
-    QUERY = (
-        'select amount as latestDeposit '
-        'from `{full_table_url}` '
-        'where transaction_type = "{transaction_type}" '
-        'and user_id = "{user_id}" '
-        'and time_transaction_occurred > {latest_flag_time} '
-        'order by time_transaction_occurred desc '
-        'limit 1 '.format(transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL, latest_flag_time=mostRecentFlagTimeForRule)
+
+    query = (
+        """
+        select `amount` as `latestDeposit`
+        from `{full_table_url}`
+        where `transaction_type` = @transactionType
+        and `user_id` = @userId
+        and `time_transaction_occurred` > @latestFlagTime
+        order by `time_transaction_occurred` desc
+        limit 1
+        """.format(full_table_url=FULL_TABLE_URL)
     )
 
-    bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(QUERY)
+    query_params = [
+        bigquery.ScalarQueryParameter("transactionType", "STRING", transactionType),
+        bigquery.ScalarQueryParameter("userId", "STRING", userId),
+        bigquery.ScalarQueryParameter("latestFlagTime", "INT64", mostRecentFlagTimeForRule),
+    ]
+
+    bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(query, query_params)
     latestDepositInHundredthCentList = extract_key_value_from_first_item_of_big_query_response(bigQueryResponse, 'latestDeposit')
     latestDepositInWholeCurrency = convert_amount_from_hundredth_cent_to_whole_currency(latestDepositInHundredthCentList)
     return latestDepositInWholeCurrency
@@ -155,17 +177,25 @@ def fetch_user_average_transaction_within_months_period(userId, config):
             .format(transaction_type=transactionType, user_id=userId, period=periodInMonths, latest_flag_time=mostRecentFlagTimeForRule)
     )
 
-    QUERY = (
-        'select avg(amount) as averageDepositDuringPastPeriodInMonths '
-        'from `{full_table_url}` '
-        'where transaction_type = "{transaction_type}" '
-        'and user_id = "{user_id}" '
-        'and time_transaction_occurred >= {given_time} '
-        'and time_transaction_occurred > {latest_flag_time} '
-            .format(transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL, given_time=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
+    query = (
+        """
+        select avg(`amount`) as `averageDepositDuringPastPeriodInMonths` 
+        from `{full_table_url}` 
+        where transaction_type = @transactionType 
+        and `user_id` = @userId
+        and `time_transaction_occurred` >= @givenTime
+        and `time_transaction_occurred` > @latestFlagTime
+        """.format(full_table_url=FULL_TABLE_URL)
     )
 
-    bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(QUERY)
+    query_params = [
+        bigquery.ScalarQueryParameter("transactionType", "STRING", transactionType),
+        bigquery.ScalarQueryParameter("userId", "STRING", userId),
+        bigquery.ScalarQueryParameter("givenTime", "INT64", givenDateInMilliseconds),
+        bigquery.ScalarQueryParameter("latestFlagTime", "INT64", mostRecentFlagTimeForRule),
+    ]
+
+    bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(query, query_params)
     averageDepositInHundredthCentList = extract_key_value_from_first_item_of_big_query_response(bigQueryResponse, 'averageDepositDuringPastPeriodInMonths')
     averageDepositInWholeCurrency = convert_amount_from_hundredth_cent_to_whole_currency(averageDepositInHundredthCentList)
     return averageDepositInWholeCurrency
@@ -184,16 +214,24 @@ def fetch_count_of_user_transactions_larger_than_benchmark(userId, config):
             .format(transaction_type=transactionType, user_id=userId, benchmark=benchmark, latest_flag_time=mostRecentFlagTimeForRule)
     )
 
-    QUERY = (
-        'select count(*) as countOfDepositsGreaterThanBenchMarkDeposit '
-        'from `{full_table_url}` '
-        'where amount > {benchmark} and transaction_type = "{transaction_type}" '
-        'and user_id = "{user_id}" '
-        'and time_transaction_occurred > {latest_flag_time} '
-            .format(benchmark=benchmark, transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL, latest_flag_time=mostRecentFlagTimeForRule)
+    query = (
+        """
+        select count(*) as `countOfDepositsGreaterThanBenchMarkDeposit`
+        from `{full_table_url}`
+        where `amount` > @benchmark and transaction_type = @transactionType
+        and `user_id` = @userId
+        and `time_transaction_occurred` > @latestFlagTime
+        """.format(full_table_url=FULL_TABLE_URL)
     )
 
-    bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(QUERY)
+    query_params = [
+        bigquery.ScalarQueryParameter("transactionType", "STRING", transactionType),
+        bigquery.ScalarQueryParameter("userId", "STRING", userId),
+        bigquery.ScalarQueryParameter("benchmark", "INT64", benchmark),
+        bigquery.ScalarQueryParameter("latestFlagTime", "INT64", mostRecentFlagTimeForRule),
+    ]
+
+    bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(query, query_params)
     countOfDepositsGreaterThanBenchMarkDeposit = extract_key_value_from_first_item_of_big_query_response(bigQueryResponse, 'countOfDepositsGreaterThanBenchMarkDeposit')
     return countOfDepositsGreaterThanBenchMarkDeposit
 
@@ -215,17 +253,26 @@ def fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(
             .format(transaction_type=transactionType, user_id=userId, benchmark=benchmark, period={periodInMonths}, latest_flag_time=mostRecentFlagTimeForRule)
     )
 
-    QUERY = (
-        'select count(*) as countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriod '
-        'from `{full_table_url}` '
-        'where amount > {benchmark} and transaction_type = "{transaction_type}" '
-        'and user_id = "{user_id}" '
-        'and time_transaction_occurred >= {given_time} '
-        'and time_transaction_occurred > {latest_flag_time} '
-            .format(benchmark=benchmark, transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL, given_time=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
+    query = (
+        """
+        select count(*) as `countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriod`
+        from `{full_table_url}`
+        where `amount` > @benchmark and transaction_type = @transactionType
+        and `user_id` = @userId
+        and `time_transaction_occurred` >= @givenTime
+        and `time_transaction_occurred` > @latestFlagTime
+        """.format(full_table_url=FULL_TABLE_URL)
     )
 
-    bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(QUERY)
+    query_params = [
+        bigquery.ScalarQueryParameter("transactionType", "STRING", DEPOSIT_TRANSACTION_TYPE),
+        bigquery.ScalarQueryParameter("userId", "STRING", userId),
+        bigquery.ScalarQueryParameter("benchmark", "INT64", benchmark),
+        bigquery.ScalarQueryParameter("givenTime", "INT64", givenDateInMilliseconds),
+        bigquery.ScalarQueryParameter("latestFlagTime", "INT64", mostRecentFlagTimeForRule),
+    ]
+
+    bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(query, query_params)
     countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriodList = extract_key_value_from_first_item_of_big_query_response(bigQueryResponse, "countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriod")
     return countOfTransactionsGreaterThanBenchmarkWithinMonthsPeriodList
 
@@ -242,17 +289,25 @@ def fetch_transactions_during_days_cycle(userId, config, transactionType):
             .format(userId=userId, transaction_type=transactionType, numOfDays=numOfDays, leastDate=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
     )
 
-    QUERY = (
-        'select `amount`, `time_transaction_occurred` '
-        'from `{full_table_url}` '
-        'where transaction_type = "{transaction_type}" '
-        'and user_id = "{user_id}" '
-        'and time_transaction_occurred >= {given_time} '
-        'and time_transaction_occurred > {latest_flag_time} '
-            .format(transaction_type=transactionType, user_id=userId, full_table_url=FULL_TABLE_URL, given_time=givenDateInMilliseconds, latest_flag_time=mostRecentFlagTimeForRule)
+    query = (
+        """
+        select `amount`, `time_transaction_occurred`
+        from `{full_table_url}`
+        where `transaction_type` = @transactionType
+        and `user_id` = @userId
+        and `time_transaction_occurred` >= @givenTime
+        and `time_transaction_occurred` > @latestFlagTime
+        """.format(full_table_url=FULL_TABLE_URL)
     )
 
-    transactionsDuringDaysList = fetch_data_as_list_from_user_behaviour_table(QUERY)
+    query_params = [
+        bigquery.ScalarQueryParameter("transactionType", "STRING", transactionType),
+        bigquery.ScalarQueryParameter("userId", "STRING", userId),
+        bigquery.ScalarQueryParameter("givenTime", "INT64", givenDateInMilliseconds),
+        bigquery.ScalarQueryParameter("latestFlagTime", "INT64", mostRecentFlagTimeForRule),
+    ]
+
+    transactionsDuringDaysList = fetch_data_as_list_from_user_behaviour_table(query, query_params)
     return transactionsDuringDaysList
 
 def fetch_withdrawals_during_days_cycle(userId, config):
@@ -394,6 +449,7 @@ def extract_params_from_fetch_user_behaviour_request(request):
 def fetch_user_behaviour_based_on_rules(request):
     try:
         requestParams = extract_params_from_fetch_user_behaviour_request(request)
+
         userId = requestParams["userId"]
         accountId = requestParams["accountId"]
         userAccountInfo = {

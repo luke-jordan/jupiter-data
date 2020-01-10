@@ -22,7 +22,8 @@ const resetStubs = () => {
     timestampStub.reset();
 };
 
-const sampleFlagTime = '2019-12-10 13:42:59 UTC';
+const timestamp = 1554249600000;
+const sampleFlagTime = timestamp;
 const sampleRuleLabel = 'single_very_large_deposit';
 // eslint-disable-next-line camelcase
 const sampleRuleListWithLatestFlagTime = [[{ rule_label: sampleRuleLabel, latest_flag_time: sampleFlagTime }]];
@@ -99,7 +100,7 @@ const sampleEvent = {
     }
 };
 
-const sampleTimestamp = '2019-11-30 13:34:32';
+const sampleTimestamp = timestamp;
 const sampleFactsFromUserBehaviour = {
     userAccountInfo: sampleUserAccountInfo,
     countOfDepositsGreaterThanHundredThousand: 1,

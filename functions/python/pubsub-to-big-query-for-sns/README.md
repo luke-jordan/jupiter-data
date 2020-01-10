@@ -8,7 +8,7 @@ The data coming from the topic `sns-events` contains the following attributes:
 ```
 user_id: <string>,
 event_type: <string>,
-timestamp: <string>,
+time_transaction_occurred: <string>,
 context: <string>,
 ```
 
