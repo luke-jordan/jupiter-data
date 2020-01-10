@@ -4,7 +4,7 @@
   "BIG_QUERY_DATASET_ID": "ops",
   "BIG_QUERY_TABLE_ID": "user_flagged_as_fraudulent",
   "contactsToBeNotified": ["avish@plutosave.com", "luke@plutosave.com"],
-  "verboseMode": true,
+  "verboseMode": false,
   "serviceUrls": {
     "NOTIFICATION_SERVICE_URL": "{notification_service}",
     "FETCH_USER_BEHAVIOUR_URL": "{fetch_user_behaviour}"
