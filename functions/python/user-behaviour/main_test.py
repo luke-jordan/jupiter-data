@@ -28,7 +28,7 @@ from main \
     convert_big_query_response_to_list, \
     fetch_data_as_list_from_user_behaviour_table, \
     time_difference_less_than_or_equal_given_hours, \
-    withdrawal_within_tolerance_range_of_deposit_amount, \
+    withdrawal_within_tolerance_range_of_saving_event_amount, \
     convert_milliseconds_to_hours, \
     extract_last_flag_time_or_default_time, \
     fetch_user_latest_transaction, \
@@ -36,10 +36,10 @@ from main \
     fetch_count_of_user_transactions_larger_than_benchmark_within_months_period, \
     fetch_transactions_during_days_cycle, \
     fetch_withdrawals_during_days_cycle, \
-    fetch_deposits_during_days_cycle, \
+    fetch_saving_events_during_days_cycle, \
     calculate_time_difference_in_hours_between_timestamps, \
-    check_each_withdrawal_against_deposit_for_flagged_withdrawals, \
-    calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle, \
+    check_each_withdrawal_against_saving_event_for_flagged_withdrawals, \
+    calculate_count_of_withdrawals_within_hours_of_saving_events_during_days_cycle, \
     extract_params_from_fetch_user_behaviour_request, \
     fetch_user_behaviour_based_on_rules, \
     fetch_user_average_transaction_within_months_period, \
@@ -57,14 +57,14 @@ FACTOR_TO_CONVERT_WHOLE_CENT_TO_HUNDREDTH_CENT = main.FACTOR_TO_CONVERT_WHOLE_CE
 FACTOR_TO_CONVERT_HUNDREDTH_CENT_TO_WHOLE_CURRENCY = main.FACTOR_TO_CONVERT_HUNDREDTH_CENT_TO_WHOLE_CURRENCY
 DEFAULT_COUNT_FOR_RULE = main.DEFAULT_COUNT_FOR_RULE
 DEFAULT_LATEST_FLAG_TIME = main.DEFAULT_LATEST_FLAG_TIME
-ERROR_TOLERANCE_PERCENTAGE_FOR_DEPOSITS = main.ERROR_TOLERANCE_PERCENTAGE_FOR_DEPOSITS
+ERROR_TOLERANCE_PERCENTAGE_FOR_SAVING_EVENTS = main.ERROR_TOLERANCE_PERCENTAGE_FOR_SAVING_EVENTS
 SECONDS_IN_AN_HOUR = main.SECONDS_IN_AN_HOUR
 FULL_TABLE_URL = main.FULL_TABLE_URL
-DEPOSIT_TRANSACTION_TYPE = main.DEPOSIT_TRANSACTION_TYPE
+SAVING_EVENT_TRANSACTION_TYPE = main.SAVING_EVENT_TRANSACTION_TYPE
 SIX_MONTHS_INTERVAL = main.SIX_MONTHS_INTERVAL
 HOUR_MARKING_START_OF_DAY = main.HOUR_MARKING_START_OF_DAY
-FIRST_BENCHMARK_DEPOSIT = main.FIRST_BENCHMARK_DEPOSIT
-SECOND_BENCHMARK_DEPOSIT = main.SECOND_BENCHMARK_DEPOSIT
+FIRST_BENCHMARK_SAVING_EVENT = main.FIRST_BENCHMARK_SAVING_EVENT
+SECOND_BENCHMARK_SAVING_EVENT = main.SECOND_BENCHMARK_SAVING_EVENT
 WITHDRAWAL_TRANSACTION_TYPE = main.WITHDRAWAL_TRANSACTION_TYPE
 HOURS_IN_A_DAY = main.HOURS_IN_A_DAY
 DAYS_IN_A_WEEK = main.DAYS_IN_A_WEEK
@@ -253,13 +253,13 @@ def test_time_difference_less_than_or_equal_given_hours():
         given_hours
     ) == (sample_time_difference <= given_hours)
 
-def test_withdrawal_within_tolerance_range_of_deposit_amount():
+def test_withdrawal_within_tolerance_range_of_saving_event_amount():
     sample_withdrawal_amount = 1000
-    sample_deposit_amount = 2000
-    assert withdrawal_within_tolerance_range_of_deposit_amount(
+    sample_saving_event_amount = 2000
+    assert withdrawal_within_tolerance_range_of_saving_event_amount(
         sample_withdrawal_amount,
-        sample_deposit_amount
-    ) == ((sample_deposit_amount * ERROR_TOLERANCE_PERCENTAGE_FOR_DEPOSITS) <= sample_withdrawal_amount <= sample_deposit_amount)
+        sample_saving_event_amount
+    ) == ((sample_saving_event_amount * ERROR_TOLERANCE_PERCENTAGE_FOR_SAVING_EVENTS) <= sample_withdrawal_amount <= sample_saving_event_amount)
 
 def test_convert_milliseconds_to_hours():
     sample_millisecond_value = 54000
@@ -277,13 +277,13 @@ def test_fetch_user_latest_transaction(
         fetch_from_table_patch
 ):
     sample_config = {
-        "transactionTypeDeposit": DEPOSIT_TRANSACTION_TYPE,
+        "transactionType": SAVING_EVENT_TRANSACTION_TYPE,
         "latestFlagTime": sample_last_flag_time
     }
 
     sample_query = (
         """
-        select `amount` as `latestDeposit`
+        select `amount` as `latestSavingEvent`
         from `{full_table_url}`
         where `transaction_type` = @transactionType
         and `user_id` = @userId
@@ -294,7 +294,7 @@ def test_fetch_user_latest_transaction(
     )
 
     sample_query_params = [
-        bigquery.ScalarQueryParameter("transactionType", "STRING", DEPOSIT_TRANSACTION_TYPE),
+        bigquery.ScalarQueryParameter("transactionType", "STRING", SAVING_EVENT_TRANSACTION_TYPE),
         bigquery.ScalarQueryParameter("userId", "STRING", sample_user_id),
         bigquery.ScalarQueryParameter("latestFlagTime", "INT64", sample_last_flag_time),
     ]
@@ -318,7 +318,7 @@ def test_fetch_user_average_transaction_within_months_period(
         fetch_from_table_patch
 ):
     sample_config = {
-        "transactionTypeDeposit": DEPOSIT_TRANSACTION_TYPE,
+        "transactionType": SAVING_EVENT_TRANSACTION_TYPE,
         "latestFlagTime": sample_last_flag_time,
         "sixMonthsPeriod": SIX_MONTHS_INTERVAL,
     }
@@ -329,7 +329,7 @@ def test_fetch_user_average_transaction_within_months_period(
 
     sample_query = (
         """
-        select avg(`amount`) as `averageDepositDuringPastPeriodInMonths` 
+        select avg(`amount`) as `averageSavingEventDuringPastPeriodInMonths` 
         from `{full_table_url}` 
         where transaction_type = @transactionType 
         and `user_id` = @userId
@@ -339,7 +339,7 @@ def test_fetch_user_average_transaction_within_months_period(
     )
 
     sample_query_params = [
-        bigquery.ScalarQueryParameter("transactionType", "STRING", DEPOSIT_TRANSACTION_TYPE),
+        bigquery.ScalarQueryParameter("transactionType", "STRING", SAVING_EVENT_TRANSACTION_TYPE),
         bigquery.ScalarQueryParameter("userId", "STRING", sample_user_id),
         bigquery.ScalarQueryParameter("givenTime", "INT64", sample_given_date_in_milliseconds),
         bigquery.ScalarQueryParameter("latestFlagTime", "INT64", sample_last_flag_time),
@@ -359,9 +359,9 @@ def test_fetch_count_of_user_transactions_larger_than_benchmark(
         fetch_from_table_patch
 ):
     sample_config = {
-        "transactionTypeDeposit": DEPOSIT_TRANSACTION_TYPE,
+        "transactionType": SAVING_EVENT_TRANSACTION_TYPE,
         "latestFlagTime": sample_last_flag_time,
-        "hundredThousandBenchmark": FIRST_BENCHMARK_DEPOSIT,
+        "hundredThousandBenchmark": FIRST_BENCHMARK_SAVING_EVENT,
     }
     sample_benchmark = convert_amount_from_given_unit_to_hundredth_cent(
         sample_config["hundredThousandBenchmark"],
@@ -370,7 +370,7 @@ def test_fetch_count_of_user_transactions_larger_than_benchmark(
 
     sample_query = (
         """
-        select count(*) as `countOfDepositsGreaterThanBenchMarkDeposit`
+        select count(*) as `countOfSavingEventsGreaterThanBenchMarkSavingEvent`
         from `{full_table_url}`
         where `amount` > @benchmark and transaction_type = @transactionType
         and `user_id` = @userId
@@ -379,7 +379,7 @@ def test_fetch_count_of_user_transactions_larger_than_benchmark(
     )
 
     sample_query_params = [
-        bigquery.ScalarQueryParameter("transactionType", "STRING", DEPOSIT_TRANSACTION_TYPE),
+        bigquery.ScalarQueryParameter("transactionType", "STRING", SAVING_EVENT_TRANSACTION_TYPE),
         bigquery.ScalarQueryParameter("userId", "STRING", sample_user_id),
         bigquery.ScalarQueryParameter("benchmark", "INT64", sample_benchmark),
         bigquery.ScalarQueryParameter("latestFlagTime", "INT64", sample_last_flag_time),
@@ -398,9 +398,9 @@ def test_fetch_count_of_user_transactions_larger_than_benchmark_within_months_pe
         fetch_from_table_patch
 ):
     sample_config = {
-        "transactionTypeDeposit": DEPOSIT_TRANSACTION_TYPE,
+        "transactionType": SAVING_EVENT_TRANSACTION_TYPE,
         "latestFlagTime": sample_last_flag_time,
-        "fiftyThousandBenchmark": SECOND_BENCHMARK_DEPOSIT,
+        "fiftyThousandBenchmark": SECOND_BENCHMARK_SAVING_EVENT,
         "sixMonthsPeriod": SIX_MONTHS_INTERVAL,
     }
 
@@ -426,7 +426,7 @@ def test_fetch_count_of_user_transactions_larger_than_benchmark_within_months_pe
     )
 
     sample_query_params = [
-        bigquery.ScalarQueryParameter("transactionType", "STRING", DEPOSIT_TRANSACTION_TYPE),
+        bigquery.ScalarQueryParameter("transactionType", "STRING", SAVING_EVENT_TRANSACTION_TYPE),
         bigquery.ScalarQueryParameter("userId", "STRING", sample_user_id),
         bigquery.ScalarQueryParameter("benchmark", "INT64", sample_benchmark),
         bigquery.ScalarQueryParameter("givenTime", "INT64", sample_given_date_in_milliseconds),
@@ -460,7 +460,7 @@ def test_fetch_transactions_during_days_cycle(
     main.convert_date_string_to_millisecond_int = mock_date_string_to_millisecond_conversion
     mock_date_string_to_millisecond_conversion.return_value = sample_given_date_in_milliseconds
     
-    given_transaction_type = DEPOSIT_TRANSACTION_TYPE
+    given_transaction_type = SAVING_EVENT_TRANSACTION_TYPE
 
     sample_query = (
         """
@@ -474,7 +474,7 @@ def test_fetch_transactions_during_days_cycle(
     )
 
     sample_query_params = [
-        bigquery.ScalarQueryParameter("transactionType", "STRING", DEPOSIT_TRANSACTION_TYPE),
+        bigquery.ScalarQueryParameter("transactionType", "STRING", SAVING_EVENT_TRANSACTION_TYPE),
         bigquery.ScalarQueryParameter("userId", "STRING", sample_user_id),
         bigquery.ScalarQueryParameter("givenTime", "INT64", sample_given_date_in_milliseconds),
         bigquery.ScalarQueryParameter("latestFlagTime", "INT64", sample_last_flag_time),
@@ -510,7 +510,7 @@ def test_fetch_withdrawals_during_days_cycle(
 
 
 @patch('main.fetch_transactions_during_days_cycle')
-def test_fetch_deposits_during_days_cycle(
+def test_fetch_saving_events_during_days_cycle(
         fetch_transactions_during_days_cycle_patch
 ):
     sample_config = {
@@ -519,12 +519,12 @@ def test_fetch_deposits_during_days_cycle(
         "latestFlagTime": sample_last_flag_time,
     }
 
-    fetch_deposits_during_days_cycle(sample_user_id, sample_config)
+    fetch_saving_events_during_days_cycle(sample_user_id, sample_config)
 
     fetch_transactions_during_days_cycle_patch.assert_called_once_with(
         sample_user_id,
         sample_config,
-        DEPOSIT_TRANSACTION_TYPE
+        SAVING_EVENT_TRANSACTION_TYPE
     )
 
 def test_calculate_time_difference_in_hours_between_timestamps():
@@ -537,7 +537,7 @@ def test_calculate_time_difference_in_hours_between_timestamps():
         sample_saving_event_timestamp_in_milliseconds
     ) == expected_response
 
-def test_check_each_withdrawal_against_deposit_for_flagged_withdrawals():
+def test_check_each_withdrawal_against_saving_event_for_flagged_withdrawals():
     sample_map_of_saved_amount_and_time_transaction_occurred = {
         "amount": 100,
         "time_transaction_occurred": one_hour_in_milliseconds,
@@ -553,7 +553,7 @@ def test_check_each_withdrawal_against_deposit_for_flagged_withdrawals():
 
     expected_response = 1
 
-    assert check_each_withdrawal_against_deposit_for_flagged_withdrawals(
+    assert check_each_withdrawal_against_saving_event_for_flagged_withdrawals(
         sample_withdrawals_list,
         sample_saved_amounts_list,
         sample_number_of_hours
@@ -575,7 +575,7 @@ def test_withdrawal_not_within_tolerance_range_for_comparisons():
 
     expected_response = 0
 
-    assert check_each_withdrawal_against_deposit_for_flagged_withdrawals(
+    assert check_each_withdrawal_against_saving_event_for_flagged_withdrawals(
         sample_withdrawals_list,
         sample_saved_amounts_list,
         sample_number_of_hours
@@ -597,7 +597,7 @@ def test_withdrawal_within_tolerance_range_but_time_difference_check_fails_for_c
 
     expected_response = 0
 
-    assert check_each_withdrawal_against_deposit_for_flagged_withdrawals(
+    assert check_each_withdrawal_against_saving_event_for_flagged_withdrawals(
         sample_withdrawals_list,
         sample_saved_amounts_list,
         sample_number_of_hours
@@ -605,11 +605,11 @@ def test_withdrawal_within_tolerance_range_but_time_difference_check_fails_for_c
 
 
 @patch('main.fetch_withdrawals_during_days_cycle')
-@patch('main.fetch_deposits_during_days_cycle')
-@patch('main.check_each_withdrawal_against_deposit_for_flagged_withdrawals')
-def test_calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(
-    check_each_withdrawal_against_deposit_for_flagged_withdrawals_patch,
-    fetch_deposits_during_days_cycle_patch,
+@patch('main.fetch_saving_events_during_days_cycle')
+@patch('main.check_each_withdrawal_against_saving_event_for_flagged_withdrawals')
+def test_calculate_count_of_withdrawals_within_hours_of_saving_events_during_days_cycle(
+    check_each_withdrawal_against_saving_event_for_flagged_withdrawals_patch,
+    fetch_saving_events_during_days_cycle_patch,
     fetch_withdrawals_during_days_cycle_patch,
 ):
     sample_config = {
@@ -618,11 +618,11 @@ def test_calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cyc
         "latestFlagTime": sample_last_flag_time,
     }
 
-    calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(sample_user_id, sample_config)
+    calculate_count_of_withdrawals_within_hours_of_saving_events_during_days_cycle(sample_user_id, sample_config)
 
     fetch_withdrawals_during_days_cycle_patch.assert_called_once_with(sample_user_id, sample_config)
-    fetch_deposits_during_days_cycle_patch.assert_called_once_with(sample_user_id, sample_config)
-    check_each_withdrawal_against_deposit_for_flagged_withdrawals_patch.assert_called_once()
+    fetch_saving_events_during_days_cycle_patch.assert_called_once_with(sample_user_id, sample_config)
+    check_each_withdrawal_against_saving_event_for_flagged_withdrawals_patch.assert_called_once()
 
 
 def test_extract_params_from_fetch_user_behaviour_request():
@@ -640,9 +640,9 @@ def test_extract_params_from_fetch_user_behaviour_request():
 @patch('main.fetch_count_of_user_transactions_larger_than_benchmark_within_months_period')
 @patch('main.fetch_user_latest_transaction')
 @patch('main.fetch_user_average_transaction_within_months_period')
-@patch('main.calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle')
+@patch('main.calculate_count_of_withdrawals_within_hours_of_saving_events_during_days_cycle')
 def test_fetch_user_behaviour_based_on_rules(
-    count_of_withdrawals_within_hours_of_deposits_during_days_cycle_patch,
+    count_of_withdrawals_within_hours_of_saving_events_during_days_cycle_patch,
     fetch_user_average_transaction_within_months_period_patch,
     fetch_user_latest_transaction_patch,
     count_of_user_transactions_larger_than_benchmark_within_months_period_patch,
@@ -660,8 +660,8 @@ def test_fetch_user_behaviour_based_on_rules(
     count_of_user_transactions_larger_than_benchmark_patch.assert_called_once_with(
         sample_user_id,
         {
-            "transactionTypeDeposit": DEPOSIT_TRANSACTION_TYPE,
-            "hundredThousandBenchmark": FIRST_BENCHMARK_DEPOSIT,
+            "transactionType": SAVING_EVENT_TRANSACTION_TYPE,
+            "hundredThousandBenchmark": FIRST_BENCHMARK_SAVING_EVENT,
             "latestFlagTime": DEFAULT_LATEST_FLAG_TIME
         }
     )
@@ -669,8 +669,8 @@ def test_fetch_user_behaviour_based_on_rules(
     count_of_user_transactions_larger_than_benchmark_within_months_period_patch.assert_called_once_with(
         sample_user_id,
         {
-            "transactionTypeDeposit": DEPOSIT_TRANSACTION_TYPE,
-            "fiftyThousandBenchmark": SECOND_BENCHMARK_DEPOSIT,
+            "transactionType": SAVING_EVENT_TRANSACTION_TYPE,
+            "fiftyThousandBenchmark": SECOND_BENCHMARK_SAVING_EVENT,
             "sixMonthsPeriod": SIX_MONTHS_INTERVAL,
             "latestFlagTime": DEFAULT_LATEST_FLAG_TIME
         }
@@ -679,7 +679,7 @@ def test_fetch_user_behaviour_based_on_rules(
     fetch_user_latest_transaction_patch.assert_called_once_with(
         sample_user_id,
         {
-            "transactionTypeDeposit": DEPOSIT_TRANSACTION_TYPE,
+            "transactionType": SAVING_EVENT_TRANSACTION_TYPE,
             "latestFlagTime": DEFAULT_LATEST_FLAG_TIME
         }
     )
@@ -687,13 +687,13 @@ def test_fetch_user_behaviour_based_on_rules(
     fetch_user_average_transaction_within_months_period_patch.assert_called_once_with(
         sample_user_id,
         {
-            "transactionTypeDeposit": DEPOSIT_TRANSACTION_TYPE,
+            "transactionType": SAVING_EVENT_TRANSACTION_TYPE,
             "sixMonthsPeriod": SIX_MONTHS_INTERVAL,
             "latestFlagTime": DEFAULT_LATEST_FLAG_TIME
         }
     )
 
-    assert count_of_withdrawals_within_hours_of_deposits_during_days_cycle_patch.call_count == 2
+    assert count_of_withdrawals_within_hours_of_saving_events_during_days_cycle_patch.call_count == 2
 
 
 
@@ -761,7 +761,7 @@ def test_extract_amount_unit_and_currency():
     assert extract_amount_unit_and_currency(sample_saved_amount) == expected_result
 
 def test_determine_transaction_type_from_event_type():
-    assert determine_transaction_type_from_event_type(constant.SUPPORTED_EVENT_TYPES["deposit_event"]) == "DEPOSIT"
+    assert determine_transaction_type_from_event_type(constant.SUPPORTED_EVENT_TYPES["saving_event"]) == "SAVING_EVENT"
     assert determine_transaction_type_from_event_type(constant.SUPPORTED_EVENT_TYPES["withdrawal_event"]) == "WITHDRAWAL"
     assert determine_transaction_type_from_event_type("RANDOM_STRING") == ""
 

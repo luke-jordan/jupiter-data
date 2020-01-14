@@ -24,7 +24,7 @@ const resetStubs = () => {
 
 const timestamp = 1554249600000;
 const sampleFlagTime = timestamp;
-const sampleRuleLabel = 'single_very_large_deposit';
+const sampleRuleLabel = 'single_very_large_saving_event';
 // eslint-disable-next-line camelcase
 const sampleRuleListWithLatestFlagTime = [[{ rule_label: sampleRuleLabel, latest_flag_time: sampleFlagTime }]];
 
@@ -92,7 +92,7 @@ const sampleUserAccountInfo = {
 const formattedRulesWithLatestFlagTime = {
     [sampleRuleLabel]: sampleFlagTime
 };
-const sampleReasonForFlaggingUser = `User has deposited 50,000 rands 3 or more times in the last 6 months`;
+const sampleReasonForFlaggingUser = `User has saving_event 50,000 rands 3 or more times in the last 6 months`;
 const sampleEvent = {
     params: {
         ruleLabel: sampleRuleLabel,
@@ -103,8 +103,8 @@ const sampleEvent = {
 const sampleTimestamp = timestamp;
 const sampleFactsFromUserBehaviour = {
     userAccountInfo: sampleUserAccountInfo,
-    countOfDepositsGreaterThanHundredThousand: 1,
-    countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod: 4
+    countOfSavingEventsGreaterThanHundredThousand: 1,
+    countOfSavingEventsGreaterThanBenchmarkWithinSixMonthPeriod: 4
 };
 
 const sampleRow = [
@@ -134,7 +134,7 @@ const ruleWithExperimentalModeTrue = {
     conditions: {
         any: [
             {
-                fact: 'countOfDepositsGreaterThanHundredThousand',
+                fact: 'countOfSavingEventsGreaterThanHundredThousand',
                 operator: 'greaterThan',
                 value: 0
             }
@@ -143,7 +143,7 @@ const ruleWithExperimentalModeTrue = {
     event: { // define the event to fire when the conditions evaluate truthy
         type: 'flaggedAsFraudulent',
         params: {
-            reasonForFlaggingUser: `User has a deposit greater than 100,000 rands`
+            reasonForFlaggingUser: `User has a saving_event greater than 100,000 rands`
         }
     }
 };
@@ -153,7 +153,7 @@ const ruleWithExperimentalModeFalse = {
     conditions: {
         any: [
             {
-                fact: 'countOfDepositsGreaterThanHundredThousand',
+                fact: 'countOfSavingEventsGreaterThanHundredThousand',
                 operator: 'greaterThan',
                 value: 0
             }
@@ -162,7 +162,7 @@ const ruleWithExperimentalModeFalse = {
     event: { // define the event to fire when the conditions evaluate truthy
         type: 'flaggedAsFraudulent',
         params: {
-            reasonForFlaggingUser: `User has a deposit greater than 100,000 rands`
+            reasonForFlaggingUser: `User has a saving_event greater than 100,000 rands`
         }
     }
 };
@@ -171,7 +171,7 @@ const ruleWithoutExperimentalMode = {
     conditions: {
         any: [
             {
-                fact: 'countOfDepositsGreaterThanHundredThousand',
+                fact: 'countOfSavingEventsGreaterThanHundredThousand',
                 operator: 'greaterThan',
                 value: 0
             }
@@ -180,7 +180,7 @@ const ruleWithoutExperimentalMode = {
     event: { // define the event to fire when the conditions evaluate truthy
         type: 'flaggedAsFraudulent',
         params: {
-            reasonForFlaggingUser: `User has a deposit greater than 100,000 rands`
+            reasonForFlaggingUser: `User has a saving_event greater than 100,000 rands`
         }
     }
 };

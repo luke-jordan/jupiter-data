@@ -24,11 +24,11 @@ Last flag times for rules for a user is a map of the `rule_label` to the most re
  user was flagged. An example is:
 ```
 {
-   "single_very_large_deposit": 1554249600000,
-   "latest_deposit_greater_than_six_months_average": 1577136139617
-   "deposits_greater_than_benchmark_within_six_months": 1554249600000
-   "withdrawals_within_two_days_of_deposits_during_one_month": 1577136139617
-   "withdrawals_within_one_day_of_deposits_during_one_week": 1554249600000
+   "single_very_large_saving_event": 1554249600000,
+   "latest_saving_event_greater_than_six_months_average": 1577136139617
+   "saving_events_greater_than_benchmark_within_six_months": 1554249600000
+   "withdrawals_within_two_days_of_saving_events_during_one_month": 1577136139617
+   "withdrawals_within_one_day_of_saving_events_during_one_week": 1554249600000
 }
 ```
 
@@ -45,11 +45,11 @@ A sample request payload is:
     "userId": <string>,
     "accountId": <string>,
     "ruleCutOffTimes": {
-        "single_very_large_deposit": <integer>,
-        "latest_deposit_greater_than_six_months_average": <integer>
-        "deposits_greater_than_benchmark_within_six_months": <integer>
-        "withdrawals_within_two_days_of_deposits_during_one_month": <integer>
-        "withdrawals_within_one_day_of_deposits_during_one_week": <integer>
+        "single_very_large_saving_event": <integer>,
+        "latest_saving_event_greater_than_six_months_average": <integer>
+        "saving_events_greater_than_benchmark_within_six_months": <integer>
+        "withdrawals_within_two_days_of_saving_events_during_one_month": <integer>
+        "withdrawals_within_one_day_of_saving_events_during_one_week": <integer>
     }
 }
 ```
@@ -64,12 +64,12 @@ An example of the response returned to the `fraud-detector` is:
          "userId": <string>,
          "accountId": <string>
     },
-    "countOfDepositsGreaterThanHundredThousand": <int>,
-    "countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod": <int>,
-    "latestDeposit": <int>,
-    "sixMonthAverageDepositMultipliedByN": <int>,
-    "countOfWithdrawalsWithin48HoursOfDepositDuringA30DayCycle": <int>,
-    "countOfWithdrawalsWithin24HoursOfDepositDuringA7DayCycle": <int>
+    "countOfSavingEventsGreaterThanHundredThousand": <int>,
+    "countOfSavingEventsGreaterThanBenchmarkWithinSixMonthPeriod": <int>,
+    "latestSavingEvent": <int>,
+    "sixMonthAverageSavingEventMultipliedByN": <int>,
+    "countOfWithdrawalsWithin48HoursOfSavingEventDuringA30DayCycle": <int>,
+    "countOfWithdrawalsWithin24HoursOfSavingEventDuringA7DayCycle": <int>
 }
 ```
 

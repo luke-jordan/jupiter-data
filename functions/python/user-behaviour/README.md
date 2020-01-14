@@ -33,8 +33,8 @@ can be scanned for fraud.
 pre defined rules. `fetch-user-behaviour` fetches data from the big query table `ops.user_behaviour`.
   
 At the moment, the data fetched about the user includes:
-- count of deposits greater than a hundred thousand (in whole currency)
-- count of deposits greater than fifty thousand (in whole currency)
+- count of saving_events greater than a hundred thousand (in whole currency)
+- count of saving_events greater than fifty thousand (in whole currency)
 - latest saved amount
 - six month average saved amount
 - count of withdrawals within 48 hours of a savings event during a 30 day cycle 
@@ -47,11 +47,11 @@ The crunched data is then sent to the `fraud detector` function in the below for
          "userId": <string>,
          "accountId": <string>
     },
-    "countOfDepositsGreaterThanHundredThousand": <int>,
-    "countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod": <int>,
-    "latestDeposit": <int>,
-    "sixMonthAverageDepositMultipliedByN": <int>,
-    "countOfWithdrawalsWithin48HoursOfDepositDuringA30DayCycle": <int>,
-    "countOfWithdrawalsWithin24HoursOfDepositDuringA7DayCycle": <int>
+    "countOfSavingEventsGreaterThanHundredThousand": <int>,
+    "countOfSavingEventsGreaterThanBenchmarkWithinSixMonthPeriod": <int>,
+    "latestSavingEvent": <int>,
+    "sixMonthAverageSavingEventMultipliedByN": <int>,
+    "countOfWithdrawalsWithin48HoursOfSavingEventDuringA30DayCycle": <int>,
+    "countOfWithdrawalsWithin24HoursOfSavingEventDuringA7DayCycle": <int>
 }
 ```

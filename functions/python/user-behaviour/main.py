@@ -22,22 +22,22 @@ table_id = 'user_behaviour'
 table_ref = client.dataset(dataset_id).table(table_id)
 table = client.get_table(table_ref)
 
-DEPOSIT_TRANSACTION_TYPE = constant.DEPOSIT_TRANSACTION_TYPE
+SAVING_EVENT_TRANSACTION_TYPE = constant.SAVING_EVENT_TRANSACTION_TYPE
 WITHDRAWAL_TRANSACTION_TYPE = constant.WITHDRAWAL_TRANSACTION_TYPE
-FIRST_BENCHMARK_DEPOSIT = constant.FIRST_BENCHMARK_DEPOSIT
-SECOND_BENCHMARK_DEPOSIT = constant.SECOND_BENCHMARK_DEPOSIT
+FIRST_BENCHMARK_SAVING_EVENT = constant.FIRST_BENCHMARK_SAVING_EVENT
+SECOND_BENCHMARK_SAVING_EVENT = constant.SECOND_BENCHMARK_SAVING_EVENT
 SIX_MONTHS_INTERVAL = constant.SIX_MONTHS_INTERVAL
 FACTOR_TO_CONVERT_WHOLE_CURRENCY_TO_HUNDREDTH_CENT = constant.FACTOR_TO_CONVERT_WHOLE_CURRENCY_TO_HUNDREDTH_CENT
 FACTOR_TO_CONVERT_WHOLE_CENT_TO_HUNDREDTH_CENT = constant.FACTOR_TO_CONVERT_WHOLE_CENT_TO_HUNDREDTH_CENT
 FACTOR_TO_CONVERT_HUNDREDTH_CENT_TO_WHOLE_CURRENCY = constant.FACTOR_TO_CONVERT_HUNDREDTH_CENT_TO_WHOLE_CURRENCY
 SUPPORTED_EVENT_TYPES = constant.SUPPORTED_EVENT_TYPES
-MULTIPLIER_OF_SIX_MONTHS_AVERAGE_DEPOSIT = constant.MULTIPLIER_OF_SIX_MONTHS_AVERAGE_DEPOSIT
+MULTIPLIER_OF_SIX_MONTHS_AVERAGE_SAVING_EVENT = constant.MULTIPLIER_OF_SIX_MONTHS_AVERAGE_SAVING_EVENT
 HOURS_IN_A_DAY = constant.HOURS_IN_A_DAY
 SECONDS_IN_AN_HOUR = constant.SECONDS_IN_AN_HOUR
 HOURS_IN_TWO_DAYS = constant.HOURS_IN_TWO_DAYS
 DAYS_IN_A_MONTH = constant.DAYS_IN_A_MONTH
 DAYS_IN_A_WEEK = constant.DAYS_IN_A_WEEK
-ERROR_TOLERANCE_PERCENTAGE_FOR_DEPOSITS = constant.ERROR_TOLERANCE_PERCENTAGE_FOR_DEPOSITS
+ERROR_TOLERANCE_PERCENTAGE_FOR_SAVING_EVENTS = constant.ERROR_TOLERANCE_PERCENTAGE_FOR_SAVING_EVENTS
 DEFAULT_LATEST_FLAG_TIME = constant.DEFAULT_LATEST_FLAG_TIME # date was arbitrarily chosen as one before any user was flagged so as to include all user transactions
 SECOND_TO_MILLISECOND_FACTOR = constant.SECOND_TO_MILLISECOND_FACTOR
 HOUR_MARKING_START_OF_DAY=constant.HOUR_MARKING_START_OF_DAY
@@ -128,7 +128,7 @@ def extract_last_flag_time_or_default_time(ruleLabel, ruleCutOffTimes):
     return int(ruleCutOffTimes[ruleLabel] if (ruleLabel in ruleCutOffTimes.keys()) else DEFAULT_LATEST_FLAG_TIME)
 
 def fetch_user_latest_transaction(userId, config):
-    transactionType = config["transactionTypeDeposit"]
+    transactionType = config["transactionType"]
     mostRecentFlagTimeForRule = config["latestFlagTime"]
 
     print(
@@ -141,7 +141,7 @@ def fetch_user_latest_transaction(userId, config):
 
     query = (
         """
-        select `amount` as `latestDeposit`
+        select `amount` as `latestSavingEvent`
         from `{full_table_url}`
         where `transaction_type` = @transactionType
         and `user_id` = @userId
@@ -158,13 +158,13 @@ def fetch_user_latest_transaction(userId, config):
     ]
 
     bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(query, query_params)
-    latestDepositInHundredthCentList = extract_key_value_from_first_item_of_big_query_response(bigQueryResponse, 'latestDeposit')
-    latestDepositInWholeCurrency = convert_amount_from_hundredth_cent_to_whole_currency(latestDepositInHundredthCentList)
-    return latestDepositInWholeCurrency
+    latestSavingEventInHundredthCentList = extract_key_value_from_first_item_of_big_query_response(bigQueryResponse, 'latestSavingEvent')
+    latestSavingEventInWholeCurrency = convert_amount_from_hundredth_cent_to_whole_currency(latestSavingEventInHundredthCentList)
+    return latestSavingEventInWholeCurrency
 
 
 def fetch_user_average_transaction_within_months_period(userId, config):
-    transactionType = config["transactionTypeDeposit"]
+    transactionType = config["transactionType"]
     mostRecentFlagTimeForRule = config["latestFlagTime"]
     periodInMonths = config["sixMonthsPeriod"]
     givenDateInMilliseconds = convert_date_string_to_millisecond_int(calculate_date_n_months_ago(periodInMonths), HOUR_MARKING_START_OF_DAY)
@@ -179,7 +179,7 @@ def fetch_user_average_transaction_within_months_period(userId, config):
 
     query = (
         """
-        select avg(`amount`) as `averageDepositDuringPastPeriodInMonths` 
+        select avg(`amount`) as `averageSavingEventDuringPastPeriodInMonths` 
         from `{full_table_url}` 
         where transaction_type = @transactionType 
         and `user_id` = @userId
@@ -196,12 +196,12 @@ def fetch_user_average_transaction_within_months_period(userId, config):
     ]
 
     bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(query, query_params)
-    averageDepositInHundredthCentList = extract_key_value_from_first_item_of_big_query_response(bigQueryResponse, 'averageDepositDuringPastPeriodInMonths')
-    averageDepositInWholeCurrency = convert_amount_from_hundredth_cent_to_whole_currency(averageDepositInHundredthCentList)
-    return averageDepositInWholeCurrency
+    averageSavingEventInHundredthCentList = extract_key_value_from_first_item_of_big_query_response(bigQueryResponse, 'averageSavingEventDuringPastPeriodInMonths')
+    averageSavingEventInWholeCurrency = convert_amount_from_hundredth_cent_to_whole_currency(averageSavingEventInHundredthCentList)
+    return averageSavingEventInWholeCurrency
 
 def fetch_count_of_user_transactions_larger_than_benchmark(userId, config):
-    transactionType = config["transactionTypeDeposit"]
+    transactionType = config["transactionType"]
     mostRecentFlagTimeForRule = config["latestFlagTime"]
     benchmark = convert_amount_from_given_unit_to_hundredth_cent(config["hundredThousandBenchmark"], 'WHOLE_CURRENCY')
 
@@ -216,7 +216,7 @@ def fetch_count_of_user_transactions_larger_than_benchmark(userId, config):
 
     query = (
         """
-        select count(*) as `countOfDepositsGreaterThanBenchMarkDeposit`
+        select count(*) as `countOfSavingEventsGreaterThanBenchMarkSavingEvent`
         from `{full_table_url}`
         where `amount` > @benchmark and transaction_type = @transactionType
         and `user_id` = @userId
@@ -232,12 +232,12 @@ def fetch_count_of_user_transactions_larger_than_benchmark(userId, config):
     ]
 
     bigQueryResponse = fetch_data_as_list_from_user_behaviour_table(query, query_params)
-    countOfDepositsGreaterThanBenchMarkDeposit = extract_key_value_from_first_item_of_big_query_response(bigQueryResponse, 'countOfDepositsGreaterThanBenchMarkDeposit')
-    return countOfDepositsGreaterThanBenchMarkDeposit
+    countOfSavingEventsGreaterThanBenchMarkSavingEvent = extract_key_value_from_first_item_of_big_query_response(bigQueryResponse, 'countOfSavingEventsGreaterThanBenchMarkSavingEvent')
+    return countOfSavingEventsGreaterThanBenchMarkSavingEvent
 
 
 def fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(userId, config):
-    transactionType = config["transactionTypeDeposit"]
+    transactionType = config["transactionType"]
     mostRecentFlagTimeForRule = config["latestFlagTime"]
     benchmark = convert_amount_from_given_unit_to_hundredth_cent(config["fiftyThousandBenchmark"], 'WHOLE_CURRENCY')
     periodInMonths = config["sixMonthsPeriod"]
@@ -265,7 +265,7 @@ def fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(
     )
 
     query_params = [
-        bigquery.ScalarQueryParameter("transactionType", "STRING", DEPOSIT_TRANSACTION_TYPE),
+        bigquery.ScalarQueryParameter("transactionType", "STRING", SAVING_EVENT_TRANSACTION_TYPE),
         bigquery.ScalarQueryParameter("userId", "STRING", userId),
         bigquery.ScalarQueryParameter("benchmark", "INT64", benchmark),
         bigquery.ScalarQueryParameter("givenTime", "INT64", givenDateInMilliseconds),
@@ -314,34 +314,34 @@ def fetch_withdrawals_during_days_cycle(userId, config):
     withdrawalsDuringDaysList = fetch_transactions_during_days_cycle(userId, config, WITHDRAWAL_TRANSACTION_TYPE)
     return withdrawalsDuringDaysList
 
-def fetch_deposits_during_days_cycle(userId, config):
-    depositsDuringDaysList = fetch_transactions_during_days_cycle(userId, config, DEPOSIT_TRANSACTION_TYPE)
-    return depositsDuringDaysList
+def fetch_saving_events_during_days_cycle(userId, config):
+    savingEventsDuringDaysList = fetch_transactions_during_days_cycle(userId, config, SAVING_EVENT_TRANSACTION_TYPE)
+    return savingEventsDuringDaysList
 
 def convert_milliseconds_to_hours(millisecond_value):
     return int(millisecond_value) / (SECOND_TO_MILLISECOND_FACTOR * SECONDS_IN_AN_HOUR)
 
 def calculate_time_difference_in_hours_between_timestamps(withdrawalTimestampInMilliseconds, savingEventTimestampInMilliseconds):
     print(
-        "Calculating the time difference in hours between withdrawal timestamp: {withdrawalTimestampInMilliseconds} and deposit timestamp: {savingEventTimestampInMilliseconds}"
+        "Calculating the time difference in hours between withdrawal timestamp: {withdrawalTimestampInMilliseconds} and saving_event timestamp: {savingEventTimestampInMilliseconds}"
         .format(withdrawalTimestampInMilliseconds=withdrawalTimestampInMilliseconds, savingEventTimestampInMilliseconds=savingEventTimestampInMilliseconds)
           )
 
     timeDifferenceInHours = convert_milliseconds_to_hours(withdrawalTimestampInMilliseconds - savingEventTimestampInMilliseconds)
 
     print(
-        "Time difference in hours between withdrawal at: {withdrawalTimestampInMilliseconds} and deposit at {savingEventTimestampInMilliseconds} is {timeDifferenceInHours} hours"
+        "Time difference in hours between withdrawal at: {withdrawalTimestampInMilliseconds} and saving_event at {savingEventTimestampInMilliseconds} is {timeDifferenceInHours} hours"
         .format(withdrawalTimestampInMilliseconds=withdrawalTimestampInMilliseconds, savingEventTimestampInMilliseconds=savingEventTimestampInMilliseconds, timeDifferenceInHours=timeDifferenceInHours)
     )
     return timeDifferenceInHours
 
-def withdrawal_within_tolerance_range_of_deposit_amount(withdrawalAmount, depositAmount):
-    minimumMatchingDepositForToleranceRange = depositAmount * ERROR_TOLERANCE_PERCENTAGE_FOR_DEPOSITS
+def withdrawal_within_tolerance_range_of_saving_event_amount(withdrawalAmount, savingEventAmount):
+    minimumMatchingSavingEventForToleranceRange = savingEventAmount * ERROR_TOLERANCE_PERCENTAGE_FOR_SAVING_EVENTS
     print(
-        "Checking if withdrawal amount: {withdrawalAmount} is within tolerance range of minimum amount: {minimumAmount} to deposited amount: {depositAmount}"
-        .format(withdrawalAmount=withdrawalAmount, minimumAmount=minimumMatchingDepositForToleranceRange, depositAmount=depositAmount)
+        "Checking if withdrawal amount: {withdrawalAmount} is within tolerance range of minimum amount: {minimumAmount} to saving_event amount: {savingEventAmount}"
+        .format(withdrawalAmount=withdrawalAmount, minimumAmount=minimumMatchingSavingEventForToleranceRange, savingEventAmount=savingEventAmount)
     )
-    return minimumMatchingDepositForToleranceRange <= withdrawalAmount <= depositAmount
+    return minimumMatchingSavingEventForToleranceRange <= withdrawalAmount <= savingEventAmount
 
 def time_difference_less_than_or_equal_given_hours(timeDifference, numOfHours):
     print(
@@ -350,54 +350,54 @@ def time_difference_less_than_or_equal_given_hours(timeDifference, numOfHours):
     )
     return timeDifference <= numOfHours
 
-def check_each_withdrawal_against_deposit_for_flagged_withdrawals(withdrawals, deposits, numOfHours):
-    print('Checking each withdrawal against deposits in search of flagged withdrawals')
+def check_each_withdrawal_against_saving_event_for_flagged_withdrawals(withdrawals, saving_events, numOfHours):
+    print('Checking each withdrawal against saving_events in search of flagged withdrawals')
     count_of_flagged_withdrawals = 0
 
-    # loop over {withdrawal amounts / time} and compare with each {deposited amounts / time}
+    # loop over {withdrawal amounts / time} and compare with each {saving_event amounts / time}
     for mapOfWithdrawalAmountAndTimeTransactionOccurred in withdrawals:
         withdrawalAmount = mapOfWithdrawalAmountAndTimeTransactionOccurred["amount"]
         timeOfWithdrawal = mapOfWithdrawalAmountAndTimeTransactionOccurred["time_transaction_occurred"]
 
-        for mapOfDepositAmountAndTimeTransactionOccurred in deposits:
-            depositAmount = mapOfDepositAmountAndTimeTransactionOccurred["amount"]
+        for mapOfSavingEventAmountAndTimeTransactionOccurred in saving_events:
+            savingEventAmount = mapOfSavingEventAmountAndTimeTransactionOccurred["amount"]
             print(
-                "Comparing withdrawal: {withdrawalAmount} against deposit: {depositAmount}"
-                .format(withdrawalAmount=withdrawalAmount, depositAmount=depositAmount)
+                "Comparing withdrawal: {withdrawalAmount} against saving_event: {savingEventAmount}"
+                .format(withdrawalAmount=withdrawalAmount, savingEventAmount=savingEventAmount)
             )
-            if withdrawal_within_tolerance_range_of_deposit_amount(withdrawalAmount, depositAmount):
-                print("Withdrawal: {} is within tolerance range of deposit".format(withdrawalAmount))
-                timeOfDeposit = mapOfDepositAmountAndTimeTransactionOccurred["time_transaction_occurred"]
-                timeBetweenDepositAndWithdrawal = calculate_time_difference_in_hours_between_timestamps(timeOfWithdrawal, timeOfDeposit)
+            if withdrawal_within_tolerance_range_of_saving_event_amount(withdrawalAmount, savingEventAmount):
+                print("Withdrawal: {} is within tolerance range of saving_event".format(withdrawalAmount))
+                timeOfSavingEvent = mapOfSavingEventAmountAndTimeTransactionOccurred["time_transaction_occurred"]
+                timeBetweenSavingEventAndWithdrawal = calculate_time_difference_in_hours_between_timestamps(timeOfWithdrawal, timeOfSavingEvent)
 
-                if time_difference_less_than_or_equal_given_hours(timeBetweenDepositAndWithdrawal, numOfHours):
+                if time_difference_less_than_or_equal_given_hours(timeBetweenSavingEventAndWithdrawal, numOfHours):
                     print("Withdrawal {} has been flagged. Increase counter by 1".format(withdrawalAmount))
                     count_of_flagged_withdrawals += 1
 
 
     return count_of_flagged_withdrawals
 
-def calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(userId, config):
+def calculate_count_of_withdrawals_within_hours_of_saving_events_during_days_cycle(userId, config):
     numOfHours = config["numOfHours"]
     numOfDays = config["numOfDays"]
     mostRecentFlagTimeForRule = config["latestFlagTime"]
 
     print(
         """
-        Calculate count of withdrawals within {numOfHours} hours of depositing during a {numOfDays} days 
+        Calculate count of withdrawals within {numOfHours} hours of saving_event during a {numOfDays} days 
         cycle for user id: {userId}.
         Considering transactions after most recent flag time for rule: {latest_flag_time}
         """
         .format(numOfHours=numOfHours, numOfDays=numOfDays, userId=userId, latest_flag_time=mostRecentFlagTimeForRule)
     )
     withdrawalsDuringDaysList = fetch_withdrawals_during_days_cycle(userId, config)
-    depositsDuringDaysList = fetch_deposits_during_days_cycle(userId, config)
+    savingEventsDuringDaysList = fetch_saving_events_during_days_cycle(userId, config)
 
-    count_of_flagged_withdrawals = check_each_withdrawal_against_deposit_for_flagged_withdrawals(withdrawalsDuringDaysList, depositsDuringDaysList, numOfHours)
+    count_of_flagged_withdrawals = check_each_withdrawal_against_saving_event_for_flagged_withdrawals(withdrawalsDuringDaysList, savingEventsDuringDaysList, numOfHours)
 
     print(
         """
-        Count of withdrawals within {numOfHours} hours of depositing during a {numOfDays} days cycle 
+        Count of withdrawals within {numOfHours} hours of saving_eventing during a {numOfDays} days cycle 
         for user id: {userId}. Counter: {count_of_withdrawals}
         Considered transactions after most recent flag time for rule: {latest_flag_time}
         """
@@ -467,70 +467,70 @@ def fetch_user_behaviour_based_on_rules(request):
         # ruleConfigs = [assembleConfigForRule(label, ruleCutOffTimes, ruleDefaults) for label in rulesToExecute]
         # ruleResults = [generic_rule_executor(ruleConfig) for ruleConfig in ruleConfigs]
 
-        # Single deposit larger than R100 000, use cut off time if it exists, else twenty years ago means prior to system birth
-        countOfDepositsGreaterThanHundredThousand = fetch_count_of_user_transactions_larger_than_benchmark(
+        # Single saving_event larger than R100 000, use cut off time if it exists, else twenty years ago means prior to system birth
+        countOfSavingEventsGreaterThanHundredThousand = fetch_count_of_user_transactions_larger_than_benchmark(
             userId,
             {
-                "transactionTypeDeposit": DEPOSIT_TRANSACTION_TYPE,
-                "hundredThousandBenchmark": FIRST_BENCHMARK_DEPOSIT,
-                "latestFlagTime": extract_last_flag_time_or_default_time("single_very_large_deposit", ruleCutOffTimes)
+                "transactionType": SAVING_EVENT_TRANSACTION_TYPE,
+                "hundredThousandBenchmark": FIRST_BENCHMARK_SAVING_EVENT,
+                "latestFlagTime": extract_last_flag_time_or_default_time("single_very_large_saving_event", ruleCutOffTimes)
             }
         )
 
-        # More than 3 deposits larger than R50 000 within a 6 month period
-        countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod = fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(
+        # More than 3 saving_events larger than R50 000 within a 6 month period
+        countOfSavingEventsGreaterThanBenchmarkWithinSixMonthPeriod = fetch_count_of_user_transactions_larger_than_benchmark_within_months_period(
             userId,
             {
-                "transactionTypeDeposit": DEPOSIT_TRANSACTION_TYPE,
-                "fiftyThousandBenchmark": SECOND_BENCHMARK_DEPOSIT,
+                "transactionType": SAVING_EVENT_TRANSACTION_TYPE,
+                "fiftyThousandBenchmark": SECOND_BENCHMARK_SAVING_EVENT,
                 "sixMonthsPeriod": SIX_MONTHS_INTERVAL,
-                "latestFlagTime": extract_last_flag_time_or_default_time("deposits_greater_than_benchmark_within_six_months", ruleCutOffTimes)
+                "latestFlagTime": extract_last_flag_time_or_default_time("saving_events_greater_than_benchmark_within_six_months", ruleCutOffTimes)
             }
         )
 
-        # If latest inward deposit > 10x past 6 month average deposit
-        latestDeposit = fetch_user_latest_transaction(
+        # If latest inward saving_event > 10x past 6 month average saving_event
+        latestSavingEvent = fetch_user_latest_transaction(
             userId,
             {
-                "transactionTypeDeposit": DEPOSIT_TRANSACTION_TYPE,
-                "latestFlagTime": extract_last_flag_time_or_default_time("latest_deposit_greater_than_six_months_average", ruleCutOffTimes)
+                "transactionType": SAVING_EVENT_TRANSACTION_TYPE,
+                "latestFlagTime": extract_last_flag_time_or_default_time("latest_saving_event_greater_than_six_months_average", ruleCutOffTimes)
             }
         )
-        sixMonthAverageDeposit = fetch_user_average_transaction_within_months_period(
+        sixMonthAverageSavingEvent = fetch_user_average_transaction_within_months_period(
             userId,
             {
-                "transactionTypeDeposit": DEPOSIT_TRANSACTION_TYPE,
+                "transactionType": SAVING_EVENT_TRANSACTION_TYPE,
                 "sixMonthsPeriod": SIX_MONTHS_INTERVAL,
-                "latestFlagTime": extract_last_flag_time_or_default_time("latest_deposit_greater_than_six_months_average", ruleCutOffTimes)
+                "latestFlagTime": extract_last_flag_time_or_default_time("latest_saving_event_greater_than_six_months_average", ruleCutOffTimes)
             }
         )
-        sixMonthAverageDepositMultipliedByN = sixMonthAverageDeposit * MULTIPLIER_OF_SIX_MONTHS_AVERAGE_DEPOSIT
+        sixMonthAverageSavingEventMultipliedByN = sixMonthAverageSavingEvent * MULTIPLIER_OF_SIX_MONTHS_AVERAGE_SAVING_EVENT
 
-        countOfWithdrawalsWithin48HoursOfDepositDuringA30DayCycle = calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(
+        countOfWithdrawalsWithin48HoursOfSavingEventDuringA30DayCycle = calculate_count_of_withdrawals_within_hours_of_saving_events_during_days_cycle(
             userId,
             {
                 "numOfHours": HOURS_IN_TWO_DAYS,
                 "numOfDays": DAYS_IN_A_MONTH,
-                "latestFlagTime": extract_last_flag_time_or_default_time("withdrawals_within_two_days_of_deposits_during_one_month", ruleCutOffTimes)
+                "latestFlagTime": extract_last_flag_time_or_default_time("withdrawals_within_two_days_of_saving_events_during_one_month", ruleCutOffTimes)
             }
         )
-        countOfWithdrawalsWithin24HoursOfDepositDuringA7DayCycle = calculate_count_of_withdrawals_within_hours_of_deposits_during_days_cycle(
+        countOfWithdrawalsWithin24HoursOfSavingEventDuringA7DayCycle = calculate_count_of_withdrawals_within_hours_of_saving_events_during_days_cycle(
             userId,
             {
                 "numOfHours": HOURS_IN_A_DAY,
                 "numOfDays": DAYS_IN_A_WEEK,
-                "latestFlagTime": extract_last_flag_time_or_default_time("withdrawals_within_one_day_of_deposits_during_one_week", ruleCutOffTimes)
+                "latestFlagTime": extract_last_flag_time_or_default_time("withdrawals_within_one_day_of_saving_events_during_one_week", ruleCutOffTimes)
             }
         )
 
         response = {
             "userAccountInfo": userAccountInfo,
-            "countOfDepositsGreaterThanHundredThousand": countOfDepositsGreaterThanHundredThousand,
-            "countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod": countOfDepositsGreaterThanBenchmarkWithinSixMonthPeriod,
-            "latestDeposit": latestDeposit,
-            "sixMonthAverageDepositMultipliedByN": sixMonthAverageDepositMultipliedByN,
-            "countOfWithdrawalsWithin48HoursOfDepositDuringA30DayCycle": countOfWithdrawalsWithin48HoursOfDepositDuringA30DayCycle,
-            "countOfWithdrawalsWithin24HoursOfDepositDuringA7DayCycle": countOfWithdrawalsWithin24HoursOfDepositDuringA7DayCycle
+            "countOfSavingEventsGreaterThanHundredThousand": countOfSavingEventsGreaterThanHundredThousand,
+            "countOfSavingEventsGreaterThanBenchmarkWithinSixMonthPeriod": countOfSavingEventsGreaterThanBenchmarkWithinSixMonthPeriod,
+            "latestSavingEvent": latestSavingEvent,
+            "sixMonthAverageSavingEventMultipliedByN": sixMonthAverageSavingEventMultipliedByN,
+            "countOfWithdrawalsWithin48HoursOfSavingEventDuringA30DayCycle": countOfWithdrawalsWithin48HoursOfSavingEventDuringA30DayCycle,
+            "countOfWithdrawalsWithin24HoursOfSavingEventDuringA7DayCycle": countOfWithdrawalsWithin24HoursOfSavingEventDuringA7DayCycle
         }
         print("Done fetching user behaviour shaped by rules. Response: {}".format(response))
         return json.dumps(response), 200
@@ -584,8 +584,8 @@ def extract_amount_unit_and_currency(savedAmount):
     }
 
 def determine_transaction_type_from_event_type(eventType):
-    if eventType == SUPPORTED_EVENT_TYPES["deposit_event"]:
-        return DEPOSIT_TRANSACTION_TYPE
+    if eventType == SUPPORTED_EVENT_TYPES["saving_event"]:
+        return SAVING_EVENT_TRANSACTION_TYPE
 
     if eventType == SUPPORTED_EVENT_TYPES["withdrawal_event"]:
         return WITHDRAWAL_TRANSACTION_TYPE

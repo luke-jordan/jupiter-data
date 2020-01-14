@@ -45,8 +45,7 @@ const publishMessageToPubSub = async (message, res) => {
 
 const confirmSubscriptionToBroker = async (message, res) => {
     logger(`Confirming subscription at url: ${message.SubscribeURL}`);
-    // SNS subscriptions are confirmed by requesting the special URL sent
-    // by the service as a confirmation
+    // SNS subscriptions are confirmed by requesting the special URL sent by the service as a confirmation
     https.get(message.SubscribeURL, (subRes) => {
         logger(`statusCode: ${subRes.statusCode}`);
         logger(`headers: ${JSON.stringify(subRes.headers)}`);
@@ -68,7 +67,6 @@ const processMessageBasedOnType = async (message, res) => {
         return;
     }
 
-    // here we handle either a request to confirm subscription
     if (message.Type && message.Type.toLowerCase() === SUBSCRIPTION_CONFIRMATION) {
         await confirmSubscriptionToBroker(message, res);
     }
