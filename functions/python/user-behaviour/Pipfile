@@ -10,6 +10,9 @@ google-cloud-storage = "*"
 google-cloud-bigquery = "*"
 python-dotenv = "*"
 requests = "*"
+pytest = "*"
+coverage = "*"
+mock = "*"
 
 [requires]
 python_version = "3.7"

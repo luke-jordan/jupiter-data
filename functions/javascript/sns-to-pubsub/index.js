@@ -2,92 +2,101 @@
 
 // We use the https library to confirm the SNS subscription
 const https = require('https');
-
-// import the Google Cloud Pubsub client library
 const { PubSub } = require('@google-cloud/pubsub');
-
-// our pubsub client
 const pubsub = new PubSub();
-
-// the cloud pubsub topic we will publish messages to
 const topicName = 'sns-events';
-
 const authValidator = require('./libs/auth-validator');
+const logger = require('debug')('jupiter:sns-to-pubsub');
+const httpStatus = require('http-status');
+const { httpMethods, SUBSCRIPTION_CONFIRMATION } = require('./constants');
 
-async function processMessageBasedOnType(message, res) {
-    if (message && message.eventType) {
-        try {
-            console.log('Converting message to buffer');
-            /**
-             * `neededParams` is sent as array as the function that would load the data into big query expects an array
-             * The keys: `user_id`, `event_type`, `timestamp` and `context match the schema of `all_user_events` table in big query
-             * Please do not change the key names in `neededParams` without updating the schema of all_user_events table in big query
-            */
-            const neededParams = [{
-                user_id: message.userId,
-                event_type: message.eventType,
-                time_transaction_occurred: message.timestamp,
-                context: (message.context ? JSON.stringify(message.context) : ''),
-            }];
-            const msgData = Buffer.from(JSON.stringify(neededParams));
+const {
+    POST
+} = httpMethods;
 
-            console.log('Sending message to pub/sub. Buffered message:', msgData);
-            const messageId = await pubsub.topic(topicName).publish(msgData);
-            console.log(`Message published with id: ${messageId}`);
-            res.status(200).end(messageId);
-            return;
-        } catch(error) {
-            console.error('Error while publishing to pub/sub', error);
-        }
+const publishMessageToPubSub = async (message, res) => {
+    try {
+        logger('Converting message to buffer');
+
+        /**
+         * `neededParams` is sent as array as the function that would load the data into big query expects an array
+         * The keys: `user_id`, `event_type`, `timestamp` and `context match the schema of `all_user_events` table in big query
+         * Please do not change the key names in `neededParams` without updating the schema of all_user_events table in big query
+         */
+        /* eslint-disable camelcase */
+        const neededParams = [{
+            user_id: message.userId,
+            event_type: message.eventType,
+            time_transaction_occurred: message.timestamp,
+            context: message.context ? JSON.stringify(message.context) : ''
+        }];
+        /* eslint-enable camelcase */
+        const msgData = Buffer.from(JSON.stringify(neededParams));
+
+        logger(`Sending message to pub/sub. Buffered message: ${JSON.stringify(msgData)}`);
+        const messageId = await pubsub.topic(topicName).publish(msgData);
+        logger(`Message published with id: ${messageId}`);
+        res.status(httpStatus.OK).end(messageId);
+    } catch (error) {
+        logger(`Error while publishing to pub/sub. Error: ${JSON.stringify(error.message)}`);
+        throw error;
     }
+};
 
-    // here we handle either a request to confirm subscription
-    if (message.Type && message.Type.toLowerCase() === 'subscriptionconfirmation') {
-        console.log(`Confirming subscription: ${message.SubscribeURL}`);
-        // SNS subscriptions are confirmed by requesting the special URL sent
-        // by the service as a confirmation
-        https.get(message.SubscribeURL, (subRes) => {
-            console.log('statusCode:', subRes.statusCode);
-            console.log('headers:', subRes.headers);
+const confirmSubscriptionToBroker = async (message, res) => {
+    logger(`Confirming subscription at url: ${message.SubscribeURL}`);
+    // SNS subscriptions are confirmed by requesting the special URL sent by the service as a confirmation
+    https.get(message.SubscribeURL, (subRes) => {
+        logger(`statusCode: ${subRes.statusCode}`);
+        logger(`headers: ${JSON.stringify(subRes.headers)}`);
 
-            subRes.on('data', (d) => {
-                console.log(d);
-                res.status(200).end('ok');
-            });
-        }).on('error', (e) => {
-            console.error(e);
-            res.status(500).end('Confirmation failed');
+        subRes.on('data', (data) => {
+            logger(data);
+            res.status(httpStatus.OK).end('ok');
         });
+    }).on('error', (err) => {
+        logger(`Error occurred while confirming subscription at url: ${message.SubscribeURL}.
+        Error: ${JSON.stringify(err.message)}`);
+        res.status(httpStatus.INTERNAL_SERVER_ERROR).end('Subscription Confirmation failed');
+    });
+};
+
+const processMessageBasedOnType = async (message, res) => {
+    if (message && message.eventType) {
+        await publishMessageToPubSub(message, res);
         return;
     }
-}
 
-/**
- * Cloud Function.
- * @param {req} request The web request from SNS.
- * @param {res} The response returned from this function.
- */
-exports.receiveNotification  = function receiveNotification (req, res) {
-    // we only respond to POST method HTTP requests
-    if (req.method !== 'POST') {
-        res.status(405).end('Only post method accepted');
+    if (message.Type && message.Type.toLowerCase() === SUBSCRIPTION_CONFIRMATION) {
+        await confirmSubscriptionToBroker(message, res);
+    }
+};
+
+const receiveNotification = async (req, res) => {
+    if (req.method !== POST) {
+        res.status(httpStatus.METHOD_NOT_ALLOWED).end(`Only ${POST} http method accepted`);
         return;
     }
 
     // all valid SNS requests should have this header
     const snsHeader = req.get('x-amz-sns-message-type');
-    if (snsHeader === undefined) {
-        res.status(403).end('Invalid SNS message => at amz header');
+    if (!snsHeader) {
+        res.status(httpStatus.UNAUTHORIZED).end('Invalid SNS message => at amz header');
         return;
     }
 
     try {
         const message = JSON.parse(req.body);
-        console.log('JSON parsed message received: ', message);
+        logger(`JSON parsed message received: ${JSON.stringify(message)}`);
         authValidator(message.hash, message.eventType);
-        return processMessageBasedOnType(message, res);
-    } catch(error) {
-        console.error('Error occurred while sending sns to pubsub. Error: ', error);
-        res.status(400).end('Invalid SNS message => authentication or processing error');
+        await processMessageBasedOnType(message, res);
+        return;
+    } catch (error) {
+        logger(`Error occurred while sending sns to pubsub. Error: ${JSON.stringify(error.stack)}`);
+        res.status(httpStatus.BAD_REQUEST).end('Invalid SNS message => authentication or processing error');
     }
+};
+
+module.exports = {
+    receiveNotification
 };

@@ -1,4 +1,4 @@
-# Fetch From Big Query
+# Fetch Amplitude Data From Big Query
 
 This function is used to fetch data from Big Query. At the moment it only fetches amplitude data from big query.
 The table it fetches from is `ops.all_user_events`
@@ -15,11 +15,14 @@ The function is exposed via a https endpoint and accepts `POST` requests with re
 }
 ```
 
-The keys: `startDate` and `endDate` serve as interval dates for which the search would be carried out
+The key: `startDate` uses hour "00:00:00" indicating start of day. 
+Key: `endDate` uses hour "23:59:59" indicating end of day.
+Both keys serve as interval dates for which the search would be carried out
 i.e. fetch me data that occurs between that interval.
 
 The key `eventTypes` accepts all the Amplitude events one wants to query for. 
-A sample response is below:
+
+A sample response to the request is below:
 
  ```
 [

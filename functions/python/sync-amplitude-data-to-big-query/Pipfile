@@ -29,6 +29,9 @@ rsa = "==4.0"
 six = "==1.12.0"
 soupsieve = "==1.9.4"
 urllib3 = "==1.25.6"
+pytest = "*"
+coverage = "*"
+mock = "*"
 
 [requires]
 python_version = "3.7"

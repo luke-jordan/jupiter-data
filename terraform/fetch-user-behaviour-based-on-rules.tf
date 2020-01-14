@@ -5,7 +5,7 @@ resource "google_cloudfunctions_function" "fetch-user-behaviour-based-on-rules-f
   source_archive_bucket = "${var.gcp_bucket_prefix[terraform.workspace]}-user-behaviour-bucket"
   source_archive_object = "user_behaviour_${var.deploy_code_commit_hash}.zip"
   timeout = 120
-  entry_point = "fetchUserBehaviourBasedOnRules"
+  entry_point = "fetch_user_behaviour_based_on_rules"
   trigger_http = true
   runtime = "python37"
 }
