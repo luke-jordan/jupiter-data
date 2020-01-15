@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # This script was written by Martijn Scheijbeler: https://github.com/martijnsch/amplitude-bigquery
-# Bolu Ajibawo did add a bunch of tweaks :)
+# Bolu Ajibawo extended it to serve JupiterSave's needs
 
 import gzip
 import json
@@ -81,7 +81,7 @@ def convert_text_to_json(filename, lines):
 
     # Loop through the JSON lines
     for line in lines:
-        events_line = process_line_json(line)
+        events_line = process_line_json(line, fetch_current_time_in_milliseconds())
         import_events_file.write(events_line + "\r\n")
 
     # Close the file
@@ -130,6 +130,7 @@ def file_list(extension):
     return files
 
 
+# inputted filename has a '.gz.json' extension e.g. '240333_2019-11-14_21#327.gz.json'
 def file_json(filename):
     return filename.replace('.gz', '')
 
@@ -142,19 +143,16 @@ def upload_file_to_gcs(path_to_file, new_filename, folder=''):
     blob.upload_from_filename(path_to_file)
     print("Completed upload of file: {name} to gcs folder: {folder}".format(name=path_to_file, folder=folder))
 
-def import_json_url(filename):
+def construct_gcs_import_url(filename):
     return "gs://{bucket}/{folder}/{name}".format(bucket=CLOUD_STORAGE_BUCKET, folder=FORMATTED_FILES_GCS_FOLDER, name=filename)
-
 
 def value_def(value):
     value = None if value == 'null' else value
     return value
 
-
 def value_paying(value):
     value = False if value is None else value
     return value
-
 
 def load_gcs_file_into_bigquery(path_to_file, table):
     print("Loading json file: {name} from gcs into big query".format(name=path_to_file))
@@ -189,19 +187,17 @@ def convert_date_string_to_millisecond_int(dateTimeString):
     )
     return int(timeInMilliSecond)
 
-def process_line_json(line):
+def process_line_json(line, current_time):
     parsed = json.loads(line)
     if parsed:
         context_data = {}
-        properties = []
         context_data['client_event_time'] = value_def(parsed['client_event_time'])
         context_data['ip_address'] = value_def(parsed['ip_address'])
         context_data['library'] = value_def(parsed['library'])
         context_data['dma'] = value_def(parsed['dma'])
         context_data['user_creation_time'] = value_def(parsed['user_creation_time'])
-        context_data['insert_id'] = value_def(parsed['$insert_id'])
-        context_data['schema'] = value_def(parsed['$schema'])
-        context_data['processed_time'] = "{d}".format(d=datetime.utcnow())
+        context_data['insert_id'] = value_def(parsed['insert_id'])
+        context_data['schema'] = value_def(parsed['schema'])
         context_data['client_upload_time'] = value_def(parsed['client_upload_time'])
         context_data['app'] = value_def(parsed['app'])
         context_data['user_id'] = value_def(parsed['user_id'])
@@ -238,25 +234,26 @@ def process_line_json(line):
         context_data['idfa'] = value_def(parsed['idfa'])
         context_data['reference_time'] = value_def(parsed['client_event_time'])
 
+        properties = []
         # Loop through DICTs and save all properties
         for property_value in PROPERTIES:
-            for key, value in parsed[property_value].items():
-                value = 'True' if value is True else value
-                value = 'False' if value is False else value
-                properties.append({'property_type': property_value,
-                                   'insert_id': value_def(parsed['$insert_id']),
-                                   'key': value_def(key),
-                                   'value': value})
+            if property_value in parsed:
+                for key, value in parsed[property_value].items():
+                    value = 'True' if value is True else value
+                    value = 'False' if value is False else value
+                    properties.append({'property_type': property_value,
+                                       'insert_id': value_def(parsed['$insert_id']),
+                                       'key': value_def(key),
+                                       'value': value})
         context_data['event_properties'] = properties
 
         row_for_all_events_table = {}
-        time_in_milliseconds_now = fetch_current_time_in_milliseconds()
         row_for_all_events_table['user_id'] = value_def(parsed['user_id'])
         row_for_all_events_table['event_type'] = value_def(parsed['event_type'])
         row_for_all_events_table['time_transaction_occurred'] = convert_date_string_to_millisecond_int(value_def(parsed['client_event_time']))
         row_for_all_events_table['source_of_event'] = SOURCE_OF_EVENT
-        row_for_all_events_table['created_at'] = time_in_milliseconds_now
-        row_for_all_events_table['updated_at'] = time_in_milliseconds_now
+        row_for_all_events_table['created_at'] = current_time
+        row_for_all_events_table['updated_at'] = current_time
         row_for_all_events_table['context'] = json.dumps(context_data)
 
     return json.dumps(row_for_all_events_table)
@@ -291,7 +288,7 @@ def remove_local_files_for_gz_extracts(file):
 
 def process_gzip_files_in_root_location(day):
     # Loop through all new files, unzip them & remove the .gz
-    print("Processing .gz files in root location: {name}".format(name=UNZIPPED_FILE_ROOT_LOCATION))
+    print("Processing .gz files in root location: {name} for day: {day}".format(name=UNZIPPED_FILE_ROOT_LOCATION, day=day))
     for file in file_list('.gz'):
         print("Parsing file: {name}".format(name=file))
         lines = unzip_gzip(file)
@@ -302,7 +299,7 @@ def process_gzip_files_in_root_location(day):
         upload_file_to_gcs(path_to_events_file_on_local, FILE_NAME_JSON, FORMATTED_FILES_GCS_FOLDER)
 
         # Import data from Google Cloud Storage into Google BigQuery
-        load_gcs_file_into_bigquery(import_json_url(FILE_NAME_JSON), 'all_user_events')
+        load_gcs_file_into_bigquery(construct_gcs_import_url(FILE_NAME_JSON), 'all_user_events')
         print("===========================================================================")
         print("===========================================================================")
         print("======Completed Import from Amplitude to Big Query for: {file}======".format(file=FILE_NAME_JSON))
@@ -342,7 +339,7 @@ def signal_operation_complete(day):
 ###############################################################################
 
 # `event` and `context` are parameters supplied when pub-sub calls this function, these parameters are not being used now
-def main(event, context):
+def sync_amplitude_data_to_big_query(event, context):
     YESTERDAY = retrieve_yesterdays_date()
 
     try:

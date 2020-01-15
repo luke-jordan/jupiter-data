@@ -108,7 +108,7 @@ We would like to detect dodgy users. Users that are suspected to have made fraud
 Our architecture involves 4 different functions in order to achieve this.
 
 The flow of fraud detection starts with the `python/user-behaviour` folder which contain two functions in one file.
-The `updateUserBehaviourAndTriggerFraudDetector` (referred to as: `update user behaviour`) and `fetchUserBehaviourBasedOnRules` 
+The `update_user_behaviour_and_trigger_fraud_detector` (referred to as: `update user behaviour`) and `fetch_user_behaviour_based_on_rules` 
 (referred to as: `fetch user behaviour`) functions.
 
 Step 1: **`update user behaviour` logs new user behaviour**. 
@@ -155,7 +155,7 @@ Diagram of flow of Fraud Detection
 
 
 
-No http endpoint is exposed for `user behaviour`'s first function => `updateUserBehaviourAndTriggerFraudDetector` 
+No http endpoint is exposed for `user behaviour`'s first function => `update_user_behaviour_and_trigger_fraud_detector` 
 (`python/user-behaviour`) as the function is triggered by the Pub/Sub topic: `sns-events`
  
 Http Endpoints for `fraud detector` function => `fetchFactsAboutUserAndRunEngine` (`javascript/fraud-detector`): 
@@ -163,7 +163,7 @@ Staging Endpoint: [https://us-central1-jupiter-ml-alpha.cloudfunctions.net/fraud
 Production Endpoint: [https://europe-west1-jupiter-production-258809.cloudfunctions.net/fraud-detector](https://europe-west1-jupiter-production-258809.cloudfunctions.net/fraud-detector)
 
 
-Http Endpoints for `user behaviour`'s second function =>`fetchUserBehaviourBasedOnRules` (`python/user-behaviour`):
+Http Endpoints for `user behaviour`'s second function =>`fetch_user_behaviour_based_on_rules` (`python/user-behaviour`):
 Staging Endpoint: [https://us-central1-jupiter-ml-alpha.cloudfunctions.net/fetch-user-behaviour-based-on-rules](https://us-central1-jupiter-ml-alpha.cloudfunctions.net/fetch-user-behaviour-based-on-rules)
 Production Endpoint: [https://europe-west1-jupiter-production-258809.cloudfunctions.net/fetch-user-behaviour-based-on-rules](https://europe-west1-jupiter-production-258809.cloudfunctions.net/fetch-user-behaviour-based-on-rules) 
 
@@ -239,18 +239,41 @@ That is all as per setup. You can now proceed to write your function and install
 
 
 ## Python Tests
+### Adding the test libraries to a python function
+1. Launch virtual environment. Run the following command from the terminal:
+```
+pipenv shell
+```
+
+2. To install the python testing tool:
+```
+pipenv install pytest
+```
+
+3. To install the python test coverage tool:
+```
+pipenv install coverage
+```
+
+4. To install the python mock tool:
+```
+pipenv install mock
+```
+
+
+### Running Tests
 Instructions for tests and test coverage in python functions i.e. functions in the folder: `functions/python`
-1. To run the tests only:
+1. To run the tests:
 ```
 pytest
 ```
 
-2. To run the tests with code coverage of the tests:
+1. To run a single test:
 ```
-coverage run -m --source=. pytest
+pytest -k {test_name}
 ```
 
-3. To view the test coverage report:
+2. To run the tests with code coverage:
 ```
-coverage report
+coverage run -m --source=. pytest && coverage report
 ```

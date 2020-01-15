@@ -9,6 +9,9 @@ verify_ssl = true
 google-cloud-storage = "*"
 google-cloud-bigquery = "*"
 python-dotenv = "*"
+pytest = "*"
+coverage = "*"
+mock = "*"
 
 [requires]
 python_version = "3.7"
