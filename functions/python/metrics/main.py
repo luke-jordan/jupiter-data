@@ -1,5 +1,6 @@
 import os
 import constant
+import datetime
 
 from google.cloud import bigquery
 from dotenv import load_dotenv
@@ -28,19 +29,71 @@ EXTERNAL_EVENT_SOURCE = constant.EXTERNAL_EVENT_SOURCE
 INTERNAL_EVENT_SOURCE = constant.INTERNAL_EVENT_SOURCE
 ENTERED_SAVINGS_FUNNEL_EVENT_CODE = constant.ENTERED_SAVINGS_FUNNEL_EVENT_CODE
 ENTERED_WITHDRAWAL_FUNNEL_EVENT_CODE = constant.ENTERED_WITHDRAWAL_FUNNEL_EVENT_CODE
+USER_COMPLETED_SIGNUP_EVENT_CODE = constant.USER_COMPLETED_SIGNUP_EVENT_CODE
+THREE_DAYS = constant.THREE_DAYS
+TWO_DAYS = constant.TWO_DAYS
+TODAY = constant.TODAY
+HOUR_MARKING_START_OF_DAY=constant.HOUR_MARKING_START_OF_DAY
+HOUR_MARKING_END_OF_DAY=constant.HOUR_MARKING_END_OF_DAY
+SECOND_TO_MILLISECOND_FACTOR=constant.SECOND_TO_MILLISECOND_FACTOR
+HUNDRED_PERCENT=constant.HUNDRED_PERCENT
+
+def convert_value_to_percentage(value):
+    return value * HUNDRED_PERCENT
+
+def calculate_date_n_days_ago(num):
+    print("calculating date: {n} days before today".format(n=num))
+    return (datetime.date.today() - datetime.timedelta(days=num)).isoformat()
+
+def convert_date_string_to_millisecond_int(dateString, hour):
+    print(
+        "Converting date string: {dateString} and hour: {hour} to milliseconds"
+            .format(dateString=dateString, hour=hour)
+    )
+
+    dateAndHour = "{dateString} {hour}".format(dateString=dateString, hour=hour)
+    date_object = datetime.datetime.strptime(dateAndHour, '%Y-%m-%d %H:%M:%S')
+    epoch = datetime.datetime.utcfromtimestamp(0)
+    timeInMilliSecond = (date_object - epoch).total_seconds() * SECOND_TO_MILLISECOND_FACTOR
+
+    print(
+        "Successfully converted date string: {dateString} and hour: {hour} to milliseconds: {timeInMilliSecond}"
+            .format(dateString=dateString, hour=hour, timeInMilliSecond=timeInMilliSecond)
+    )
+    return int(timeInMilliSecond)
 
 def convert_amount_from_hundredth_cent_to_whole_currency(amount):
     print("Converting amount from 'hundredth cent' to 'whole currency'. Amount: {}".format(amount))
     return float(amount) * FACTOR_TO_CONVERT_HUNDREDTH_CENT_TO_WHOLE_CURRENCY
 
-def extract_key_value_from_first_item_of_big_query_response(responseList, key):
-    if responseList and len(responseList) > 0:
-        firstItemOfList = responseList[0]
+def list_not_empty_or_undefined(given_list):
+    return given_list and len(given_list) > 0
+
+def extract_key_value_from_first_item_of_big_query_response(raw_response, key):
+    if list_not_empty_or_undefined(raw_response):
+        firstItemOfList = raw_response[0]
         value = firstItemOfList[key]
         print("Value of key '{key}' in big query response is: {value}".format(key=key, value=value))
         return value
 
     print("Big query response is empty")
+
+
+def extract_key_values_as_list_from_big_query_response(raw_response_as_list, key):
+    formatted_list = []
+    if list_not_empty_or_undefined(raw_response_as_list):
+        for item in raw_response_as_list:
+            key_value = item[key]
+            print("Value of key '{key}' in big query response is: {value}".format(key=key, value=key_value))
+            formatted_list.append(key_value)
+
+    print(
+        """
+        Big query response: {raw_response} has been formatted to list: {formatted_response}
+        """.format(raw_response=raw_response_as_list, formatted_response=formatted_list)
+    )
+
+    return formatted_list
 
 def convert_big_query_response_to_list(response):
     return list(response)
@@ -174,7 +227,7 @@ def fetch_count_of_users_that_performed_event(config):
         """
         select count(distinct(`user_id`)) as `countOfUsersThatPerformedEvent`
         from `{full_table_url}`
-        and `event_type` = @eventType
+        where `event_type` = @eventType
         and `source_of_event` = @sourceOfEvent
         and `time_transaction_occurred` >= @givenTime 
         """.format(full_table_url=ALL_USER_EVENTS_TABLE_URL)
@@ -210,7 +263,7 @@ def fetch_total_number_of_users():
         """
         select count(distinct(`user_id`)) as `totalNumberOfUsers`
         from `{full_table_url}`
-        and `source_of_event` = @sourceOfEvent
+        where `source_of_event` = @sourceOfEvent
         """.format(full_table_url=ALL_USER_EVENTS_TABLE_URL)
     )
 
@@ -245,6 +298,148 @@ def calculate_ratio_of_users_that_entered_app_today_versus_total_users(time_in_m
 
 def calculate_ratio_of_users_that_saved_versus_users_that_tried_saving(time_in_milliseconds):
     return fetch_count_of_users_that_saved_since_given_time(time_in_milliseconds) / fetch_count_of_users_that_tried_saving(time_in_milliseconds)
+
+def fetch_user_ids_that_performed_event_since_time(config):
+    event_type = config["event_type"]
+    source_of_event = config["source_of_event"]
+    least_time_to_consider = config["least_time_to_consider"]
+    max_time_to_consider = config["max_time_to_consider"]
+
+    print(
+        """
+        Fetching the user ids that performed event type: {event_type} signup since time: {least_time}
+        and max time: {max_time}
+        """.format(event_type=event_type, least_time=least_time_to_consider, max_time=max_time_to_consider)
+    )
+
+    query = (
+        """
+        select distinct(`user_id`) as `userIdsThatPerformedEventType`
+        from `{full_table_url}`
+        where `source_of_event` = @sourceOfEvent
+        and `event_type` = @eventType
+        and `time_transaction_occurred` >= @leastTimeToConsider
+        and `time_transaction_occurred` <= @maxTimeToConsider
+        """.format(full_table_url=ALL_USER_EVENTS_TABLE_URL)
+    )
+
+    query_params = [
+        bigquery.ScalarQueryParameter("sourceOfEvent", "STRING", source_of_event),
+        bigquery.ScalarQueryParameter("eventType", "STRING", event_type),
+        bigquery.ScalarQueryParameter("leastTimeToConsider", "INT64", least_time_to_consider),
+        bigquery.ScalarQueryParameter("maxTimeToConsider", "INT64", max_time_to_consider),
+    ]
+
+    big_query_response = fetch_data_as_list_from_user_behaviour_table(query, query_params)
+    user_count_list = extract_key_values_as_list_from_big_query_response(big_query_response, 'userIdsThatPerformedEventType')
+    return user_count_list
+
+
+def fetch_user_ids_that_completed_signup_since_time(start_time_in_milliseconds, end_time_in_milliseconds):
+    return fetch_user_ids_that_performed_event_since_time(
+        {
+            "event_type": USER_COMPLETED_SIGNUP_EVENT_CODE,
+            "source_of_event": INTERNAL_EVENT_SOURCE,
+            "least_time_to_consider": start_time_in_milliseconds,
+            "max_time_to_consider": end_time_in_milliseconds,
+        }
+    )
+
+def fetch_count_of_users_that_signed_up_since_time(start_time_in_milliseconds, end_time_in_milliseconds):
+    user_count_list = fetch_user_ids_that_completed_signup_since_time(start_time_in_milliseconds, end_time_in_milliseconds)
+    return len(user_count_list)
+
+def fetch_count_of_users_in_list_that_performed_event(config):
+    event_type = config["event_type"]
+    source_of_event = config["source_of_event"]
+    least_time_to_consider = config["least_time_to_consider"]
+    max_time_to_consider = config["max_time_to_consider"]
+    user_list = config["user_list"]
+
+    print(
+        """
+        Fetching the count of users in list: {user_list} that performed event type: {event_type}
+        with source of event: {source_of_event} after time: {least_time} and a max time of: {max_time}
+        """
+            .format(user_list=user_list, event_type=event_type, source_of_event=source_of_event, least_time=least_time_to_consider, max_time=max_time_to_consider)
+    )
+
+    query = (
+        """
+        select count(distinct(`user_id`)) as `countOfUsersInListThatPerformedEvent`
+        from `{full_table_url}`
+        where `event_type` = @eventType
+        and `source_of_event` = @sourceOfEvent
+        and `time_transaction_occurred` >= @leastTimeToConsider
+        and `time_transaction_occurred` <= @maxTimeToConsider
+        and `user_id` in UNNEST(@userList)
+        """.format(full_table_url=ALL_USER_EVENTS_TABLE_URL)
+    )
+
+    query_params = [
+        bigquery.ScalarQueryParameter("leastTimeToConsider", "INT64", least_time_to_consider),
+        bigquery.ScalarQueryParameter("maxTimeToConsider", "INT64", max_time_to_consider),
+        bigquery.ScalarQueryParameter("eventType", "STRING", event_type),
+        bigquery.ScalarQueryParameter("sourceOfEvent", "STRING", source_of_event),
+        bigquery.ArrayQueryParameter("userList", "STRING", user_list),
+    ]
+
+    big_query_response = fetch_data_as_list_from_user_behaviour_table(query, query_params)
+    user_count = extract_key_value_from_first_item_of_big_query_response(big_query_response, 'countOfUsersInListThatPerformedEvent')
+    return user_count
+
+def fetch_count_of_new_users_that_saved_since_time(start_time_in_milliseconds, end_time_in_milliseconds):
+    new_users_list = fetch_user_ids_that_completed_signup_since_time(start_time_in_milliseconds, end_time_in_milliseconds)
+    return fetch_count_of_users_in_list_that_performed_event(
+        {
+            "event_type": USER_OPENED_APP_EVENT_CODE,
+            "source_of_event": EXTERNAL_EVENT_SOURCE,
+            "least_time_to_consider": start_time_in_milliseconds,
+            "max_time_to_consider": end_time_in_milliseconds,
+            "user_list": new_users_list
+        }
+    )
+
+def calculate_ratio_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event(n_days_ago):
+    # a) all users who performed event n days ago (user ids then count)
+    # b) users who performed other event after that day
+    # b / a
+    date_n_days_ago = calculate_date_n_days_ago(n_days_ago)
+    start_time_in_milliseconds_n_days_ago = convert_date_string_to_millisecond_int(
+        date_n_days_ago,
+        HOUR_MARKING_START_OF_DAY
+    )
+    end_time_in_milliseconds_n_days_ago = convert_date_string_to_millisecond_int(
+        date_n_days_ago,
+        HOUR_MARKING_END_OF_DAY
+    )
+    users_who_signed_up_n_days_ago = fetch_user_ids_that_completed_signup_since_time(
+        start_time_in_milliseconds_n_days_ago,
+        end_time_in_milliseconds_n_days_ago
+    )
+    count_of_users_that_signed_up_n_days_ago = len(users_who_signed_up_n_days_ago)
+
+    count_of_users_who_signed_up_n_days_ago_then_opened_app_after_n_days_ago = fetch_count_of_users_in_list_that_performed_event(
+        {
+            "event_type": USER_OPENED_APP_EVENT_CODE,
+            "source_of_event": EXTERNAL_EVENT_SOURCE,
+            "least_time_to_consider": convert_date_string_to_millisecond_int(
+                calculate_date_n_days_ago(n_days_ago - 1),
+                HOUR_MARKING_START_OF_DAY
+            ),
+            "max_time_to_consider": convert_date_string_to_millisecond_int(
+                calculate_date_n_days_ago(TODAY),
+                HOUR_MARKING_END_OF_DAY
+            ),
+            "user_list": users_who_signed_up_n_days_ago
+        }
+    )
+
+    return convert_value_to_percentage(
+        count_of_users_who_signed_up_n_days_ago_then_opened_app_after_n_days_ago / count_of_users_that_signed_up_n_days_ago
+    )
+
+
 
 def fetch_daily_metrics():
     return
