@@ -33,7 +33,7 @@ from main \
     fetch_count_of_users_that_signed_up_between_period, \
     fetch_count_of_users_in_list_that_performed_event, \
     fetch_count_of_new_users_that_saved_between_period, \
-    calculate_ratio_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event, \
+    calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event, \
     fetch_average_number_of_users_that_performed_event, \
     fetch_average_number_of_users_that_performed_transaction_type, \
     fetch_average_number_of_users_that_completed_signup_between_period, \
@@ -104,6 +104,10 @@ def mock_fetch_count_of_users_in_list_that_performed_event():
 @pytest.fixture
 def mock_fetch_count_of_users_that_performed_event():
     return Mock(spec=fetch_count_of_users_that_performed_event)
+
+@pytest.fixture
+def mock_fetch_user_ids_that_performed_event_between_period():
+    return Mock(spec=fetch_user_ids_that_performed_event_between_period)
 
 @pytest.fixture
 def mock_fetch_count_of_users_that_performed_transaction_type():
@@ -378,20 +382,25 @@ def test_fetch_total_number_of_users(
         extract_key_value_from_first_item_of_big_query_response_patch,
         fetch_from_table_patch,
 ):
+    sample_config = {
+        "max_time_to_consider": sample_max_time
+    }
 
     sample_query = (
         """
         select count(distinct(`user_id`)) as `totalNumberOfUsers`
         from `{full_table_url}`
         where `source_of_event` = @sourceOfEvent
+        and `time_transaction_occurred` <= @maxTimeToConsider
         """.format(full_table_url=ALL_USER_EVENTS_TABLE_URL)
     )
 
     sample_query_params = [
         bigquery.ScalarQueryParameter("sourceOfEvent", "STRING", INTERNAL_EVENT_SOURCE),
+        bigquery.ScalarQueryParameter("maxTimeToConsider", "INT64", sample_config["max_time_to_consider"]),
     ]
 
-    fetch_total_number_of_users()
+    fetch_total_number_of_users(sample_config)
 
     fetch_from_table_patch.assert_called_once_with(sample_query, sample_query_params)
     extract_key_value_from_first_item_of_big_query_response_patch.assert_called_once()
@@ -446,13 +455,18 @@ def test_calculate_ratio_of_users_that_entered_app_today_versus_total_users(
     mock_fetch_count_of_users_that_entered_app.return_value = sample_number_of_users
     mock_fetch_total_number_of_users.return_value = sample_total_users
 
-    assert calculate_ratio_of_users_that_entered_app_today_versus_total_users(
-        sample_least_time,
-        sample_max_time
-    ) == (sample_number_of_users/sample_total_users)
+    given_start_time = sample_least_time
+    given_end_time = sample_max_time
 
-    mock_fetch_count_of_users_that_entered_app.assert_called_once_with(sample_least_time, sample_max_time)
-    mock_fetch_total_number_of_users.assert_called_once_with()
+    assert calculate_ratio_of_users_that_entered_app_today_versus_total_users(
+        given_start_time,
+        given_end_time
+    ) == (convert_value_to_percentage(sample_number_of_users/sample_total_users))
+
+    mock_fetch_count_of_users_that_entered_app.assert_called_once_with(given_start_time, given_end_time)
+    mock_fetch_total_number_of_users.assert_called_once_with({
+        "max_time_to_consider": given_start_time
+    })
 
 def test_calculate_ratio_of_users_that_saved_versus_users_that_tried_saving(
         mock_fetch_count_of_users_that_saved_since_given_time,
@@ -610,14 +624,16 @@ def test_fetch_count_of_new_users_that_saved_between_period(
     mock_fetch_user_ids_that_completed_signup_between_period.assert_called_once_with(sample_least_time, sample_max_time)
     mock_fetch_count_of_users_in_list_that_performed_event.assert_called_once_with(sample_config)
 
-def test_calculate_ratio_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event(
-        mock_fetch_user_ids_that_completed_signup_between_period,
+def test_calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event(
+        mock_fetch_user_ids_that_performed_event_between_period,
         mock_fetch_count_of_users_in_list_that_performed_event
 ):
 
     given_count = 1
     given_n_days_ago = THREE_DAYS
     given_date_n_days_ago = calculate_date_n_days_ago(given_n_days_ago)
+    given_start_event = USER_COMPLETED_SIGNUP_EVENT_CODE
+    given_next_event = USER_OPENED_APP_EVENT_CODE
 
     start_time_in_milliseconds_n_days_ago = convert_date_string_to_millisecond_int(
         given_date_n_days_ago,
@@ -629,7 +645,7 @@ def test_calculate_ratio_of_users_who_performed_event_n_days_ago_and_have_not_pe
     )
 
     sample_config = {
-        "event_type": USER_OPENED_APP_EVENT_CODE,
+        "event_type": given_next_event,
         "source_of_event": EXTERNAL_EVENT_SOURCE,
         "least_time_to_consider": convert_date_string_to_millisecond_int(
             calculate_date_n_days_ago(given_n_days_ago - 1),
@@ -642,21 +658,29 @@ def test_calculate_ratio_of_users_who_performed_event_n_days_ago_and_have_not_pe
         "user_list": sample_formatted_response_list
     }
 
-    main.fetch_user_ids_that_completed_signup_between_period = mock_fetch_user_ids_that_completed_signup_between_period
+    main.fetch_user_ids_that_performed_event_between_period = mock_fetch_user_ids_that_performed_event_between_period
     main.fetch_count_of_users_in_list_that_performed_event = mock_fetch_count_of_users_in_list_that_performed_event
 
-    mock_fetch_user_ids_that_completed_signup_between_period.return_value = sample_formatted_response_list
+    mock_fetch_user_ids_that_performed_event_between_period.return_value = sample_formatted_response_list
     mock_fetch_count_of_users_in_list_that_performed_event.return_value = given_count
 
-    assert calculate_ratio_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event(
-        given_n_days_ago
+    assert calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event(
+        {
+            "n_days_ago": given_n_days_ago,
+            "start_event": given_start_event,
+            "next_event": given_next_event
+        }
     ) == convert_value_to_percentage(
-        given_count / len(sample_formatted_response_list)
+        (len(sample_formatted_response_list) - given_count) / len(sample_formatted_response_list)
     )
 
-    mock_fetch_user_ids_that_completed_signup_between_period.assert_called_once_with(
-        start_time_in_milliseconds_n_days_ago,
-        end_time_in_milliseconds_n_days_ago
+    mock_fetch_user_ids_that_performed_event_between_period.assert_called_once_with(
+        {
+            "event_type": given_start_event,
+            "source_of_event": INTERNAL_EVENT_SOURCE,
+            "least_time_to_consider": start_time_in_milliseconds_n_days_ago,
+            "max_time_to_consider": end_time_in_milliseconds_n_days_ago,
+        }
     )
     mock_fetch_count_of_users_in_list_that_performed_event.assert_called_once_with(sample_config)
 
@@ -741,3 +765,54 @@ def test_fetch_average_number_of_users_that_completed_signup_between_period(
         sample_config["least_time_to_consider"],
         sample_config["max_time_to_consider"],
     )
+
+@patch('main.calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event')
+@patch('main.calculate_ratio_of_users_that_saved_versus_users_that_tried_saving')
+@patch('main.fetch_count_of_new_users_that_saved_between_period')
+@patch('main.fetch_count_of_users_that_tried_withdrawing')
+@patch('main.fetch_average_number_of_users_that_performed_event')
+@patch('main.fetch_count_of_users_that_tried_saving')
+@patch('main.calculate_ratio_of_users_that_entered_app_today_versus_total_users')
+@patch('main.fetch_average_number_of_users_that_completed_signup_between_period')
+@patch('main.fetch_count_of_users_that_signed_up_between_period')
+@patch('main.fetch_total_number_of_users')
+@patch('main.fetch_count_of_users_that_withdrew_since_given_time')
+@patch('main.fetch_total_withdrawn_amount_given_time')
+@patch('main.fetch_average_number_of_users_that_performed_transaction_type')
+@patch('main.fetch_count_of_users_that_saved_since_given_time')
+@patch('main.fetch_total_saved_amount_since_given_time')
+def test_fetch_daily_metrics(
+        fetch_total_saved_amount_since_given_time_patch,
+        fetch_count_of_users_that_saved_since_given_time_patch,
+        fetch_average_number_of_users_that_performed_transaction_type_patch,
+        fetch_total_withdrawn_amount_given_time_patch,
+        fetch_count_of_users_that_withdrew_since_given_time_patch,
+        fetch_total_number_of_users_patch,
+        fetch_count_of_users_that_signed_up_between_period_patch,
+        fetch_average_number_of_users_that_completed_signup_between_period_patch,
+        calculate_ratio_of_users_that_entered_app_today_versus_total_users_patch,
+        fetch_count_of_users_that_tried_saving_patch,
+        fetch_average_number_of_users_that_performed_event_patch,
+        fetch_count_of_users_that_tried_withdrawing_patch,
+        fetch_count_of_new_users_that_saved_between_period_patch,
+        calculate_ratio_of_users_that_saved_versus_users_that_tried_saving_patch,
+        calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event_patch,
+):
+
+    fetch_daily_metrics()
+
+    fetch_total_saved_amount_since_given_time_patch.assert_called_once()
+    fetch_count_of_users_that_saved_since_given_time_patch.assert_called_once()
+    fetch_average_number_of_users_that_performed_transaction_type_patch.call_count == 4
+    fetch_total_withdrawn_amount_given_time_patch.assert_called_once()
+    fetch_count_of_users_that_withdrew_since_given_time_patch.assert_called_once()
+    fetch_total_number_of_users_patch.assert_called_once()
+    fetch_count_of_users_that_signed_up_between_period_patch.assert_called_once()
+    fetch_average_number_of_users_that_completed_signup_between_period_patch.call_count == 2
+    calculate_ratio_of_users_that_entered_app_today_versus_total_users_patch.assert_called_once()
+    fetch_count_of_users_that_tried_saving_patch.assert_called_once()
+    fetch_average_number_of_users_that_performed_event_patch.call_count == 4
+    fetch_count_of_users_that_tried_withdrawing_patch.assert_called_once()
+    fetch_count_of_new_users_that_saved_between_period_patch.assert_called_once()
+    calculate_ratio_of_users_that_saved_versus_users_that_tried_saving_patch.assert_called_once()
+    calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event_patch.assert_called_once()

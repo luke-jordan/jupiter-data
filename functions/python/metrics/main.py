@@ -32,7 +32,9 @@ ENTERED_WITHDRAWAL_FUNNEL_EVENT_CODE = constant.ENTERED_WITHDRAWAL_FUNNEL_EVENT_
 USER_COMPLETED_SIGNUP_EVENT_CODE = constant.USER_COMPLETED_SIGNUP_EVENT_CODE
 THREE_DAYS = constant.THREE_DAYS
 TWO_DAYS = constant.TWO_DAYS
+ONE_DAY = constant.ONE_DAY
 TODAY = constant.TODAY
+TEN_DAYS = constant.TEN_DAYS
 HOUR_MARKING_START_OF_DAY=constant.HOUR_MARKING_START_OF_DAY
 HOUR_MARKING_END_OF_DAY=constant.HOUR_MARKING_END_OF_DAY
 SECOND_TO_MILLISECOND_FACTOR=constant.SECOND_TO_MILLISECOND_FACTOR
@@ -268,11 +270,14 @@ def fetch_count_of_users_that_entered_app_since_given_time(start_time_in_millise
         }
     )
 
-def fetch_total_number_of_users():
+def fetch_total_number_of_users(config):
+    max_time_to_consider = config["max_time_to_consider"]
+
     print(
         """
         Fetching the total number of users in app
-        """
+        with max time: {}
+        """.format(max_time_to_consider)
     )
 
     query = (
@@ -280,11 +285,13 @@ def fetch_total_number_of_users():
         select count(distinct(`user_id`)) as `totalNumberOfUsers`
         from `{full_table_url}`
         where `source_of_event` = @sourceOfEvent
+        and `time_transaction_occurred` <= @maxTimeToConsider
         """.format(full_table_url=ALL_USER_EVENTS_TABLE_URL)
     )
 
     query_params = [
         bigquery.ScalarQueryParameter("sourceOfEvent", "STRING", INTERNAL_EVENT_SOURCE),
+        bigquery.ScalarQueryParameter("maxTimeToConsider", "INT64", max_time_to_consider),
     ]
 
     big_query_response = fetch_data_as_list_from_user_behaviour_table(query, query_params)
@@ -312,10 +319,14 @@ def fetch_count_of_users_that_tried_withdrawing(start_time_in_milliseconds, end_
     )
 
 def calculate_ratio_of_users_that_entered_app_today_versus_total_users(start_time_in_milliseconds, end_time_in_milliseconds):
-    return fetch_count_of_users_that_entered_app_since_given_time(
-        start_time_in_milliseconds,
-        end_time_in_milliseconds
-    ) / fetch_total_number_of_users()
+    return convert_value_to_percentage(
+        fetch_count_of_users_that_entered_app_since_given_time(
+            start_time_in_milliseconds,
+            end_time_in_milliseconds
+        ) / fetch_total_number_of_users({
+            "max_time_to_consider": start_time_in_milliseconds
+        })
+    )
 
 def calculate_ratio_of_users_that_saved_versus_users_that_tried_saving(start_time_in_milliseconds, end_time_in_milliseconds):
     return fetch_count_of_users_that_saved_since_given_time(
@@ -424,10 +435,14 @@ def fetch_count_of_new_users_that_saved_between_period(start_time_in_millisecond
         }
     )
 
-def calculate_ratio_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event(n_days_ago):
+def calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event(config):
+    n_days_ago = config["n_days_ago"]
+    start_event = config["start_event"]
+    next_event = config["next_event"]
+
     # a) all users who performed event n days ago (user ids then count)
     # b) users who performed other event after that day
-    # b / a
+    # (a - b) / a
     date_n_days_ago = calculate_date_n_days_ago(n_days_ago)
     start_time_in_milliseconds_n_days_ago = convert_date_string_to_millisecond_int(
         date_n_days_ago,
@@ -437,15 +452,19 @@ def calculate_ratio_of_users_who_performed_event_n_days_ago_and_have_not_perform
         date_n_days_ago,
         HOUR_MARKING_END_OF_DAY
     )
-    users_who_signed_up_n_days_ago = fetch_user_ids_that_completed_signup_between_period(
-        start_time_in_milliseconds_n_days_ago,
-        end_time_in_milliseconds_n_days_ago
-    )
-    count_of_users_that_signed_up_n_days_ago = len(users_who_signed_up_n_days_ago)
-
-    count_of_users_who_signed_up_n_days_ago_then_opened_app_after_n_days_ago = fetch_count_of_users_in_list_that_performed_event(
+    users_who_performed_start_event_n_days_ago = fetch_user_ids_that_performed_event_between_period(
         {
-            "event_type": USER_OPENED_APP_EVENT_CODE,
+            "event_type": start_event,
+            "source_of_event": INTERNAL_EVENT_SOURCE,
+            "least_time_to_consider": start_time_in_milliseconds_n_days_ago,
+            "max_time_to_consider": end_time_in_milliseconds_n_days_ago,
+        }
+    )
+    count_of_users_that_performed_start_event_n_days_ago = len(users_who_performed_start_event_n_days_ago)
+
+    count_of_users_that_performed_start_event_n_days_ago_then_performed_other_event_afterwards = fetch_count_of_users_in_list_that_performed_event(
+        {
+            "event_type": next_event,
             "source_of_event": EXTERNAL_EVENT_SOURCE,
             "least_time_to_consider": convert_date_string_to_millisecond_int(
                 calculate_date_n_days_ago(n_days_ago - 1), # day after n days ago
@@ -455,12 +474,12 @@ def calculate_ratio_of_users_who_performed_event_n_days_ago_and_have_not_perform
                 calculate_date_n_days_ago(TODAY),
                 HOUR_MARKING_END_OF_DAY
             ),
-            "user_list": users_who_signed_up_n_days_ago
+            "user_list": users_who_performed_start_event_n_days_ago
         }
     )
 
     return convert_value_to_percentage(
-        count_of_users_who_signed_up_n_days_ago_then_opened_app_after_n_days_ago / count_of_users_that_signed_up_n_days_ago
+        (count_of_users_that_performed_start_event_n_days_ago - count_of_users_that_performed_start_event_n_days_ago_then_performed_other_event_afterwards) / count_of_users_that_performed_start_event_n_days_ago
     )
 
 def fetch_average_number_of_users_that_performed_event(config):
@@ -508,20 +527,214 @@ def fetch_average_number_of_users_that_completed_signup_between_period(config):
 
     return users_who_signed_up_n_days_ago / day_interval
 
+
 def fetch_daily_metrics():
-    #
+    date_of_today = calculate_date_n_days_ago(TODAY)
+    start_of_today_in_milliseconds = convert_date_string_to_millisecond_int(
+        date_of_today,
+        HOUR_MARKING_START_OF_DAY
+    )
+    end_of_today_in_milliseconds = convert_date_string_to_millisecond_int(
+        date_of_today,
+        HOUR_MARKING_END_OF_DAY
+    )
+
+    date_three_days_ago = calculate_date_n_days_ago(THREE_DAYS)
+    date_of_yesterday = calculate_date_n_days_ago(ONE_DAY)
+    start_of_three_days_ago_in_milliseconds = convert_date_string_to_millisecond_int(
+        date_three_days_ago,
+        HOUR_MARKING_START_OF_DAY
+    )
+    end_of_yesterday_in_milliseconds = convert_date_string_to_millisecond_int(
+        date_of_yesterday,
+        HOUR_MARKING_END_OF_DAY
+    )
+    date_ten_days_ago = calculate_date_n_days_ago(TEN_DAYS)
+    start_of_ten_days_ago_in_milliseconds = convert_date_string_to_millisecond_int(
+        date_ten_days_ago,
+        HOUR_MARKING_START_OF_DAY
+    )
+
     # * Total Saved Amount 
+    total_saved_amount_today = fetch_total_saved_amount_since_given_time(
+        start_of_today_in_milliseconds,
+        end_of_today_in_milliseconds
+    )
 
     # * Number of Users that Saved [today vs 3day avg vs 10 day avg] 
+        # * Number of Users that Saved [today]
+    number_of_users_that_saved_today = fetch_count_of_users_that_saved_since_given_time(
+        start_of_today_in_milliseconds,
+        end_of_today_in_milliseconds
+    )
+
+        # * Number of Users that Saved [3day avg]
+    three_day_average_of_users_that_saved = fetch_average_number_of_users_that_performed_transaction_type({
+        "transaction_type": SAVING_EVENT_TRANSACTION_TYPE,
+        "least_time_to_consider": start_of_three_days_ago_in_milliseconds,
+        "max_time_to_consider": end_of_yesterday_in_milliseconds,
+        "day_interval": THREE_DAYS,
+    })
+
+        # * Number of Users that Saved [10day avg]
+    ten_day_average_of_users_that_saved = fetch_average_number_of_users_that_performed_transaction_type({
+        "transaction_type": SAVING_EVENT_TRANSACTION_TYPE,
+        "least_time_to_consider": start_of_ten_days_ago_in_milliseconds,
+        "max_time_to_consider": end_of_yesterday_in_milliseconds,
+        "day_interval": TEN_DAYS,
+    })
+
     # * Total Withdrawal Amount 
+    total_withdrawn_amount_today = fetch_total_withdrawn_amount_given_time(
+        start_of_today_in_milliseconds,
+        end_of_today_in_milliseconds
+    )
+
     # * Number of Users that Withdrew [today vs 3day avg vs 10 day avg] 
+        # * Number of Users that Withdrew [today]
+    number_of_users_that_withdrew_today = fetch_count_of_users_that_withdrew_since_given_time(
+        start_of_today_in_milliseconds,
+        end_of_today_in_milliseconds
+    )
+
+    # * Number of Users that Withdrew [3day avg]
+    three_day_average_of_users_that_withdrew = fetch_average_number_of_users_that_performed_transaction_type({
+        "transaction_type": WITHDRAWAL_TRANSACTION_TYPE,
+        "least_time_to_consider": start_of_three_days_ago_in_milliseconds,
+        "max_time_to_consider": end_of_yesterday_in_milliseconds,
+        "day_interval": THREE_DAYS,
+    })
+
+    # * Number of Users that Withdrew [10day avg]
+    ten_day_average_of_users_that_withdrew = fetch_average_number_of_users_that_performed_transaction_type({
+        "transaction_type": WITHDRAWAL_TRANSACTION_TYPE,
+        "least_time_to_consider": start_of_ten_days_ago_in_milliseconds,
+        "max_time_to_consider": end_of_yesterday_in_milliseconds,
+        "day_interval": TEN_DAYS,
+    })
+
+
     # * Add in total Jupiter SA users at start of day (even if they did not perform an action) 
-    # * *Number of new users which joined today [today vs 3day avg vs 10 day avg] 
-    # * Ratio / Percentage: Number of users who entered app today/Total Users 
-    # * Number of Users that tried saving (entered savings funnel - first event) [today vs 3day avg vs 10 day avg] 
-    # * Number of users that tried withdrawing (entered withdrawal funnel - first event) 
-    # * Number of new users that saved 
-    # * Conversion rate (number of users that saved / number of users that tried saving) 
-    # * % of users whose Boosts expired without them using today 
+    total_users_as_at_start_of_today = fetch_total_number_of_users(start_of_today_in_milliseconds)
+
+    # *Number of new users which joined today [today vs 3day avg vs 10 day avg]
+        # * Number of Users that new users which joined [today]
+    number_of_users_that_joined_today = fetch_count_of_users_that_signed_up_between_period(
+        start_of_today_in_milliseconds,
+        end_of_today_in_milliseconds
+    )
+
+        # * Number of Users that new users which joined [3day avg]
+    three_day_average_of_users_that_joined = fetch_average_number_of_users_that_completed_signup_between_period({
+        "least_time_to_consider": start_of_three_days_ago_in_milliseconds,
+        "max_time_to_consider": end_of_yesterday_in_milliseconds,
+        "day_interval": THREE_DAYS,
+    })
+
+        # * Number of Users that new users which joined [10day avg]
+    ten_day_average_of_users_that_joined = fetch_average_number_of_users_that_completed_signup_between_period({
+        "least_time_to_consider": start_of_ten_days_ago_in_milliseconds,
+        "max_time_to_consider": end_of_yesterday_in_milliseconds,
+        "day_interval": TEN_DAYS,
+    })
+
+    # * Ratio / Percentage: Number of users who entered app today/Total Users
+    percentage_of_users_that_entered_app_today_versus_total_users = calculate_ratio_of_users_that_entered_app_today_versus_total_users(
+        start_of_today_in_milliseconds,
+        end_of_today_in_milliseconds
+    )
+
+    # * Number of Users that tried saving (entered savings funnel - first event) [today vs 3day avg vs 10 day avg]
+        # * Number of Users that new users which tried saving [today]
+    number_of_users_that_tried_saving_today = fetch_count_of_users_that_tried_saving(
+        start_of_today_in_milliseconds,
+        end_of_today_in_milliseconds
+    )
+
+        # * Number of Users that new users which tried saving [3day avg]
+    three_day_average_of_users_that_tried_saving = fetch_average_number_of_users_that_performed_event({
+        "event_type": ENTERED_SAVINGS_FUNNEL_EVENT_CODE,
+        "least_time_to_consider": start_of_three_days_ago_in_milliseconds,
+        "max_time_to_consider": end_of_yesterday_in_milliseconds,
+        "day_interval": THREE_DAYS,
+    })
+
+        # * Number of Users that new users which tried saving [10day avg]
+    ten_day_average_of_users_that_tried_saving = fetch_average_number_of_users_that_performed_event({
+        "event_type": ENTERED_SAVINGS_FUNNEL_EVENT_CODE,
+        "least_time_to_consider": start_of_ten_days_ago_in_milliseconds,
+        "max_time_to_consider": end_of_yesterday_in_milliseconds,
+        "day_interval": TEN_DAYS,
+    })
+
+    # * Number of users that tried withdrawing (entered withdrawal funnel - first event)
+        # * Number of Users that new users which tried withdrawing [today]
+    number_of_users_that_tried_withdrawing_today = fetch_count_of_users_that_tried_withdrawing(
+        start_of_today_in_milliseconds,
+        end_of_today_in_milliseconds
+    )
+
+        # * Number of Users that new users which tried withdrawing [3day avg]
+    three_day_average_of_users_that_tried_withdrawing = fetch_average_number_of_users_that_performed_event({
+        "event_type": ENTERED_WITHDRAWAL_FUNNEL_EVENT_CODE,
+        "least_time_to_consider": start_of_three_days_ago_in_milliseconds,
+        "max_time_to_consider": end_of_yesterday_in_milliseconds,
+        "day_interval": THREE_DAYS,
+    })
+
+        # * Number of Users that new users which tried withdrawing [10day avg]
+    ten_day_average_of_users_that_tried_withdrawing = fetch_average_number_of_users_that_performed_event({
+        "event_type": ENTERED_WITHDRAWAL_FUNNEL_EVENT_CODE,
+        "least_time_to_consider": start_of_ten_days_ago_in_milliseconds,
+        "max_time_to_consider": end_of_yesterday_in_milliseconds,
+        "day_interval": TEN_DAYS,
+    })
+
+    # * Number of new users that joined today and saved today
+    number_of_users_that_joined_today_and_saved = fetch_count_of_new_users_that_saved_between_period(
+        start_of_today_in_milliseconds,
+        end_of_today_in_milliseconds
+    )
+
+    # * Conversion rate (number of users that saved / number of users that tried saving)
+    number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today = calculate_ratio_of_users_that_saved_versus_users_that_tried_saving(
+        start_of_today_in_milliseconds,
+        end_of_today_in_milliseconds
+    )
+
+    # * % of users whose Boosts expired without them using today
+    # TODO: boosts
+
     # * % of users who signed up 3 days ago who have not opened app since then
-    return
+    percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then = calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event(
+        {
+            "n_days_ago": THREE_DAYS,
+            "start_event": USER_COMPLETED_SIGNUP_EVENT_CODE,
+            "next_event": USER_OPENED_APP_EVENT_CODE,
+        }
+    )
+
+    return {
+        "total_saved_amount_today": total_saved_amount_today,
+        "number_of_users_that_saved_today": number_of_users_that_saved_today,
+        "three_day_average_of_users_that_saved": three_day_average_of_users_that_saved,
+        "ten_day_average_of_users_that_saved": ten_day_average_of_users_that_saved,
+        "total_withdrawn_amount_today": total_withdrawn_amount_today,
+        "number_of_users_that_withdrew_today": number_of_users_that_withdrew_today,
+        "three_day_average_of_users_that_withdrew": three_day_average_of_users_that_withdrew,
+        "ten_day_average_of_users_that_withdrew": ten_day_average_of_users_that_withdrew,
+        "total_users_as_at_start_of_today": total_users_as_at_start_of_today,
+        "number_of_users_that_joined_today": number_of_users_that_joined_today,
+        "three_day_average_of_users_that_joined": three_day_average_of_users_that_joined,
+        "ten_day_average_of_users_that_joined": ten_day_average_of_users_that_joined,
+        "percentage_of_users_that_entered_app_today_versus_total_users": percentage_of_users_that_entered_app_today_versus_total_users,
+        "number_of_users_that_tried_saving_today": number_of_users_that_tried_saving_today,
+        "three_day_average_of_users_that_tried_saving": three_day_average_of_users_that_tried_saving,
+        "ten_day_average_of_users_that_tried_saving": ten_day_average_of_users_that_tried_saving,
+        "number_of_users_that_tried_withdrawing_today": number_of_users_that_tried_withdrawing_today,
+        "three_day_average_of_users_that_tried_withdrawing": three_day_average_of_users_that_tried_withdrawing,
+        "ten_day_average_of_users_that_tried_withdrawing": ten_day_average_of_users_that_tried_withdrawing,
+        "number_of_users_that_joined_today_and_saved": number_of_users_that_joined_today_and_saved,
+        "number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today": number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today,
+        "percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then": percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then,
+    }
