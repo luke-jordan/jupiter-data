@@ -78,7 +78,6 @@ def extract_key_value_from_first_item_of_big_query_response(raw_response, key):
 
     print("Big query response is empty")
 
-
 def extract_key_values_as_list_from_big_query_response(raw_response_as_list, key):
     formatted_list = []
     if list_not_empty_or_undefined(raw_response_as_list):
@@ -121,8 +120,10 @@ def fetch_data_as_list_from_user_behaviour_table(query, query_params):
 
     return convert_big_query_response_to_list(query_result)
 
-def fetch_total_amount_using_transaction_type(transaction_type, config):
+def fetch_total_amount_using_transaction_type(config):
     least_time_to_consider = config["least_time_to_consider"]
+    max_time_to_consider = config["max_time_to_consider"]
+    transaction_type = config["transaction_type"]
 
     print(
         """
@@ -136,13 +137,15 @@ def fetch_total_amount_using_transaction_type(transaction_type, config):
         select sum(`amount`) as `totalAmount`
         from `{full_table_url}`
         where `transaction_type` = @transactionType
-        and `time_transaction_occurred` >= @givenTime 
+        and `time_transaction_occurred` >= @leastTimeToConsider
+        and `time_transaction_occurred` <= @maxTimeToConsider
         """.format(full_table_url=USER_BEHAVIOUR_TABLE_URL)
     )
 
     query_params = [
         bigquery.ScalarQueryParameter("transactionType", "STRING", transaction_type),
-        bigquery.ScalarQueryParameter("givenTime", "INT64", least_time_to_consider),
+        bigquery.ScalarQueryParameter("leastTimeToConsider", "INT64", least_time_to_consider),
+        bigquery.ScalarQueryParameter("maxTimeToConsider", "INT64", max_time_to_consider),
     ]
 
     big_query_response = fetch_data_as_list_from_user_behaviour_table(query, query_params)
@@ -150,24 +153,28 @@ def fetch_total_amount_using_transaction_type(transaction_type, config):
     total_amount_in_whole_currency = convert_amount_from_hundredth_cent_to_whole_currency(total_amount_in_hundredth_cent)
     return total_amount_in_whole_currency
 
-def fetch_total_saved_amount_since_given_time(time_in_milliseconds):
+def fetch_total_saved_amount_since_given_time(start_time_in_milliseconds, end_time_in_milliseconds):
     return fetch_total_amount_using_transaction_type(
-        SAVING_EVENT_TRANSACTION_TYPE,
         {
-            "least_time_to_consider": time_in_milliseconds,
+            "least_time_to_consider": start_time_in_milliseconds,
+            "max_time_to_consider": end_time_in_milliseconds,
+            "transaction_type": SAVING_EVENT_TRANSACTION_TYPE
         }
     )
 
-def fetch_total_withdrawn_amount_given_time(time_in_milliseconds):
+def fetch_total_withdrawn_amount_given_time(start_time_in_milliseconds, end_time_in_milliseconds):
     return fetch_total_amount_using_transaction_type(
-        WITHDRAWAL_TRANSACTION_TYPE,
         {
-            "least_time_to_consider": time_in_milliseconds,
+            "least_time_to_consider": start_time_in_milliseconds,
+            "max_time_to_consider": end_time_in_milliseconds,
+            "transaction_type": WITHDRAWAL_TRANSACTION_TYPE
         }
     )
 
-def fetch_count_of_users_that_performed_transaction_type(transaction_type, config):
+def fetch_count_of_users_that_performed_transaction_type(config):
     least_time_to_consider = config["least_time_to_consider"]
+    max_time_to_consider = config["max_time_to_consider"]
+    transaction_type = config["transaction_type"]
 
     print(
         """
@@ -181,32 +188,36 @@ def fetch_count_of_users_that_performed_transaction_type(transaction_type, confi
         select count(distinct(`user_id`)) as `countOfUsersThatPerformedTransactionType`
         from `{full_table_url}`
         where `transaction_type` = @transactionType
-        and `time_transaction_occurred` >= @givenTime
+        and `time_transaction_occurred` >= @leastTimeToConsider
+        and `time_transaction_occurred` <= @maxTimeToConsider
         """.format(full_table_url=USER_BEHAVIOUR_TABLE_URL)
     )
 
     query_params = [
         bigquery.ScalarQueryParameter("transactionType", "STRING", transaction_type),
-        bigquery.ScalarQueryParameter("givenTime", "INT64", least_time_to_consider),
+        bigquery.ScalarQueryParameter("leastTimeToConsider", "INT64", least_time_to_consider),
+        bigquery.ScalarQueryParameter("maxTimeToConsider", "INT64", max_time_to_consider),
     ]
 
     big_query_response = fetch_data_as_list_from_user_behaviour_table(query, query_params)
     user_count = extract_key_value_from_first_item_of_big_query_response(big_query_response, 'countOfUsersThatPerformedTransactionType')
     return user_count
 
-def fetch_count_of_users_that_saved_since_given_time(time_in_milliseconds):
+def fetch_count_of_users_that_saved_since_given_time(start_time_in_milliseconds, end_time_in_milliseconds):
     return fetch_count_of_users_that_performed_transaction_type(
-        SAVING_EVENT_TRANSACTION_TYPE,
         {
-            "least_time_to_consider": time_in_milliseconds,
+            "least_time_to_consider": start_time_in_milliseconds,
+            "max_time_to_consider": end_time_in_milliseconds,
+            "transaction_type": SAVING_EVENT_TRANSACTION_TYPE
         }
     )
 
-def fetch_count_of_users_that_withdrew_since_given_time(time_in_milliseconds):
+def fetch_count_of_users_that_withdrew_since_given_time(start_time_in_milliseconds, end_time_in_milliseconds):
     return fetch_count_of_users_that_performed_transaction_type(
-        WITHDRAWAL_TRANSACTION_TYPE,
         {
-            "least_time_to_consider": time_in_milliseconds,
+            "least_time_to_consider": start_time_in_milliseconds,
+            "max_time_to_consider": end_time_in_milliseconds,
+            "transaction_type": WITHDRAWAL_TRANSACTION_TYPE
         }
     )
 
@@ -214,13 +225,15 @@ def fetch_count_of_users_that_performed_event(config):
     event_type = config["event_type"]
     source_of_event = config["source_of_event"]
     least_time_to_consider = config["least_time_to_consider"]
+    max_time_to_consider = config["max_time_to_consider"]
 
     print(
         """
         Fetching the count of users that performed event type: {event_type}
-         with source of event: {source_of_event} after time: {given_time}
+         with source of event: {source_of_event} after time: {least_time}
+         and max time: {max_time}
         """
-            .format(event_type=event_type, source_of_event=source_of_event, given_time=least_time_to_consider)
+            .format(event_type=event_type, source_of_event=source_of_event, least_time=least_time_to_consider, max_time=max_time_to_consider)
     )
 
     query = (
@@ -229,12 +242,14 @@ def fetch_count_of_users_that_performed_event(config):
         from `{full_table_url}`
         where `event_type` = @eventType
         and `source_of_event` = @sourceOfEvent
-        and `time_transaction_occurred` >= @givenTime 
+        and `time_transaction_occurred` >= @leastTimeToConsider
+        and `time_transaction_occurred` <= @maxTimeToConsider
         """.format(full_table_url=ALL_USER_EVENTS_TABLE_URL)
     )
 
     query_params = [
-        bigquery.ScalarQueryParameter("givenTime", "INT64", least_time_to_consider),
+        bigquery.ScalarQueryParameter("leastTimeToConsider", "INT64", least_time_to_consider),
+        bigquery.ScalarQueryParameter("maxTimeToConsider", "INT64", max_time_to_consider),
         bigquery.ScalarQueryParameter("eventType", "STRING", event_type),
         bigquery.ScalarQueryParameter("sourceOfEvent", "STRING", source_of_event),
     ]
@@ -243,12 +258,13 @@ def fetch_count_of_users_that_performed_event(config):
     user_count = extract_key_value_from_first_item_of_big_query_response(big_query_response, 'countOfUsersThatPerformedEvent')
     return user_count
 
-def fetch_count_of_users_that_entered_app_since_given_time(time_in_milliseconds):
+def fetch_count_of_users_that_entered_app_since_given_time(start_time_in_milliseconds, end_time_in_milliseconds):
     return fetch_count_of_users_that_performed_event(
         {
             "event_type": USER_OPENED_APP_EVENT_CODE,
             "source_of_event": EXTERNAL_EVENT_SOURCE,
-            "least_time_to_consider": time_in_milliseconds,
+            "least_time_to_consider": start_time_in_milliseconds,
+            "max_time_to_consider": end_time_in_milliseconds,
         }
     )
 
@@ -275,31 +291,39 @@ def fetch_total_number_of_users():
     user_count = extract_key_value_from_first_item_of_big_query_response(big_query_response, 'totalNumberOfUsers')
     return user_count
 
-def fetch_count_of_users_that_tried_saving(time_in_milliseconds):
+def fetch_count_of_users_that_tried_saving(start_time_in_milliseconds, end_time_in_milliseconds):
     return fetch_count_of_users_that_performed_event(
         {
             "event_type": ENTERED_SAVINGS_FUNNEL_EVENT_CODE,
             "source_of_event": EXTERNAL_EVENT_SOURCE,
-            "least_time_to_consider": time_in_milliseconds,
+            "least_time_to_consider": start_time_in_milliseconds,
+            "max_time_to_consider": end_time_in_milliseconds,
         }
     )
 
-def fetch_count_of_users_that_tried_withdrawing(time_in_milliseconds):
+def fetch_count_of_users_that_tried_withdrawing(start_time_in_milliseconds, end_time_in_milliseconds):
     return fetch_count_of_users_that_performed_event(
         {
             "event_type": ENTERED_WITHDRAWAL_FUNNEL_EVENT_CODE,
             "source_of_event": EXTERNAL_EVENT_SOURCE,
-            "least_time_to_consider": time_in_milliseconds,
+            "least_time_to_consider": start_time_in_milliseconds,
+            "max_time_to_consider": end_time_in_milliseconds,
         }
     )
 
-def calculate_ratio_of_users_that_entered_app_today_versus_total_users(time_in_milliseconds):
-    return fetch_count_of_users_that_entered_app_since_given_time(time_in_milliseconds) / fetch_total_number_of_users()
+def calculate_ratio_of_users_that_entered_app_today_versus_total_users(start_time_in_milliseconds, end_time_in_milliseconds):
+    return fetch_count_of_users_that_entered_app_since_given_time(
+        start_time_in_milliseconds,
+        end_time_in_milliseconds
+    ) / fetch_total_number_of_users()
 
-def calculate_ratio_of_users_that_saved_versus_users_that_tried_saving(time_in_milliseconds):
-    return fetch_count_of_users_that_saved_since_given_time(time_in_milliseconds) / fetch_count_of_users_that_tried_saving(time_in_milliseconds)
+def calculate_ratio_of_users_that_saved_versus_users_that_tried_saving(start_time_in_milliseconds, end_time_in_milliseconds):
+    return fetch_count_of_users_that_saved_since_given_time(
+        start_time_in_milliseconds,
+        end_time_in_milliseconds
+    ) / fetch_count_of_users_that_tried_saving(start_time_in_milliseconds, end_time_in_milliseconds)
 
-def fetch_user_ids_that_performed_event_since_time(config):
+def fetch_user_ids_that_performed_event_between_period(config):
     event_type = config["event_type"]
     source_of_event = config["source_of_event"]
     least_time_to_consider = config["least_time_to_consider"]
@@ -335,8 +359,8 @@ def fetch_user_ids_that_performed_event_since_time(config):
     return user_count_list
 
 
-def fetch_user_ids_that_completed_signup_since_time(start_time_in_milliseconds, end_time_in_milliseconds):
-    return fetch_user_ids_that_performed_event_since_time(
+def fetch_user_ids_that_completed_signup_between_period(start_time_in_milliseconds, end_time_in_milliseconds):
+    return fetch_user_ids_that_performed_event_between_period(
         {
             "event_type": USER_COMPLETED_SIGNUP_EVENT_CODE,
             "source_of_event": INTERNAL_EVENT_SOURCE,
@@ -345,8 +369,8 @@ def fetch_user_ids_that_completed_signup_since_time(start_time_in_milliseconds, 
         }
     )
 
-def fetch_count_of_users_that_signed_up_since_time(start_time_in_milliseconds, end_time_in_milliseconds):
-    user_count_list = fetch_user_ids_that_completed_signup_since_time(start_time_in_milliseconds, end_time_in_milliseconds)
+def fetch_count_of_users_that_signed_up_between_period(start_time_in_milliseconds, end_time_in_milliseconds):
+    user_count_list = fetch_user_ids_that_completed_signup_between_period(start_time_in_milliseconds, end_time_in_milliseconds)
     return len(user_count_list)
 
 def fetch_count_of_users_in_list_that_performed_event(config):
@@ -388,8 +412,8 @@ def fetch_count_of_users_in_list_that_performed_event(config):
     user_count = extract_key_value_from_first_item_of_big_query_response(big_query_response, 'countOfUsersInListThatPerformedEvent')
     return user_count
 
-def fetch_count_of_new_users_that_saved_since_time(start_time_in_milliseconds, end_time_in_milliseconds):
-    new_users_list = fetch_user_ids_that_completed_signup_since_time(start_time_in_milliseconds, end_time_in_milliseconds)
+def fetch_count_of_new_users_that_saved_between_period(start_time_in_milliseconds, end_time_in_milliseconds):
+    new_users_list = fetch_user_ids_that_completed_signup_between_period(start_time_in_milliseconds, end_time_in_milliseconds)
     return fetch_count_of_users_in_list_that_performed_event(
         {
             "event_type": USER_OPENED_APP_EVENT_CODE,
@@ -413,7 +437,7 @@ def calculate_ratio_of_users_who_performed_event_n_days_ago_and_have_not_perform
         date_n_days_ago,
         HOUR_MARKING_END_OF_DAY
     )
-    users_who_signed_up_n_days_ago = fetch_user_ids_that_completed_signup_since_time(
+    users_who_signed_up_n_days_ago = fetch_user_ids_that_completed_signup_between_period(
         start_time_in_milliseconds_n_days_ago,
         end_time_in_milliseconds_n_days_ago
     )
@@ -424,7 +448,7 @@ def calculate_ratio_of_users_who_performed_event_n_days_ago_and_have_not_perform
             "event_type": USER_OPENED_APP_EVENT_CODE,
             "source_of_event": EXTERNAL_EVENT_SOURCE,
             "least_time_to_consider": convert_date_string_to_millisecond_int(
-                calculate_date_n_days_ago(n_days_ago - 1),
+                calculate_date_n_days_ago(n_days_ago - 1), # day after n days ago
                 HOUR_MARKING_START_OF_DAY
             ),
             "max_time_to_consider": convert_date_string_to_millisecond_int(
@@ -439,7 +463,65 @@ def calculate_ratio_of_users_who_performed_event_n_days_ago_and_have_not_perform
         count_of_users_who_signed_up_n_days_ago_then_opened_app_after_n_days_ago / count_of_users_that_signed_up_n_days_ago
     )
 
+def fetch_average_number_of_users_that_performed_event(config):
+    event_type = config["event_type"]
+    least_time_to_consider = config["least_time_to_consider"]
+    max_time_to_consider = config["max_time_to_consider"]
+    day_interval = config["day_interval"]
 
+    user_count_that_performed_event_between_dates = fetch_count_of_users_that_performed_event(
+        {
+            "event_type": event_type,
+            "source_of_event": EXTERNAL_EVENT_SOURCE,
+            "least_time_to_consider": least_time_to_consider,
+            "max_time_to_consider": max_time_to_consider,
+        }
+    )
+
+    return user_count_that_performed_event_between_dates / day_interval
+
+def fetch_average_number_of_users_that_performed_transaction_type(config):
+    transaction_type = config["transaction_type"]
+    least_time_to_consider = config["least_time_to_consider"]
+    max_time_to_consider = config["max_time_to_consider"]
+    day_interval = config["day_interval"]
+
+    user_count_that_performed_transaction_type_between_dates = fetch_count_of_users_that_performed_transaction_type(
+        {
+            "transaction_type": transaction_type,
+            "least_time_to_consider": least_time_to_consider,
+            "max_time_to_consider": max_time_to_consider,
+        }
+    )
+
+    return user_count_that_performed_transaction_type_between_dates / day_interval
+
+def fetch_average_number_of_users_that_completed_signup_between_period(config):
+    least_time_to_consider = config["least_time_to_consider"]
+    max_time_to_consider = config["max_time_to_consider"]
+    day_interval = config["day_interval"]
+
+    users_who_signed_up_n_days_ago = fetch_user_ids_that_completed_signup_between_period(
+        least_time_to_consider,
+        max_time_to_consider
+    )
+
+    return users_who_signed_up_n_days_ago / day_interval
 
 def fetch_daily_metrics():
+    #
+    # * Total Saved Amount 
+
+    # * Number of Users that Saved [today vs 3day avg vs 10 day avg] 
+    # * Total Withdrawal Amount 
+    # * Number of Users that Withdrew [today vs 3day avg vs 10 day avg] 
+    # * Add in total Jupiter SA users at start of day (even if they did not perform an action) 
+    # * *Number of new users which joined today [today vs 3day avg vs 10 day avg] 
+    # * Ratio / Percentage: Number of users who entered app today/Total Users 
+    # * Number of Users that tried saving (entered savings funnel - first event) [today vs 3day avg vs 10 day avg] 
+    # * Number of users that tried withdrawing (entered withdrawal funnel - first event) 
+    # * Number of new users that saved 
+    # * Conversion rate (number of users that saved / number of users that tried saving) 
+    # * % of users whose Boosts expired without them using today 
+    # * % of users who signed up 3 days ago who have not opened app since then
     return

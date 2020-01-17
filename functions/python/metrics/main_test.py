@@ -28,12 +28,15 @@ from main \
     fetch_count_of_users_that_tried_saving, \
     fetch_count_of_users_that_tried_withdrawing, \
     calculate_ratio_of_users_that_saved_versus_users_that_tried_saving, \
-    fetch_user_ids_that_completed_signup_since_time, \
-    fetch_user_ids_that_performed_event_since_time, \
-    fetch_count_of_users_that_signed_up_since_time, \
+    fetch_user_ids_that_completed_signup_between_period, \
+    fetch_user_ids_that_performed_event_between_period, \
+    fetch_count_of_users_that_signed_up_between_period, \
     fetch_count_of_users_in_list_that_performed_event, \
-    fetch_count_of_new_users_that_saved_since_time, \
+    fetch_count_of_new_users_that_saved_between_period, \
     calculate_ratio_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event, \
+    fetch_average_number_of_users_that_performed_event, \
+    fetch_average_number_of_users_that_performed_transaction_type, \
+    fetch_average_number_of_users_that_completed_signup_between_period, \
     fetch_daily_metrics
 
 import main
@@ -91,12 +94,20 @@ def mock_fetch_count_of_users_that_tried_saving():
     return Mock(spec=fetch_count_of_users_that_tried_saving)
 
 @pytest.fixture
-def mock_fetch_user_ids_that_completed_signup_since_time():
-    return Mock(spec=fetch_user_ids_that_completed_signup_since_time)
+def mock_fetch_user_ids_that_completed_signup_between_period():
+    return Mock(spec=fetch_user_ids_that_completed_signup_between_period)
 
 @pytest.fixture
 def mock_fetch_count_of_users_in_list_that_performed_event():
     return Mock(spec=fetch_count_of_users_in_list_that_performed_event)
+
+@pytest.fixture
+def mock_fetch_count_of_users_that_performed_event():
+    return Mock(spec=fetch_count_of_users_that_performed_event)
+
+@pytest.fixture
+def mock_fetch_count_of_users_that_performed_transaction_type():
+    return Mock(spec=fetch_count_of_users_that_performed_transaction_type)
 
 def test_convert_value_to_percentage():
     sample_number = 0.5
@@ -177,26 +188,28 @@ def test_fetch_total_amount_using_transaction_type(
 ):
 
     sample_config = {
-        "least_time_to_consider": sample_given_time,
+        "least_time_to_consider": sample_least_time,
+        "max_time_to_consider": sample_max_time,
+        "transaction_type": SAVING_EVENT_TRANSACTION_TYPE
     }
-
-    given_transaction_type = SAVING_EVENT_TRANSACTION_TYPE
 
     sample_query = (
         """
         select sum(`amount`) as `totalAmount`
         from `{full_table_url}`
         where `transaction_type` = @transactionType
-        and `time_transaction_occurred` >= @givenTime 
+        and `time_transaction_occurred` >= @leastTimeToConsider
+        and `time_transaction_occurred` <= @maxTimeToConsider
         """.format(full_table_url=USER_BEHAVIOUR_TABLE_URL)
     )
 
     sample_query_params = [
-        bigquery.ScalarQueryParameter("transactionType", "STRING", given_transaction_type),
-        bigquery.ScalarQueryParameter("givenTime", "INT64", sample_given_time),
+        bigquery.ScalarQueryParameter("transactionType", "STRING", sample_config["transaction_type"]),
+        bigquery.ScalarQueryParameter("leastTimeToConsider", "INT64", sample_config["least_time_to_consider"]),
+        bigquery.ScalarQueryParameter("maxTimeToConsider", "INT64", sample_config["max_time_to_consider"]),
     ]
 
-    fetch_total_amount_using_transaction_type(given_transaction_type, sample_config)
+    fetch_total_amount_using_transaction_type(sample_config)
 
     fetch_from_table_patch.assert_called_once_with(sample_query, sample_query_params)
     extract_key_value_from_first_item_of_big_query_response_patch.assert_called_once()
@@ -208,13 +221,14 @@ def test_fetch_total_saved_amount_since_given_time(
         fetch_total_amount_using_transaction_type_patch
 ):
     sample_config = {
-        "least_time_to_consider": sample_given_time,
+        "least_time_to_consider": sample_least_time,
+        "max_time_to_consider": sample_max_time,
+        "transaction_type": SAVING_EVENT_TRANSACTION_TYPE
     }
 
-    fetch_total_saved_amount_since_given_time(sample_given_time)
+    fetch_total_saved_amount_since_given_time(sample_least_time, sample_max_time)
 
     fetch_total_amount_using_transaction_type_patch.assert_called_once_with(
-        SAVING_EVENT_TRANSACTION_TYPE,
         sample_config,
     )
 
@@ -223,13 +237,14 @@ def test_fetch_total_withdrawn_amount_given_time(
         fetch_total_amount_using_transaction_type_patch
 ):
     sample_config = {
-        "least_time_to_consider": sample_given_time,
+        "least_time_to_consider": sample_least_time,
+        "max_time_to_consider": sample_max_time,
+        "transaction_type": WITHDRAWAL_TRANSACTION_TYPE
     }
 
-    fetch_total_withdrawn_amount_given_time(sample_given_time)
+    fetch_total_withdrawn_amount_given_time(sample_least_time, sample_max_time)
 
     fetch_total_amount_using_transaction_type_patch.assert_called_once_with(
-        WITHDRAWAL_TRANSACTION_TYPE,
         sample_config,
     )
     
@@ -241,26 +256,28 @@ def test_fetch_count_of_users_that_performed_transaction_type(
 ):
 
     sample_config = {
-        "least_time_to_consider": sample_given_time,
+        "least_time_to_consider": sample_least_time,
+        "max_time_to_consider": sample_max_time,
+        "transaction_type": WITHDRAWAL_TRANSACTION_TYPE
     }
-
-    given_transaction_type = WITHDRAWAL_TRANSACTION_TYPE
 
     sample_query = (
         """
         select count(distinct(`user_id`)) as `countOfUsersThatPerformedTransactionType`
         from `{full_table_url}`
         where `transaction_type` = @transactionType
-        and `time_transaction_occurred` >= @givenTime
+        and `time_transaction_occurred` >= @leastTimeToConsider
+        and `time_transaction_occurred` <= @maxTimeToConsider
         """.format(full_table_url=USER_BEHAVIOUR_TABLE_URL)
     )
 
     sample_query_params = [
-        bigquery.ScalarQueryParameter("transactionType", "STRING", given_transaction_type),
-        bigquery.ScalarQueryParameter("givenTime", "INT64", sample_given_time),
+        bigquery.ScalarQueryParameter("transactionType", "STRING", sample_config["transaction_type"]),
+        bigquery.ScalarQueryParameter("leastTimeToConsider", "INT64", sample_config["least_time_to_consider"]),
+        bigquery.ScalarQueryParameter("maxTimeToConsider", "INT64", sample_config["max_time_to_consider"]),
     ]
 
-    fetch_count_of_users_that_performed_transaction_type(given_transaction_type, sample_config)
+    fetch_count_of_users_that_performed_transaction_type(sample_config)
 
     fetch_from_table_patch.assert_called_once_with(sample_query, sample_query_params)
     extract_key_value_from_first_item_of_big_query_response_patch.assert_called_once()
@@ -271,13 +288,14 @@ def test_fetch_count_of_users_that_saved_since_given_time(
         fetch_count_of_users_that_performed_transaction_type_patch
 ):
     sample_config = {
-        "least_time_to_consider": sample_given_time,
+        "least_time_to_consider": sample_least_time,
+        "max_time_to_consider": sample_max_time,
+        "transaction_type": SAVING_EVENT_TRANSACTION_TYPE
     }
 
-    fetch_count_of_users_that_saved_since_given_time(sample_given_time)
+    fetch_count_of_users_that_saved_since_given_time(sample_least_time, sample_max_time)
 
     fetch_count_of_users_that_performed_transaction_type_patch.assert_called_once_with(
-        SAVING_EVENT_TRANSACTION_TYPE,
         sample_config,
     )
 
@@ -286,13 +304,14 @@ def test_fetch_count_of_users_that_withdrew_since_given_time(
         fetch_count_of_users_that_performed_transaction_type_patch
 ):
     sample_config = {
-        "least_time_to_consider": sample_given_time,
+        "least_time_to_consider": sample_least_time,
+        "max_time_to_consider": sample_max_time,
+        "transaction_type": WITHDRAWAL_TRANSACTION_TYPE
     }
 
-    fetch_count_of_users_that_withdrew_since_given_time(sample_given_time)
+    fetch_count_of_users_that_withdrew_since_given_time(sample_least_time, sample_max_time)
 
     fetch_count_of_users_that_performed_transaction_type_patch.assert_called_once_with(
-        WITHDRAWAL_TRANSACTION_TYPE,
         sample_config,
     )
 
@@ -306,7 +325,8 @@ def test_fetch_count_of_users_that_performed_event(
     sample_config = {
         "event_type": USER_OPENED_APP_EVENT_CODE,
         "source_of_event": EXTERNAL_EVENT_SOURCE,
-        "least_time_to_consider": sample_given_time,
+        "least_time_to_consider": sample_least_time,
+        "max_time_to_consider": sample_max_time,
     }
 
     sample_query = (
@@ -315,12 +335,14 @@ def test_fetch_count_of_users_that_performed_event(
         from `{full_table_url}`
         where `event_type` = @eventType
         and `source_of_event` = @sourceOfEvent
-        and `time_transaction_occurred` >= @givenTime 
+        and `time_transaction_occurred` >= @leastTimeToConsider
+        and `time_transaction_occurred` <= @maxTimeToConsider
         """.format(full_table_url=ALL_USER_EVENTS_TABLE_URL)
     )
 
     sample_query_params = [
-        bigquery.ScalarQueryParameter("givenTime", "INT64", sample_config["least_time_to_consider"]),
+        bigquery.ScalarQueryParameter("leastTimeToConsider", "INT64", sample_config["least_time_to_consider"]),
+        bigquery.ScalarQueryParameter("maxTimeToConsider", "INT64", sample_config["max_time_to_consider"]),
         bigquery.ScalarQueryParameter("eventType", "STRING", sample_config["event_type"]),
         bigquery.ScalarQueryParameter("sourceOfEvent", "STRING", sample_config["source_of_event"]),
     ]
@@ -330,7 +352,6 @@ def test_fetch_count_of_users_that_performed_event(
     fetch_from_table_patch.assert_called_once_with(sample_query, sample_query_params)
     extract_key_value_from_first_item_of_big_query_response_patch.assert_called_once()
 
-
 @patch('main.fetch_count_of_users_that_performed_event')
 def test_fetch_count_of_users_that_entered_app_since_given_time(
         fetch_count_of_users_that_performed_event_patch,
@@ -339,10 +360,14 @@ def test_fetch_count_of_users_that_entered_app_since_given_time(
     sample_config = {
         "event_type": USER_OPENED_APP_EVENT_CODE,
         "source_of_event": EXTERNAL_EVENT_SOURCE,
-        "least_time_to_consider": sample_given_time,
+        "least_time_to_consider": sample_least_time,
+        "max_time_to_consider": sample_max_time,
     }
 
-    fetch_count_of_users_that_entered_app_since_given_time(sample_given_time)
+    fetch_count_of_users_that_entered_app_since_given_time(
+        sample_least_time,
+        sample_max_time
+    )
 
     fetch_count_of_users_that_performed_event_patch.assert_called_once_with(sample_config)
 
@@ -379,10 +404,14 @@ def test_fetch_count_of_users_that_tried_saving(
     sample_config = {
         "event_type": ENTERED_SAVINGS_FUNNEL_EVENT_CODE,
         "source_of_event": EXTERNAL_EVENT_SOURCE,
-        "least_time_to_consider": sample_given_time,
+        "least_time_to_consider": sample_least_time,
+        "max_time_to_consider": sample_max_time,
     }
 
-    fetch_count_of_users_that_tried_saving(sample_config["least_time_to_consider"])
+    fetch_count_of_users_that_tried_saving(
+        sample_least_time,
+        sample_max_time,
+    )
 
     fetch_count_of_users_that_performed_event_patch.assert_called_once_with(sample_config)\
 
@@ -394,10 +423,14 @@ def test_fetch_count_of_users_that_tried_withdrawing(
     sample_config = {
         "event_type": ENTERED_WITHDRAWAL_FUNNEL_EVENT_CODE,
         "source_of_event": EXTERNAL_EVENT_SOURCE,
-        "least_time_to_consider": sample_given_time,
+        "least_time_to_consider": sample_least_time,
+        "max_time_to_consider": sample_max_time,
     }
 
-    fetch_count_of_users_that_tried_withdrawing(sample_config["least_time_to_consider"])
+    fetch_count_of_users_that_tried_withdrawing(
+        sample_least_time,
+        sample_max_time,
+    )
 
     fetch_count_of_users_that_performed_event_patch.assert_called_once_with(sample_config)
 
@@ -407,17 +440,18 @@ def test_calculate_ratio_of_users_that_entered_app_today_versus_total_users(
         mock_fetch_total_number_of_users
 ):
 
-    given_time = sample_given_time
-
     main.fetch_count_of_users_that_entered_app_since_given_time = mock_fetch_count_of_users_that_entered_app
     main.fetch_total_number_of_users = mock_fetch_total_number_of_users
 
     mock_fetch_count_of_users_that_entered_app.return_value = sample_number_of_users
     mock_fetch_total_number_of_users.return_value = sample_total_users
 
-    assert calculate_ratio_of_users_that_entered_app_today_versus_total_users(given_time) == (sample_number_of_users/sample_total_users)
+    assert calculate_ratio_of_users_that_entered_app_today_versus_total_users(
+        sample_least_time,
+        sample_max_time
+    ) == (sample_number_of_users/sample_total_users)
 
-    mock_fetch_count_of_users_that_entered_app.assert_called_once_with(given_time)
+    mock_fetch_count_of_users_that_entered_app.assert_called_once_with(sample_least_time, sample_max_time)
     mock_fetch_total_number_of_users.assert_called_once_with()
 
 def test_calculate_ratio_of_users_that_saved_versus_users_that_tried_saving(
@@ -425,23 +459,24 @@ def test_calculate_ratio_of_users_that_saved_versus_users_that_tried_saving(
         mock_fetch_count_of_users_that_tried_saving
 ):
 
-    given_time = sample_given_time
-
     main.fetch_count_of_users_that_saved_since_given_time = mock_fetch_count_of_users_that_saved_since_given_time
     main.fetch_count_of_users_that_tried_saving = mock_fetch_count_of_users_that_tried_saving
 
     mock_fetch_count_of_users_that_saved_since_given_time.return_value = sample_number_of_users
     mock_fetch_count_of_users_that_tried_saving.return_value = sample_number_of_users
 
-    assert calculate_ratio_of_users_that_saved_versus_users_that_tried_saving(given_time) == (sample_number_of_users/sample_number_of_users)
+    assert calculate_ratio_of_users_that_saved_versus_users_that_tried_saving(
+        sample_least_time,
+        sample_max_time
+    ) == (sample_number_of_users/sample_number_of_users)
 
-    mock_fetch_count_of_users_that_saved_since_given_time.assert_called_once_with(given_time)
-    mock_fetch_count_of_users_that_tried_saving.assert_called_once_with(given_time)
+    mock_fetch_count_of_users_that_saved_since_given_time.assert_called_once_with(sample_least_time, sample_max_time)
+    mock_fetch_count_of_users_that_tried_saving.assert_called_once_with(sample_least_time, sample_max_time)
 
 
 @patch('main.fetch_data_as_list_from_user_behaviour_table')
 @patch('main.extract_key_values_as_list_from_big_query_response')
-def test_fetch_user_ids_that_performed_event_since_time(
+def test_fetch_user_ids_that_performed_event_between_period(
         extract_key_values_as_list_from_big_query_response_patch,
         fetch_from_table_patch,
 ):
@@ -471,14 +506,14 @@ def test_fetch_user_ids_that_performed_event_since_time(
         bigquery.ScalarQueryParameter("maxTimeToConsider", "INT64", sample_config["max_time_to_consider"]),
     ]
 
-    fetch_user_ids_that_performed_event_since_time(sample_config)
+    fetch_user_ids_that_performed_event_between_period(sample_config)
 
     fetch_from_table_patch.assert_called_once_with(sample_query, sample_query_params)
     extract_key_values_as_list_from_big_query_response_patch.assert_called_once()
 
-@patch('main.fetch_user_ids_that_performed_event_since_time')
-def test_fetch_user_ids_that_completed_signup_since_time(
-        fetch_user_ids_that_performed_event_since_time_patch,
+@patch('main.fetch_user_ids_that_performed_event_between_period')
+def test_fetch_user_ids_that_completed_signup_between_period(
+        fetch_user_ids_that_performed_event_between_period_patch,
 ):
 
     sample_config = {
@@ -488,25 +523,25 @@ def test_fetch_user_ids_that_completed_signup_since_time(
         "max_time_to_consider": sample_max_time,
     }
 
-    fetch_user_ids_that_completed_signup_since_time(
+    fetch_user_ids_that_completed_signup_between_period(
         sample_config["least_time_to_consider"],
         sample_config["max_time_to_consider"],
     )
 
-    fetch_user_ids_that_performed_event_since_time_patch.assert_called_once_with(sample_config)
+    fetch_user_ids_that_performed_event_between_period_patch.assert_called_once_with(sample_config)
 
 
-def test_fetch_count_of_users_that_signed_up_since_time(
-        mock_fetch_user_ids_that_completed_signup_since_time
+def test_fetch_count_of_users_that_signed_up_between_period(
+        mock_fetch_user_ids_that_completed_signup_between_period
 ):
 
-    main.fetch_user_ids_that_completed_signup_since_time = mock_fetch_user_ids_that_completed_signup_since_time
+    main.fetch_user_ids_that_completed_signup_between_period = mock_fetch_user_ids_that_completed_signup_between_period
 
-    mock_fetch_user_ids_that_completed_signup_since_time.return_value = sample_formatted_response_list
+    mock_fetch_user_ids_that_completed_signup_between_period.return_value = sample_formatted_response_list
 
-    assert fetch_count_of_users_that_signed_up_since_time(sample_least_time, sample_max_time) == len(sample_formatted_response_list)
+    assert fetch_count_of_users_that_signed_up_between_period(sample_least_time, sample_max_time) == len(sample_formatted_response_list)
 
-    mock_fetch_user_ids_that_completed_signup_since_time.assert_called_once_with(sample_least_time, sample_max_time)
+    mock_fetch_user_ids_that_completed_signup_between_period.assert_called_once_with(sample_least_time, sample_max_time)
 
 @patch('main.fetch_data_as_list_from_user_behaviour_table')
 @patch('main.extract_key_value_from_first_item_of_big_query_response')
@@ -549,8 +584,8 @@ def test_fetch_count_of_users_in_list_that_performed_event(
     extract_key_value_from_first_item_of_big_query_response_patch.assert_called_once()
 
 
-def test_fetch_count_of_new_users_that_saved_since_time(
-        mock_fetch_user_ids_that_completed_signup_since_time,
+def test_fetch_count_of_new_users_that_saved_between_period(
+        mock_fetch_user_ids_that_completed_signup_between_period,
         mock_fetch_count_of_users_in_list_that_performed_event
 ):
 
@@ -564,19 +599,19 @@ def test_fetch_count_of_new_users_that_saved_since_time(
         "user_list": sample_formatted_response_list
     }
 
-    main.fetch_user_ids_that_completed_signup_since_time = mock_fetch_user_ids_that_completed_signup_since_time
+    main.fetch_user_ids_that_completed_signup_between_period = mock_fetch_user_ids_that_completed_signup_between_period
     main.fetch_count_of_users_in_list_that_performed_event = mock_fetch_count_of_users_in_list_that_performed_event
 
-    mock_fetch_user_ids_that_completed_signup_since_time.return_value = sample_formatted_response_list
+    mock_fetch_user_ids_that_completed_signup_between_period.return_value = sample_formatted_response_list
     mock_fetch_count_of_users_in_list_that_performed_event.return_value = given_count
 
-    assert fetch_count_of_new_users_that_saved_since_time(sample_least_time, sample_max_time) == given_count
+    assert fetch_count_of_new_users_that_saved_between_period(sample_least_time, sample_max_time) == given_count
 
-    mock_fetch_user_ids_that_completed_signup_since_time.assert_called_once_with(sample_least_time, sample_max_time)
+    mock_fetch_user_ids_that_completed_signup_between_period.assert_called_once_with(sample_least_time, sample_max_time)
     mock_fetch_count_of_users_in_list_that_performed_event.assert_called_once_with(sample_config)
 
 def test_calculate_ratio_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event(
-        mock_fetch_user_ids_that_completed_signup_since_time,
+        mock_fetch_user_ids_that_completed_signup_between_period,
         mock_fetch_count_of_users_in_list_that_performed_event
 ):
 
@@ -607,10 +642,10 @@ def test_calculate_ratio_of_users_who_performed_event_n_days_ago_and_have_not_pe
         "user_list": sample_formatted_response_list
     }
 
-    main.fetch_user_ids_that_completed_signup_since_time = mock_fetch_user_ids_that_completed_signup_since_time
+    main.fetch_user_ids_that_completed_signup_between_period = mock_fetch_user_ids_that_completed_signup_between_period
     main.fetch_count_of_users_in_list_that_performed_event = mock_fetch_count_of_users_in_list_that_performed_event
 
-    mock_fetch_user_ids_that_completed_signup_since_time.return_value = sample_formatted_response_list
+    mock_fetch_user_ids_that_completed_signup_between_period.return_value = sample_formatted_response_list
     mock_fetch_count_of_users_in_list_that_performed_event.return_value = given_count
 
     assert calculate_ratio_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event(
@@ -619,9 +654,90 @@ def test_calculate_ratio_of_users_who_performed_event_n_days_ago_and_have_not_pe
         given_count / len(sample_formatted_response_list)
     )
 
-    mock_fetch_user_ids_that_completed_signup_since_time.assert_called_once_with(
+    mock_fetch_user_ids_that_completed_signup_between_period.assert_called_once_with(
         start_time_in_milliseconds_n_days_ago,
         end_time_in_milliseconds_n_days_ago
     )
     mock_fetch_count_of_users_in_list_that_performed_event.assert_called_once_with(sample_config)
 
+
+def test_fetch_average_number_of_users_that_performed_event(
+        mock_fetch_count_of_users_that_performed_event
+):
+
+    given_count = sample_count
+
+    sample_config = {
+        "event_type": USER_OPENED_APP_EVENT_CODE,
+        "least_time_to_consider": sample_least_time,
+        "max_time_to_consider": sample_max_time,
+        "day_interval": THREE_DAYS,
+    }
+
+    main.fetch_count_of_users_that_performed_event = mock_fetch_count_of_users_that_performed_event
+
+    mock_fetch_count_of_users_that_performed_event.return_value = given_count
+
+    assert fetch_average_number_of_users_that_performed_event(
+        sample_config
+    ) == (given_count / sample_config["day_interval"])
+
+    mock_fetch_count_of_users_that_performed_event.assert_called_once_with({
+        "event_type": sample_config["event_type"],
+        "source_of_event": EXTERNAL_EVENT_SOURCE,
+        "least_time_to_consider": sample_config["least_time_to_consider"],
+        "max_time_to_consider": sample_config["max_time_to_consider"],
+    })
+
+def test_fetch_average_number_of_users_that_performed_transaction_type(
+        mock_fetch_count_of_users_that_performed_transaction_type
+):
+
+    given_count = sample_count
+
+    sample_config = {
+        "transaction_type": SAVING_EVENT_TRANSACTION_TYPE,
+        "least_time_to_consider": sample_least_time,
+        "max_time_to_consider": sample_max_time,
+        "day_interval": THREE_DAYS,
+    }
+
+    main.fetch_count_of_users_that_performed_transaction_type = mock_fetch_count_of_users_that_performed_transaction_type
+
+    mock_fetch_count_of_users_that_performed_transaction_type.return_value = given_count
+
+    assert fetch_average_number_of_users_that_performed_transaction_type(
+        sample_config
+    ) == (given_count / sample_config["day_interval"])
+
+    mock_fetch_count_of_users_that_performed_transaction_type.assert_called_once_with(
+        {
+            "transaction_type": sample_config["transaction_type"],
+            "least_time_to_consider": sample_config["least_time_to_consider"],
+            "max_time_to_consider": sample_config["max_time_to_consider"],
+        }
+    )
+
+def test_fetch_average_number_of_users_that_completed_signup_between_period(
+        mock_fetch_user_ids_that_completed_signup_between_period
+):
+    given_count = sample_count
+
+    sample_config = {
+        "least_time_to_consider": sample_least_time,
+        "max_time_to_consider": sample_max_time,
+        "day_interval": THREE_DAYS,
+    }
+
+    main.fetch_user_ids_that_completed_signup_between_period = mock_fetch_user_ids_that_completed_signup_between_period
+
+    mock_fetch_user_ids_that_completed_signup_between_period.return_value = given_count
+
+    assert fetch_average_number_of_users_that_completed_signup_between_period(
+        sample_config
+    ) == (given_count / sample_config["day_interval"])
+
+    mock_fetch_user_ids_that_completed_signup_between_period.assert_called_once_with(
+        sample_config["least_time_to_consider"],
+        sample_config["max_time_to_consider"],
+    )
