@@ -1,6 +1,9 @@
+# coding=utf-8
 import os
 import constant
 import datetime
+import json
+import requests
 
 from google.cloud import bigquery
 from dotenv import load_dotenv
@@ -9,9 +12,11 @@ load_dotenv()
 # these credentials are used to access google cloud services. See https://cloud.google.com/docs/authentication/getting-started
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="service-account-credentials.json"
 
-client = bigquery.Client()
 project_id = os.getenv("GOOGLE_PROJECT_ID")
-BIG_QUERY_DATASET_LOCATION =  os.getenv("BIG_QUERY_DATASET_LOCATION")
+BIG_QUERY_DATASET_LOCATION = os.getenv("BIG_QUERY_DATASET_LOCATION")
+NOTIFICATION_SERVICE_URL = os.getenv("NOTIFICATION_SERVICE_URL")
+
+client = bigquery.Client()
 dataset_id = 'ops'
 user_behaviour_table_id = 'user_behaviour'
 all_user_events_id = 'all_user_events'
@@ -30,6 +35,10 @@ INTERNAL_EVENT_SOURCE = constant.INTERNAL_EVENT_SOURCE
 ENTERED_SAVINGS_FUNNEL_EVENT_CODE = constant.ENTERED_SAVINGS_FUNNEL_EVENT_CODE
 ENTERED_WITHDRAWAL_FUNNEL_EVENT_CODE = constant.ENTERED_WITHDRAWAL_FUNNEL_EVENT_CODE
 USER_COMPLETED_SIGNUP_EVENT_CODE = constant.USER_COMPLETED_SIGNUP_EVENT_CODE
+BOOST_EXPIRED_EVENT_CODE = constant.BOOST_EXPIRED_EVENT_CODE
+BOOST_CREATED_EVENT_CODE = constant.BOOST_CREATED_EVENT_CODE
+USER_COMPLETED_SIGNUP_EVENT_CODE = constant.USER_COMPLETED_SIGNUP_EVENT_CODE
+BOOST_ID_KEY_CODE = constant.BOOST_ID_KEY_CODE
 THREE_DAYS = constant.THREE_DAYS
 TWO_DAYS = constant.TWO_DAYS
 ONE_DAY = constant.ONE_DAY
@@ -39,9 +48,25 @@ HOUR_MARKING_START_OF_DAY=constant.HOUR_MARKING_START_OF_DAY
 HOUR_MARKING_END_OF_DAY=constant.HOUR_MARKING_END_OF_DAY
 SECOND_TO_MILLISECOND_FACTOR=constant.SECOND_TO_MILLISECOND_FACTOR
 HUNDRED_PERCENT=constant.HUNDRED_PERCENT
+DEFAULT_FLAG_TIME=constant.DEFAULT_FLAG_TIME
+EMAIL_TYPE=constant.EMAIL_TYPE
+EMAIL_SUBJECT_FOR_ADMINS=constant.EMAIL_SUBJECT_FOR_ADMINS
+TIME_FORMAT=constant.TIME_FORMAT
+CONTACTS_TO_BE_NOTIFIED=['luke@plutosave.com']
 
 def convert_value_to_percentage(value):
     return value * HUNDRED_PERCENT
+
+def fetch_current_time():
+    print("Fetching current time at UTC")
+    currentTime = datetime.datetime.now().time().strftime(TIME_FORMAT)
+    print(
+        """
+        Successfully fetched current time at UTC. Time at UTC: {}
+        for created_at and updated_at datetime
+        """.format(currentTime)
+    )
+    return currentTime
 
 def calculate_date_n_days_ago(num):
     print("calculating date: {n} days before today".format(n=num))
@@ -71,6 +96,7 @@ def convert_amount_from_hundredth_cent_to_whole_currency(amount):
 def list_not_empty_or_undefined(given_list):
     return given_list and len(given_list) > 0
 
+# we extract from first item because we are expecting only one key-value pair
 def extract_key_value_from_first_item_of_big_query_response(raw_response, key):
     if list_not_empty_or_undefined(raw_response):
         firstItemOfList = raw_response[0]
@@ -80,6 +106,7 @@ def extract_key_value_from_first_item_of_big_query_response(raw_response, key):
 
     print("Big query response is empty")
 
+# we are expecting multiple key-value pairs. `raw_response_as_list`: [{a: 1}, {b: 2}] transformed to [1, 2]
 def extract_key_values_as_list_from_big_query_response(raw_response_as_list, key):
     formatted_list = []
     if list_not_empty_or_undefined(raw_response_as_list):
@@ -527,6 +554,145 @@ def fetch_average_number_of_users_that_completed_signup_between_period(config):
 
     return users_who_signed_up_n_days_ago / day_interval
 
+def extract_key_from_context_data_in_big_query_response(needed_key, big_query_response):
+    context_for_expired_boosts = extract_key_values_as_list_from_big_query_response(big_query_response, 'context')
+    key_values_from_context_as_list = []
+
+    for context in context_for_expired_boosts:
+        json_context = json.loads(context)
+        key_values_from_context_as_list.append(json_context[needed_key])
+
+    return key_values_from_context_as_list
+
+def fetch_full_events_based_on_constraints(config):
+    event_type = config["event_type"]
+    source_of_event = config["source_of_event"]
+    least_time_to_consider = config["least_time_to_consider"]
+    max_time_to_consider = config["max_time_to_consider"]
+
+    given_table = ALL_USER_EVENTS_TABLE_URL
+
+    print(
+        """
+        Fetching full event details of event type: {event_type} with source: {source_of_event} 
+        from table: {given_table} after time: {least_time} and a max time of: {max_time}
+        """.format(event_type=event_type, source_of_event=source_of_event, given_table=given_table, least_time=least_time_to_consider, max_time=max_time_to_consider)
+    )
+
+    query = (
+        """
+        select *
+        from `{full_table_url}`
+        where `source_of_event` = @sourceOfEvent
+        and `event_type` = @eventType
+        and `time_transaction_occurred` >= @leastTimeToConsider
+        and `time_transaction_occurred` <= @maxTimeToConsider
+        """.format(full_table_url=given_table)
+    )
+
+    query_params = [
+        bigquery.ScalarQueryParameter("sourceOfEvent", "STRING", source_of_event),
+        bigquery.ScalarQueryParameter("eventType", "STRING", event_type),
+        bigquery.ScalarQueryParameter("leastTimeToConsider", "INT64", least_time_to_consider),
+        bigquery.ScalarQueryParameter("maxTimeToConsider", "INT64", max_time_to_consider),
+    ]
+
+    big_query_response = fetch_data_as_list_from_user_behaviour_table(query, query_params)
+    return big_query_response
+
+def fetch_count_of_users_that_have_event_type_and_context_key_value(config):
+    event_type = config["event_type"]
+    source_of_event = config["source_of_event"]
+    least_time_to_consider = config["least_time_to_consider"]
+    max_time_to_consider = config["max_time_to_consider"]
+    context_key_value = config["context_key_value"]
+
+    print(
+        """
+        Fetching count of users that have event type: {event_type} and context key value: {context_key_value}
+        """.format(event_type=event_type, context_key_value=context_key_value)
+    )
+
+    query = (
+        """
+        select count(distinct(`user_id`)) as `countOfUsersWithEventTypeAndContextValue`
+        from `{full_table_url}`
+        where `source_of_event` = @sourceOfEvent
+        and `time_transaction_occurred` >= @leastTimeToConsider
+        and `time_transaction_occurred` <= @maxTimeToConsider
+        and `event_type` LIKE @eventType
+        and `context` LIKE @contextKeyValue
+        """.format(full_table_url=ALL_USER_EVENTS_TABLE_URL)
+    )
+
+    query_params = [
+        bigquery.ScalarQueryParameter("sourceOfEvent", "STRING", source_of_event),
+        bigquery.ScalarQueryParameter("leastTimeToConsider", "INT64", least_time_to_consider),
+        bigquery.ScalarQueryParameter("maxTimeToConsider", "INT64", max_time_to_consider),
+        bigquery.ScalarQueryParameter("eventType", "STRING", event_type),
+        bigquery.ScalarQueryParameter("contextKeyValue", "STRING", context_key_value),
+    ]
+
+    big_query_response = fetch_data_as_list_from_user_behaviour_table(query, query_params)
+    user_count = extract_key_value_from_first_item_of_big_query_response(big_query_response, 'countOfUsersWithEventTypeAndContextValue')
+    return user_count
+
+def construct_value_for_sql_like_query(key_value):
+    return "%{key_value}%".format(key_value=key_value)
+
+def fetch_count_of_users_initially_offered_boosts(boost_ids_list):
+    counter = 0
+    date_of_today = calculate_date_n_days_ago(TODAY)
+    end_time_in_milliseconds_today = convert_date_string_to_millisecond_int(
+        date_of_today,
+        HOUR_MARKING_END_OF_DAY
+    )
+    boost_expired_code_for_query = construct_value_for_sql_like_query(BOOST_EXPIRED_EVENT_CODE)
+    for boost_id in boost_ids_list:
+        counter += fetch_count_of_users_that_have_event_type_and_context_key_value(
+            {
+                "event_type": boost_expired_code_for_query,
+                "source_of_event": INTERNAL_EVENT_SOURCE,
+                "least_time_to_consider": DEFAULT_FLAG_TIME,
+                "max_time_to_consider": end_time_in_milliseconds_today,
+                "context_key_value": construct_value_for_sql_like_query(boost_id),
+            }
+        )
+
+    return counter
+
+def calculate_percentage_of_users_whose_boosts_expired_without_them_using_it():
+    # a) all users whose boosts expired today (user ids then count)
+    # b) users who were offered the boost in the first place
+    # a / b
+    date_of_today = calculate_date_n_days_ago(TODAY)
+    start_time_in_milliseconds_today = convert_date_string_to_millisecond_int(
+        date_of_today,
+        HOUR_MARKING_START_OF_DAY
+    )
+    end_time_in_milliseconds_today = convert_date_string_to_millisecond_int(
+        date_of_today,
+        HOUR_MARKING_END_OF_DAY
+    )
+    full_event_data_of_boosts_that_expired_today = fetch_full_events_based_on_constraints(
+        {
+            "event_type": BOOST_EXPIRED_EVENT_CODE,
+            "source_of_event": INTERNAL_EVENT_SOURCE,
+            "least_time_to_consider": start_time_in_milliseconds_today,
+            "max_time_to_consider": end_time_in_milliseconds_today,
+        }
+    )
+    count_of_users_whose_boosts_expired_today = len(full_event_data_of_boosts_that_expired_today)
+    boost_ids_for_expired_boosts = extract_key_from_context_data_in_big_query_response(
+        BOOST_ID_KEY_CODE,
+        full_event_data_of_boosts_that_expired_today
+    )
+
+    count_of_users_initially_offered_boosts = fetch_count_of_users_initially_offered_boosts(boost_ids_for_expired_boosts)
+
+    return convert_value_to_percentage(
+        count_of_users_whose_boosts_expired_today / count_of_users_initially_offered_boosts
+    )
 
 def fetch_daily_metrics():
     date_of_today = calculate_date_n_days_ago(TODAY)
@@ -703,7 +869,7 @@ def fetch_daily_metrics():
     )
 
     # * % of users whose Boosts expired without them using today
-    # TODO: boosts
+    percentage_of_users_whose_boosts_expired_without_them_using_it = calculate_percentage_of_users_whose_boosts_expired_without_them_using_it()
 
     # * % of users who signed up 3 days ago who have not opened app since then
     percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then = calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event(
@@ -736,5 +902,100 @@ def fetch_daily_metrics():
         "ten_day_average_of_users_that_tried_withdrawing": ten_day_average_of_users_that_tried_withdrawing,
         "number_of_users_that_joined_today_and_saved": number_of_users_that_joined_today_and_saved,
         "number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today": number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today,
+        "percentage_of_users_whose_boosts_expired_without_them_using_it": percentage_of_users_whose_boosts_expired_without_them_using_it,
         "percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then": percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then,
     }
+
+def notify_admins_via_email(payload):
+    print("Notifying admin via email")
+    r = requests.post(NOTIFICATION_SERVICE_URL, data=payload)
+    print(
+        """
+        Response from notification request.
+        Status Code: {status_code} and Reason: {reason} 
+        """.format(status_code=r.status_code, reason=r.reason)
+    )
+
+def construct_notification_payload_for_email(message):
+    return {
+        "notificationType": EMAIL_TYPE,
+        "contacts": CONTACTS_TO_BE_NOTIFIED,
+        "message": message,
+        "subject": EMAIL_SUBJECT_FOR_ADMINS
+    }
+
+def compose_daily_email(daily_metrics):
+    print("Composing daily email")
+    date_of_today = calculate_date_n_days_ago(TODAY)
+    current_time = fetch_current_time()
+
+    return  """
+        {date_of_today} {current_time} UTC
+        
+        Hello,
+        
+        Here’s how people used JupiterSave today:
+
+        Total Saved Amount: {total_saved_amount_today}
+        
+        Number of Users that Saved [today: {number_of_users_that_saved_today} vs 3day avg: {three_day_average_of_users_that_saved} vs 10 day avg: {ten_day_average_of_users_that_saved} ]
+        
+        Total Withdrawal Amount Today: {total_withdrawn_amount_today}
+        
+        Number of Users that Withdrew [today: {number_of_users_that_withdrew_today} vs 3day avg: {three_day_average_of_users_that_withdrew}  vs 10 day avg: {ten_day_average_of_users_that_withdrew}]
+        
+        Total Jupiter SA users at start of day: {total_users_as_at_start_of_today}
+        
+        Number of new users which joined today [today: {number_of_users_that_joined_today} vs 3day avg: {three_day_average_of_users_that_joined} vs 10 day avg: {ten_day_average_of_users_that_joined}]
+        
+        Percentage of users who entered app today / Total Users: {percentage_of_users_that_entered_app_today_versus_total_users} 
+        
+        Number of Users that tried saving (entered savings funnel - first event) [today: {number_of_users_that_tried_saving_today} vs 3day avg: {three_day_average_of_users_that_tried_saving} vs 10 day avg: {ten_day_average_of_users_that_tried_saving}]
+        
+        Number of users that tried withdrawing (entered withdrawal funnel - first event) [today: {number_of_users_that_tried_withdrawing_today} vs 3day avg: {three_day_average_of_users_that_tried_withdrawing} vs 10 day avg: {ten_day_average_of_users_that_tried_withdrawing}]
+        
+        Number of new users that saved today: {number_of_users_that_joined_today_and_saved}
+        
+        Percentage of users that saved / users that tried saving: {number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today}
+        
+        % of users whose Boosts expired without them using today: {percentage_of_users_whose_boosts_expired_without_them_using_it}
+        
+        % of users who signed up 3 days ago who have not opened app since then: {percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then}        
+    """.format(
+        date_of_today=date_of_today,
+        current_time=current_time,
+        total_saved_amount_today=daily_metrics["total_saved_amount_today"],
+        number_of_users_that_saved_today=daily_metrics["number_of_users_that_saved_today"],
+        three_day_average_of_users_that_saved=daily_metrics["three_day_average_of_users_that_saved"],
+        ten_day_average_of_users_that_saved=daily_metrics["ten_day_average_of_users_that_saved"],
+        total_withdrawn_amount_today=daily_metrics["total_withdrawn_amount_today"],
+        number_of_users_that_withdrew_today=daily_metrics["number_of_users_that_withdrew_today"],
+        three_day_average_of_users_that_withdrew=daily_metrics["three_day_average_of_users_that_withdrew"],
+        ten_day_average_of_users_that_withdrew=daily_metrics["ten_day_average_of_users_that_withdrew"],
+        total_users_as_at_start_of_today=daily_metrics["total_users_as_at_start_of_today"],
+        number_of_users_that_joined_today=daily_metrics["number_of_users_that_joined_today"],
+        three_day_average_of_users_that_joined=daily_metrics["three_day_average_of_users_that_joined"],
+        ten_day_average_of_users_that_joined=daily_metrics["ten_day_average_of_users_that_joined"],
+        percentage_of_users_that_entered_app_today_versus_total_users=daily_metrics["percentage_of_users_that_entered_app_today_versus_total_users"],
+        number_of_users_that_tried_saving_today=daily_metrics["number_of_users_that_tried_saving_today"],
+        three_day_average_of_users_that_tried_saving=daily_metrics["three_day_average_of_users_that_tried_saving"],
+        ten_day_average_of_users_that_tried_saving=daily_metrics["ten_day_average_of_users_that_tried_saving"],
+        number_of_users_that_tried_withdrawing_today=daily_metrics["number_of_users_that_tried_withdrawing_today"],
+        three_day_average_of_users_that_tried_withdrawing=daily_metrics["three_day_average_of_users_that_tried_withdrawing"],
+        ten_day_average_of_users_that_tried_withdrawing=daily_metrics["ten_day_average_of_users_that_tried_withdrawing"],
+        number_of_users_that_joined_today_and_saved=daily_metrics["number_of_users_that_joined_today_and_saved"],
+        number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today=daily_metrics["number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today"],
+        percentage_of_users_whose_boosts_expired_without_them_using_it=daily_metrics["percentage_of_users_whose_boosts_expired_without_them_using_it"],
+        percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then=daily_metrics["percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then"],
+    )
+
+def send_daily_email_to_admin():
+    print("Send daily email to admin")
+    daily_metrics = fetch_daily_metrics()
+
+    email_message = compose_daily_email(daily_metrics)
+
+    notification_payload = construct_notification_payload_for_email(email_message)
+
+    notify_admins_via_email(notification_payload)
+    print("Completed sending of daily email to admin")

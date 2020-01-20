@@ -215,7 +215,7 @@ const logFraudulentUserAndNotifyAdmins = async (event, userAccountInfo) => {
         
     const notificationPayload = constructNotificationPayload(userAccountInfo, reasonForFlaggingUser);
 
-    await notifyAdminsOfNewlyFlaggedUser(notificationPayload, NOTIFICATION);
+    await notifyAdminsOfNewlyFlaggedUser(notificationPayload);
 };
 
 // Run the engine to evaluate facts against the rules
