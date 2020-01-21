@@ -35,7 +35,6 @@ ENTERED_WITHDRAWAL_FUNNEL_EVENT_CODE = constant.ENTERED_WITHDRAWAL_FUNNEL_EVENT_
 USER_COMPLETED_SIGNUP_EVENT_CODE = constant.USER_COMPLETED_SIGNUP_EVENT_CODE
 BOOST_EXPIRED_EVENT_CODE = constant.BOOST_EXPIRED_EVENT_CODE
 BOOST_CREATED_EVENT_CODE = constant.BOOST_CREATED_EVENT_CODE
-USER_COMPLETED_SIGNUP_EVENT_CODE = constant.USER_COMPLETED_SIGNUP_EVENT_CODE
 BOOST_ID_KEY_CODE = constant.BOOST_ID_KEY_CODE
 THREE_DAYS = constant.THREE_DAYS
 TWO_DAYS = constant.TWO_DAYS
@@ -1014,4 +1013,3 @@ def send_daily_metrics_email_to_admin():
     notification_payload = construct_notification_payload_for_email(email_message)
     notify_admins_via_email(notification_payload)
     print("Completed sending of daily email to admin")
-send_daily_metrics_email_to_admin()
