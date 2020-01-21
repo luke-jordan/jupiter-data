@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from main \
     import fetch_data_as_list_from_user_behaviour_table, \
+    avoid_division_by_zero_error, \
     fetch_current_time, \
     convert_value_to_percentage, \
     calculate_date_n_days_ago, \
@@ -49,7 +50,7 @@ from main \
     notify_admins_via_email, \
     construct_notification_payload_for_email, \
     compose_daily_email, \
-    send_daily_email_to_admin
+    send_daily_metrics_email_to_admin
 
 import main
 
@@ -77,6 +78,7 @@ EMAIL_TYPE = main.EMAIL_TYPE
 CONTACTS_TO_BE_NOTIFIED = main.CONTACTS_TO_BE_NOTIFIED
 EMAIL_SUBJECT_FOR_ADMINS = main.EMAIL_SUBJECT_FOR_ADMINS
 TIME_FORMAT = main.TIME_FORMAT
+BOOST_ID_KEY_CODE = main.BOOST_ID_KEY_CODE
 
 sample_total_users = 10
 sample_number_of_users = 2
@@ -161,6 +163,15 @@ def mock_fetch_full_events_based_on_constraints():
 def mock_fetch_count_of_users_initially_offered_boosts():
     return Mock(spec=fetch_count_of_users_initially_offered_boosts)
 
+def test_avoid_division_by_zero_error():
+    val1 = 2
+    val2 = 3
+    assert avoid_division_by_zero_error(val1, val2) == (val1 / val2)
+
+    val3 = 5
+    val4 = 0
+    assert avoid_division_by_zero_error(val3, val4) == 0
+
 def test_fetch_current_time():
     assert fetch_current_time() == (datetime.datetime.now().time().strftime(TIME_FORMAT))
 
@@ -172,6 +183,10 @@ def test_convert_amount_from_hundredth_cent_to_whole_currency():
     assert convert_amount_from_hundredth_cent_to_whole_currency(
         sample_amount
     ) ==  (float(sample_amount) * FACTOR_TO_CONVERT_HUNDREDTH_CENT_TO_WHOLE_CURRENCY)
+
+    assert convert_amount_from_hundredth_cent_to_whole_currency(
+        None
+    ) == 0
 
 def test_calculate_date_n_days_ago():
     seven_days = 7
@@ -195,7 +210,7 @@ def test_extract_key_value_from_first_item_of_big_query_response_with_list():
         { "user_id": sample_user_id }
     ]
     assert extract_key_value_from_first_item_of_big_query_response(sample_response_list, "user_id") == sample_user_id
-
+    assert extract_key_value_from_first_item_of_big_query_response([], "userId") == 0
 
 def test_extract_key_values_as_list_from_big_query_response():
     sample_response_list = [
@@ -796,7 +811,7 @@ def test_fetch_average_number_of_users_that_performed_transaction_type(
 def test_fetch_average_number_of_users_that_completed_signup_between_period(
         mock_fetch_user_ids_that_completed_signup_between_period
 ):
-    given_count = sample_count
+    sample_user_ids_that_completed_signup = [sample_user_id, sample_user_id]
 
     sample_config = {
         "least_time_to_consider": sample_least_time,
@@ -806,11 +821,11 @@ def test_fetch_average_number_of_users_that_completed_signup_between_period(
 
     main.fetch_user_ids_that_completed_signup_between_period = mock_fetch_user_ids_that_completed_signup_between_period
 
-    mock_fetch_user_ids_that_completed_signup_between_period.return_value = given_count
+    mock_fetch_user_ids_that_completed_signup_between_period.return_value = sample_user_ids_that_completed_signup
 
     assert fetch_average_number_of_users_that_completed_signup_between_period(
         sample_config
-    ) == (given_count / sample_config["day_interval"])
+    ) == (len(sample_user_ids_that_completed_signup) / sample_config["day_interval"])
 
     mock_fetch_user_ids_that_completed_signup_between_period.assert_called_once_with(
         sample_config["least_time_to_consider"],
@@ -818,6 +833,7 @@ def test_fetch_average_number_of_users_that_completed_signup_between_period(
     )
 
 @patch('main.calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event')
+@patch('main.calculate_percentage_of_users_whose_boosts_expired_without_them_using_it')
 @patch('main.calculate_ratio_of_users_that_saved_versus_users_that_tried_saving')
 @patch('main.fetch_count_of_new_users_that_saved_between_period')
 @patch('main.fetch_count_of_users_that_tried_withdrawing')
@@ -847,6 +863,7 @@ def test_fetch_daily_metrics(
         fetch_count_of_users_that_tried_withdrawing_patch,
         fetch_count_of_new_users_that_saved_between_period_patch,
         calculate_ratio_of_users_that_saved_versus_users_that_tried_saving_patch,
+        calculate_percentage_of_users_whose_boosts_expired_without_them_using_it_patch,
         calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event_patch,
 ):
 
@@ -866,10 +883,11 @@ def test_fetch_daily_metrics(
     fetch_count_of_users_that_tried_withdrawing_patch.assert_called_once()
     fetch_count_of_new_users_that_saved_between_period_patch.assert_called_once()
     calculate_ratio_of_users_that_saved_versus_users_that_tried_saving_patch.assert_called_once()
+    calculate_percentage_of_users_whose_boosts_expired_without_them_using_it_patch.assert_called_once()
     calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event_patch.assert_called_once()
 
 def test_extract_key_from_context_data_in_big_query_response():
-    sample_needed_key = "boostId"
+    sample_needed_key = BOOST_ID_KEY_CODE
     assert extract_key_from_context_data_in_big_query_response(
         sample_needed_key,
         sample_full_event_data
@@ -1130,13 +1148,13 @@ def test_compose_daily_email(
 @patch('main.construct_notification_payload_for_email')
 @patch('main.compose_daily_email')
 @patch('main.fetch_daily_metrics')
-def test_send_daily_email_to_admin(
+def test_send_daily_metrics_email_to_admin(
         fetch_daily_metrics_patch,
         compose_daily_email_patch,
         construct_notification_payload_for_email_patch,
         notify_admins_via_email_patch,
 ):
-    send_daily_email_to_admin()
+    send_daily_metrics_email_to_admin()
 
     fetch_daily_metrics_patch.assert_called_once()
     compose_daily_email_patch.assert_called_once()

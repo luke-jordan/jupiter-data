@@ -20,11 +20,9 @@ client = bigquery.Client()
 dataset_id = 'ops'
 user_behaviour_table_id = 'user_behaviour'
 all_user_events_id = 'all_user_events'
-user_behaviour_table_ref = client.dataset(dataset_id).table(user_behaviour_table_id)
-all_user_events_table_ref = client.dataset(dataset_id).table(all_user_events_id)
 
 USER_BEHAVIOUR_TABLE_URL="{project_id}.{dataset_id}.{table_id}".format(project_id=project_id, dataset_id=dataset_id, table_id=user_behaviour_table_id)
-ALL_USER_EVENTS_TABLE_URL="{project_id}.{dataset_id}.{table_id}".format(project_id=project_id, dataset_id=dataset_id, table_id=all_user_events_table_ref)
+ALL_USER_EVENTS_TABLE_URL="{project_id}.{dataset_id}.{table_id}".format(project_id=project_id, dataset_id=dataset_id, table_id=all_user_events_id)
 
 FACTOR_TO_CONVERT_HUNDREDTH_CENT_TO_WHOLE_CURRENCY = constant.FACTOR_TO_CONVERT_HUNDREDTH_CENT_TO_WHOLE_CURRENCY
 SAVING_EVENT_TRANSACTION_TYPE = constant.SAVING_EVENT_TRANSACTION_TYPE
@@ -52,10 +50,15 @@ DEFAULT_FLAG_TIME=constant.DEFAULT_FLAG_TIME
 EMAIL_TYPE=constant.EMAIL_TYPE
 EMAIL_SUBJECT_FOR_ADMINS=constant.EMAIL_SUBJECT_FOR_ADMINS
 TIME_FORMAT=constant.TIME_FORMAT
+DEFAULT_KEY_VALUE=constant.DEFAULT_KEY_VALUE
 CONTACTS_TO_BE_NOTIFIED=['luke@plutosave.com']
 
 def convert_value_to_percentage(value):
     return value * HUNDRED_PERCENT
+
+def avoid_division_by_zero_error(a, b):
+    answer = (a / b) if b != 0 else 0
+    return answer
 
 def fetch_current_time():
     print("Fetching current time at UTC")
@@ -91,6 +94,9 @@ def convert_date_string_to_millisecond_int(dateString, hour):
 
 def convert_amount_from_hundredth_cent_to_whole_currency(amount):
     print("Converting amount from 'hundredth cent' to 'whole currency'. Amount: {}".format(amount))
+    if amount is None:
+        return 0
+
     return float(amount) * FACTOR_TO_CONVERT_HUNDREDTH_CENT_TO_WHOLE_CURRENCY
 
 def list_not_empty_or_undefined(given_list):
@@ -99,12 +105,14 @@ def list_not_empty_or_undefined(given_list):
 # we extract from first item because we are expecting only one key-value pair
 def extract_key_value_from_first_item_of_big_query_response(raw_response, key):
     if list_not_empty_or_undefined(raw_response):
+        print("Raw response {}".format(raw_response))
         firstItemOfList = raw_response[0]
         value = firstItemOfList[key]
         print("Value of key '{key}' in big query response is: {value}".format(key=key, value=value))
         return value
 
-    print("Big query response is empty")
+    print("Big query response is empty. Returning default value {}".format(DEFAULT_KEY_VALUE))
+    return DEFAULT_KEY_VALUE
 
 # we are expecting multiple key-value pairs. `raw_response_as_list`: [{a: 1}, {b: 2}] transformed to [1, 2]
 def extract_key_values_as_list_from_big_query_response(raw_response_as_list, key):
@@ -129,8 +137,8 @@ def convert_big_query_response_to_list(response):
 def fetch_data_as_list_from_user_behaviour_table(query, query_params):
     print(
         """
-        Fetching from table: {table} with query: {query} and params {query_params}
-        """.format(query=query, query_params=query_params, table=user_behaviour_table_id)
+        Fetching from table with query: {query} and params {query_params}
+        """.format(query=query, query_params=query_params)
     )
     job_config = bigquery.QueryJobConfig()
     job_config.query_parameters = query_params
@@ -143,8 +151,8 @@ def fetch_data_as_list_from_user_behaviour_table(query, query_params):
 
     print(
         """
-        Successfully fetched from table: {table} with query: {query} and params {query_params}.
-        """.format(query=query, query_params=query_params, table=user_behaviour_table_id)
+        Successfully fetched from table with query: {query} and params {query_params}.
+        """.format(query=query, query_params=query_params)
     )
 
     return convert_big_query_response_to_list(query_result)
@@ -346,20 +354,25 @@ def fetch_count_of_users_that_tried_withdrawing(start_time_in_milliseconds, end_
     )
 
 def calculate_ratio_of_users_that_entered_app_today_versus_total_users(start_time_in_milliseconds, end_time_in_milliseconds):
+    count_of_users_that_entered_app = fetch_count_of_users_that_entered_app_since_given_time(
+        start_time_in_milliseconds,
+        end_time_in_milliseconds
+    )
+    total_number_of_users = fetch_total_number_of_users({
+        "max_time_to_consider": start_time_in_milliseconds
+    })
+
     return convert_value_to_percentage(
-        fetch_count_of_users_that_entered_app_since_given_time(
-            start_time_in_milliseconds,
-            end_time_in_milliseconds
-        ) / fetch_total_number_of_users({
-            "max_time_to_consider": start_time_in_milliseconds
-        })
+        avoid_division_by_zero_error(count_of_users_that_entered_app, total_number_of_users)
     )
 
 def calculate_ratio_of_users_that_saved_versus_users_that_tried_saving(start_time_in_milliseconds, end_time_in_milliseconds):
-    return fetch_count_of_users_that_saved_since_given_time(
+    count_of_users_that_saved = fetch_count_of_users_that_saved_since_given_time(
         start_time_in_milliseconds,
         end_time_in_milliseconds
-    ) / fetch_count_of_users_that_tried_saving(start_time_in_milliseconds, end_time_in_milliseconds)
+    )
+    count_of_users_that_tried_saving = fetch_count_of_users_that_tried_saving(start_time_in_milliseconds, end_time_in_milliseconds)
+    return avoid_division_by_zero_error(count_of_users_that_saved, count_of_users_that_tried_saving)
 
 def fetch_user_ids_that_performed_event_between_period(config):
     event_type = config["event_type"]
@@ -506,7 +519,10 @@ def calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_pe
     )
 
     return convert_value_to_percentage(
-        (count_of_users_that_performed_start_event_n_days_ago - count_of_users_that_performed_start_event_n_days_ago_then_performed_other_event_afterwards) / count_of_users_that_performed_start_event_n_days_ago
+        avoid_division_by_zero_error(
+            (count_of_users_that_performed_start_event_n_days_ago - count_of_users_that_performed_start_event_n_days_ago_then_performed_other_event_afterwards),
+            count_of_users_that_performed_start_event_n_days_ago
+        )
     )
 
 def fetch_average_number_of_users_that_performed_event(config):
@@ -552,7 +568,7 @@ def fetch_average_number_of_users_that_completed_signup_between_period(config):
         max_time_to_consider
     )
 
-    return users_who_signed_up_n_days_ago / day_interval
+    return len(users_who_signed_up_n_days_ago) / day_interval
 
 def extract_key_from_context_data_in_big_query_response(needed_key, big_query_response):
     context_for_expired_boosts = extract_key_values_as_list_from_big_query_response(big_query_response, 'context')
@@ -691,7 +707,7 @@ def calculate_percentage_of_users_whose_boosts_expired_without_them_using_it():
     count_of_users_initially_offered_boosts = fetch_count_of_users_initially_offered_boosts(boost_ids_for_expired_boosts)
 
     return convert_value_to_percentage(
-        count_of_users_whose_boosts_expired_today / count_of_users_initially_offered_boosts
+        avoid_division_by_zero_error(count_of_users_whose_boosts_expired_today, count_of_users_initially_offered_boosts)
     )
 
 def fetch_daily_metrics():
@@ -781,7 +797,9 @@ def fetch_daily_metrics():
 
 
     # * Add in total Jupiter SA users at start of day (even if they did not perform an action) 
-    total_users_as_at_start_of_today = fetch_total_number_of_users(start_of_today_in_milliseconds)
+    total_users_as_at_start_of_today = fetch_total_number_of_users({
+        "max_time_to_consider": start_of_today_in_milliseconds
+    })
 
     # *Number of new users which joined today [today vs 3day avg vs 10 day avg]
         # * Number of Users that new users which joined [today]
@@ -989,13 +1007,11 @@ def compose_daily_email(daily_metrics):
         percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then=daily_metrics["percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then"],
     )
 
-def send_daily_email_to_admin():
+def send_daily_metrics_email_to_admin():
     print("Send daily email to admin")
     daily_metrics = fetch_daily_metrics()
-
     email_message = compose_daily_email(daily_metrics)
-
     notification_payload = construct_notification_payload_for_email(email_message)
-
     notify_admins_via_email(notification_payload)
     print("Completed sending of daily email to admin")
+send_daily_metrics_email_to_admin()
