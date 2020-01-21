@@ -6,8 +6,9 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
-pytest = "*"
-coverage = "*"
+dotenv = "*"
+python-dotenv = "*"
+google-cloud-bigquery = "*"
 mock = "*"
 
 [requires]
