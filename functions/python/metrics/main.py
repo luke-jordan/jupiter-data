@@ -1005,7 +1005,7 @@ def compose_daily_email(daily_metrics):
         percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then=daily_metrics["percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then"],
     )
 
-def send_daily_metrics_email_to_admin():
+def send_daily_metrics_email_to_admin(request):
     print("Send daily email to admin")
     daily_metrics = fetch_daily_metrics()
     email_message = compose_daily_email(daily_metrics)
