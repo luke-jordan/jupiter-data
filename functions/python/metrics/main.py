@@ -51,7 +51,7 @@ EMAIL_TYPE=constant.EMAIL_TYPE
 EMAIL_SUBJECT_FOR_ADMINS=constant.EMAIL_SUBJECT_FOR_ADMINS
 TIME_FORMAT=constant.TIME_FORMAT
 DEFAULT_KEY_VALUE=constant.DEFAULT_KEY_VALUE
-CONTACTS_TO_BE_NOTIFIED=['luke@plutosave.com']
+CONTACTS_TO_BE_NOTIFIED=['luke@plutosave.com', 'bolu@plutosave.com']
 
 def convert_value_to_percentage(value):
     return value * HUNDRED_PERCENT
