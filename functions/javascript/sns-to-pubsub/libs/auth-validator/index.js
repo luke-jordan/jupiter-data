@@ -24,11 +24,12 @@ const verifyHash = (givenHash, systemGeneratedHash) => {
 };
 
 const authValidator = (givenHash, givenKey) => {
+    logger(`Authenticating request with hash: ${givenHash} and key: ${givenKey}`);
+
     if (DRY_RUN) {
         logger('still testing, skip authentication');
         return;
     }
-    logger(`Authenticating request with hash: ${givenHash} and key: ${givenKey}`);
 
     if (verifyHash(givenHash, generateHash(givenKey))) {
         logger(`authentication request succeeded`);
