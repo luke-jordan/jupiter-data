@@ -1,3 +1,5 @@
+# Note: All amounts fetched from `user_behaviour` table have the unit: `HUNDREDTH_CENT`
+
 import os
 import constant
 import datetime
@@ -14,6 +16,8 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="service-account-credentials.json"
 project_id = os.getenv("GOOGLE_PROJECT_ID")
 BIG_QUERY_DATASET_LOCATION = os.getenv("BIG_QUERY_DATASET_LOCATION")
 NOTIFICATION_SERVICE_URL = os.getenv("NOTIFICATION_SERVICE_URL")
+FUNNEL_ANALYSIS_SERVICE_URL = os.getenv("FUNNEL_ANALYSIS_SERVICE_URL")
+CONTACTS_TO_BE_NOTIFIED = os.getenv("CONTACTS_TO_BE_NOTIFIED")
 
 client = bigquery.Client()
 dataset_id = 'ops'
@@ -49,7 +53,15 @@ EMAIL_TYPE=constant.EMAIL_TYPE
 EMAIL_SUBJECT_FOR_ADMINS=constant.EMAIL_SUBJECT_FOR_ADMINS
 TIME_FORMAT=constant.TIME_FORMAT
 DEFAULT_KEY_VALUE=constant.DEFAULT_KEY_VALUE
-CONTACTS_TO_BE_NOTIFIED=['luke@plutosave.com', 'bolu@plutosave.com']
+INITIATED_FIRST_SAVINGS_EVENT_CODE=constant.INITIATED_FIRST_SAVINGS_EVENT_CODE
+USER_LEFT_APP_AT_PAYMENT_LINK_EVENT_CODE=constant.USER_LEFT_APP_AT_PAYMENT_LINK_EVENT_CODE
+USER_RETURNED_TO_PAYMENT_LINK_EVENT_CODE=constant.USER_RETURNED_TO_PAYMENT_LINK_EVENT_CODE
+PAYMENT_SUCCEEDED_EVENT_CODE=constant.PAYMENT_SUCCEEDED_EVENT_CODE
+USER_ENTERED_REFERRAL_SCREEN_EVENT_CODE=constant.USER_ENTERED_REFERRAL_SCREEN_EVENT_CODE
+USER_ENTERED_VALID_REFERRAL_CODE_EVENT_CODE=constant.USER_ENTERED_VALID_REFERRAL_CODE_EVENT_CODE
+USER_PROFILE_REGISTER_SUCCEEDED_EVENT_CODE=constant.USER_PROFILE_REGISTER_SUCCEEDED_EVENT_CODE
+USER_PROFILE_PASSWORD_SUCCEEDED_EVENT_CODE=constant.USER_PROFILE_PASSWORD_SUCCEEDED_EVENT_CODE
+
 
 def convert_value_to_percentage(value):
     return value * HUNDRED_PERCENT
@@ -525,36 +537,62 @@ def calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_pe
 
 def fetch_average_number_of_users_that_performed_event(config):
     event_type = config["event_type"]
-    least_time_to_consider = config["least_time_to_consider"]
-    max_time_to_consider = config["max_time_to_consider"]
     day_interval = config["day_interval"]
 
-    user_count_that_performed_event_between_dates = fetch_count_of_users_that_performed_event(
-        {
-            "event_type": event_type,
-            "source_of_event": EXTERNAL_EVENT_SOURCE,
-            "least_time_to_consider": least_time_to_consider,
-            "max_time_to_consider": max_time_to_consider,
-        }
-    )
+    total_users_within_day_interval = 0
+    given_day = day_interval
+    while given_day > 0:
+        date_n_days_ago = calculate_date_n_days_ago(given_day)
+        start_of_day_in_milliseconds = convert_date_string_to_millisecond_int(
+            date_n_days_ago,
+            HOUR_MARKING_START_OF_DAY
+        )
+        end_of_day_in_milliseconds = convert_date_string_to_millisecond_int(
+            date_n_days_ago,
+            HOUR_MARKING_END_OF_DAY
+        )
 
-    return user_count_that_performed_event_between_dates / day_interval
+        user_count_that_performed_event_between_dates = fetch_count_of_users_that_performed_event(
+            {
+                "event_type": event_type,
+                "source_of_event": EXTERNAL_EVENT_SOURCE,
+                "least_time_to_consider": start_of_day_in_milliseconds,
+                "max_time_to_consider": end_of_day_in_milliseconds,
+            }
+        )
+        total_users_within_day_interval += user_count_that_performed_event_between_dates
+        given_day -= 1
+
+    return avoid_division_by_zero_error(total_users_within_day_interval, day_interval)
 
 def fetch_average_number_of_users_that_performed_transaction_type(config):
     transaction_type = config["transaction_type"]
-    least_time_to_consider = config["least_time_to_consider"]
-    max_time_to_consider = config["max_time_to_consider"]
     day_interval = config["day_interval"]
 
-    user_count_that_performed_transaction_type_between_dates = fetch_count_of_users_that_performed_transaction_type(
-        {
-            "transaction_type": transaction_type,
-            "least_time_to_consider": least_time_to_consider,
-            "max_time_to_consider": max_time_to_consider,
-        }
-    )
+    total_users_within_day_interval = 0
+    given_day = day_interval
+    while given_day > 0:
+        date_n_days_ago = calculate_date_n_days_ago(given_day)
+        start_of_day_in_milliseconds = convert_date_string_to_millisecond_int(
+            date_n_days_ago,
+            HOUR_MARKING_START_OF_DAY
+        )
+        end_of_day_in_milliseconds = convert_date_string_to_millisecond_int(
+            date_n_days_ago,
+            HOUR_MARKING_END_OF_DAY
+        )
 
-    return user_count_that_performed_transaction_type_between_dates / day_interval
+        user_count_that_performed_transaction_type_between_dates = fetch_count_of_users_that_performed_transaction_type(
+            {
+                "transaction_type": transaction_type,
+                "least_time_to_consider": start_of_day_in_milliseconds,
+                "max_time_to_consider": end_of_day_in_milliseconds,
+            }
+        )
+        total_users_within_day_interval += user_count_that_performed_transaction_type_between_dates
+        given_day -= 1
+
+    return avoid_division_by_zero_error(total_users_within_day_interval, day_interval)
 
 def fetch_average_number_of_users_that_completed_signup_between_period(config):
     least_time_to_consider = config["least_time_to_consider"]
@@ -708,6 +746,67 @@ def calculate_percentage_of_users_whose_boosts_expired_without_them_using_it():
         avoid_division_by_zero_error(count_of_users_whose_boosts_expired_today, count_of_users_initially_offered_boosts)
     )
 
+def compare_number_of_users_that_withdrew_against_number_that_saved(
+        user_count_withdrawals,
+        user_count_savings,
+):
+    if user_count_withdrawals > user_count_savings:
+        return "Number of Users that Withdrew GREATER THAN Number of Users that Saved"
+    elif user_count_withdrawals < user_count_savings:
+        return "Number of Users that Withdrew LESS THAN Number of Users that Saved"
+    else:
+        return "Number of Users that Withdrew EQUAL Number of Users that Saved"
+
+def construct_fetch_dropoffs_request_payload(raw_events_and_dates_list):
+    print("Constructing fetch dropoffs request payload. Raw Payload: {}".format(raw_events_and_dates_list))
+
+    formatted_events_and_dates_list = []
+    for events_with_dates in raw_events_and_dates_list:
+        formatted_events_and_dates_list.append(
+            {
+                "events": {
+                    "stepBeforeDropOff": events_with_dates["step_before_dropoff"],
+                    "nextStepList": events_with_dates["next_step"],
+                },
+                "dateIntervals": {
+                    "startDate": events_with_dates["start_date"],
+                    "endDate": events_with_dates["end_date"],
+                }
+            }
+        )
+
+    dropoffs_request_payload = {
+        "eventsAndDatesList": formatted_events_and_dates_list
+    }
+
+    print("Successfully constructed fetch dropoffs request payload. Formatted Payload: {}".format(dropoffs_request_payload))
+    return dropoffs_request_payload
+
+def format_response_of_fetch_dropoffs_count(raw_response_list):
+    print("Formatting response of fetch dropoffs count. Raw response: {}".format(raw_response_list))
+    formatted_response_dict = {}
+    if list_not_empty_or_undefined(raw_response_list):
+        for item in raw_response_list:
+            formatted_response_dict[item["dropOffStep"]] = item["dropOffCount"]
+
+    print("Successfully formatted response of fetch dropoffs count. Formatted response: {}".format(formatted_response_dict))
+    return formatted_response_dict
+
+def fetch_count_of_dropoffs_per_stage_for_period(raw_payload):
+    formatted_payload = construct_fetch_dropoffs_request_payload(raw_payload)
+
+    print("Fetching number of dropoffs per stage with formatted payload: {}".format(formatted_payload))
+    response_from_funnel_analysis = requests.post(FUNNEL_ANALYSIS_SERVICE_URL, data=formatted_payload)
+
+    print(
+        """
+        Response from fetch dropoffs.
+        Full response: {} 
+        """.format(response_from_funnel_analysis)
+    )
+
+    return format_response_of_fetch_dropoffs_count(json.loads(response_from_funnel_analysis.text))
+
 def fetch_daily_metrics():
     date_of_today = calculate_date_n_days_ago(TODAY)
     start_of_today_in_milliseconds = convert_date_string_to_millisecond_int(
@@ -751,16 +850,12 @@ def fetch_daily_metrics():
         # * Number of Users that Saved [3day avg]
     three_day_average_of_users_that_saved = fetch_average_number_of_users_that_performed_transaction_type({
         "transaction_type": SAVING_EVENT_TRANSACTION_TYPE,
-        "least_time_to_consider": start_of_three_days_ago_in_milliseconds,
-        "max_time_to_consider": end_of_yesterday_in_milliseconds,
         "day_interval": THREE_DAYS,
     })
 
         # * Number of Users that Saved [10day avg]
     ten_day_average_of_users_that_saved = fetch_average_number_of_users_that_performed_transaction_type({
         "transaction_type": SAVING_EVENT_TRANSACTION_TYPE,
-        "least_time_to_consider": start_of_ten_days_ago_in_milliseconds,
-        "max_time_to_consider": end_of_yesterday_in_milliseconds,
         "day_interval": TEN_DAYS,
     })
 
@@ -780,16 +875,12 @@ def fetch_daily_metrics():
     # * Number of Users that Withdrew [3day avg]
     three_day_average_of_users_that_withdrew = fetch_average_number_of_users_that_performed_transaction_type({
         "transaction_type": WITHDRAWAL_TRANSACTION_TYPE,
-        "least_time_to_consider": start_of_three_days_ago_in_milliseconds,
-        "max_time_to_consider": end_of_yesterday_in_milliseconds,
         "day_interval": THREE_DAYS,
     })
 
     # * Number of Users that Withdrew [10day avg]
     ten_day_average_of_users_that_withdrew = fetch_average_number_of_users_that_performed_transaction_type({
         "transaction_type": WITHDRAWAL_TRANSACTION_TYPE,
-        "least_time_to_consider": start_of_ten_days_ago_in_milliseconds,
-        "max_time_to_consider": end_of_yesterday_in_milliseconds,
         "day_interval": TEN_DAYS,
     })
 
@@ -836,16 +927,12 @@ def fetch_daily_metrics():
         # * Number of Users that new users which tried saving [3day avg]
     three_day_average_of_users_that_tried_saving = fetch_average_number_of_users_that_performed_event({
         "event_type": ENTERED_SAVINGS_FUNNEL_EVENT_CODE,
-        "least_time_to_consider": start_of_three_days_ago_in_milliseconds,
-        "max_time_to_consider": end_of_yesterday_in_milliseconds,
         "day_interval": THREE_DAYS,
     })
 
         # * Number of Users that new users which tried saving [10day avg]
     ten_day_average_of_users_that_tried_saving = fetch_average_number_of_users_that_performed_event({
         "event_type": ENTERED_SAVINGS_FUNNEL_EVENT_CODE,
-        "least_time_to_consider": start_of_ten_days_ago_in_milliseconds,
-        "max_time_to_consider": end_of_yesterday_in_milliseconds,
         "day_interval": TEN_DAYS,
     })
 
@@ -859,16 +946,12 @@ def fetch_daily_metrics():
         # * Number of Users that new users which tried withdrawing [3day avg]
     three_day_average_of_users_that_tried_withdrawing = fetch_average_number_of_users_that_performed_event({
         "event_type": ENTERED_WITHDRAWAL_FUNNEL_EVENT_CODE,
-        "least_time_to_consider": start_of_three_days_ago_in_milliseconds,
-        "max_time_to_consider": end_of_yesterday_in_milliseconds,
         "day_interval": THREE_DAYS,
     })
 
         # * Number of Users that new users which tried withdrawing [10day avg]
     ten_day_average_of_users_that_tried_withdrawing = fetch_average_number_of_users_that_performed_event({
         "event_type": ENTERED_WITHDRAWAL_FUNNEL_EVENT_CODE,
-        "least_time_to_consider": start_of_ten_days_ago_in_milliseconds,
-        "max_time_to_consider": end_of_yesterday_in_milliseconds,
         "day_interval": TEN_DAYS,
     })
 
@@ -896,6 +979,80 @@ def fetch_daily_metrics():
         }
     )
 
+    comparison_result_of_users_that_withdrew_against_number_that_saved = compare_number_of_users_that_withdrew_against_number_that_saved(
+        number_of_users_that_withdrew_today,
+        number_of_users_that_saved_today
+    )
+
+    # Number of dropoffs per stage: For savings
+    # USER_INITIATED_FIRST_ADD_CASH or USER_INITIATED_ADD_CASH
+    # USER_LEFT_APP_AT_PAYMENT_LINK
+    # USER_RETURNED_TO_PAYMENT_LINK
+    # PAYMENT_SUCCEEDED
+    number_of_dropoffs_today_per_stage_for_saving_sequence = fetch_count_of_dropoffs_per_stage_for_period(
+        [
+            {
+                "step_before_dropoff": INITIATED_FIRST_SAVINGS_EVENT_CODE,
+                "next_step": USER_LEFT_APP_AT_PAYMENT_LINK_EVENT_CODE,
+                "start_date": date_of_today,
+                "end_date": date_of_today,
+            },
+            {
+                "step_before_dropoff": ENTERED_SAVINGS_FUNNEL_EVENT_CODE,
+                "next_step": USER_LEFT_APP_AT_PAYMENT_LINK_EVENT_CODE,
+                "start_date": date_of_today,
+                "end_date": date_of_today,
+            },
+            {
+                "step_before_dropoff": USER_LEFT_APP_AT_PAYMENT_LINK_EVENT_CODE,
+                "next_step": USER_RETURNED_TO_PAYMENT_LINK_EVENT_CODE,
+                "start_date": date_of_today,
+                "end_date": date_of_today,
+            },
+            {
+                "step_before_dropoff": USER_LEFT_APP_AT_PAYMENT_LINK_EVENT_CODE,
+                "next_step": PAYMENT_SUCCEEDED_EVENT_CODE,
+                "start_date": date_of_today,
+                "end_date": date_of_today,
+            },
+        ]
+    )
+
+    # Number of dropoffs per stage: For Onboarding
+    # USER_ENTERED_REFERRAL_SCREEN
+    # USER_ENTERED_VALID_REFERRAL_CODE
+    # USER_PROFILE_REGISTER_SUCCEEDED
+    # USER_PROFILE_PASSWORD_SUCCEEDED
+    # USER_INITIATED_FIRST_ADD_CASH
+    number_of_dropoffs_today_per_stage_for_onboarding_sequence = fetch_count_of_dropoffs_per_stage_for_period(
+        [
+            {
+                "step_before_dropoff": USER_ENTERED_REFERRAL_SCREEN_EVENT_CODE,
+                "next_step": USER_ENTERED_VALID_REFERRAL_CODE_EVENT_CODE,
+                "start_date": date_of_today,
+                "end_date": date_of_today,
+            },
+            {
+                "step_before_dropoff": USER_ENTERED_VALID_REFERRAL_CODE_EVENT_CODE,
+                "next_step": USER_PROFILE_REGISTER_SUCCEEDED_EVENT_CODE,
+                "start_date": date_of_today,
+                "end_date": date_of_today,
+            },
+            {
+                "step_before_dropoff": USER_PROFILE_REGISTER_SUCCEEDED_EVENT_CODE,
+                "next_step": USER_PROFILE_PASSWORD_SUCCEEDED_EVENT_CODE,
+                "start_date": date_of_today,
+                "end_date": date_of_today,
+            },
+            {
+                "step_before_dropoff": INITIATED_FIRST_SAVINGS_EVENT_CODE,
+                "next_step": PAYMENT_SUCCEEDED_EVENT_CODE,
+                "start_date": date_of_today,
+                "end_date": date_of_today,
+            },
+        ]
+    )
+
     return {
         "total_saved_amount_today": total_saved_amount_today,
         "number_of_users_that_saved_today": number_of_users_that_saved_today,
@@ -920,23 +1077,30 @@ def fetch_daily_metrics():
         "number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today": number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today,
         "percentage_of_users_whose_boosts_expired_without_them_using_it": percentage_of_users_whose_boosts_expired_without_them_using_it,
         "percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then": percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then,
+        "comparison_result_of_users_that_withdrew_against_number_that_saved": comparison_result_of_users_that_withdrew_against_number_that_saved,
     }
 
 def notify_admins_via_email(payload):
     print("Notifying admin via email")
-    r = requests.post(NOTIFICATION_SERVICE_URL, data=payload)
+    response_from_notification_service = requests.post(NOTIFICATION_SERVICE_URL, data=payload)
     print(
         """
         Response from notification request.
         Status Code: {status_code} and Reason: {reason} 
-        """.format(status_code=r.status_code, reason=r.reason)
+        """.format(
+            status_code=response_from_notification_service.status_code,
+            reason=response_from_notification_service.reason
+        )
     )
 
-def construct_notification_payload_for_email(message):
+def construct_notification_payload_for_email(config):
+    print("Constructing notification payload for email")
+
     return {
         "notificationType": EMAIL_TYPE,
         "contacts": CONTACTS_TO_BE_NOTIFIED,
-        "message": message,
+        "message": config["message"],
+        "messageInHTMLFormat": config["messageInHTMLFormat"],
         "subject": EMAIL_SUBJECT_FOR_ADMINS
     }
 
@@ -945,7 +1109,7 @@ def compose_daily_email(daily_metrics):
     date_of_today = calculate_date_n_days_ago(TODAY)
     current_time = fetch_current_time()
 
-    return  """
+    daily_email_as_plain_text =  """
         {date_of_today} {current_time} UTC
         
         Hello,
@@ -976,7 +1140,11 @@ def compose_daily_email(daily_metrics):
         
         % of users whose Boosts expired without them using today: {percentage_of_users_whose_boosts_expired_without_them_using_it}
         
-        % of users who signed up 3 days ago who have not opened app since then: {percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then}        
+        % of users who signed up 3 days ago who have not opened app since then: {percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then}
+        
+        
+        Here’s something unusual you should consider:
+        {comparison_result_of_users_that_withdrew_against_number_that_saved}        
     """.format(
         date_of_today=date_of_today,
         current_time=current_time,
@@ -1003,12 +1171,87 @@ def compose_daily_email(daily_metrics):
         number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today=daily_metrics["number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today"],
         percentage_of_users_whose_boosts_expired_without_them_using_it=daily_metrics["percentage_of_users_whose_boosts_expired_without_them_using_it"],
         percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then=daily_metrics["percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then"],
+        comparison_result_of_users_that_withdrew_against_number_that_saved=daily_metrics["comparison_result_of_users_that_withdrew_against_number_that_saved"],
     )
+
+    daily_email_as_html =  """
+        {date_of_today} {current_time} UTC <br><br>
+        
+        Hello, <br><br> 
+        
+        <b>Here’s how people used JupiterSave today:</b> <br><br> 
+
+        Total Saved Amount: {total_saved_amount_today} <br><br> 
+        
+        Number of Users that Saved [today: {number_of_users_that_saved_today} vs 3day avg: {three_day_average_of_users_that_saved} vs 10 day avg: {ten_day_average_of_users_that_saved} ] <br><br> 
+        
+        Total Withdrawal Amount Today: {total_withdrawn_amount_today} <br><br> 
+        
+        Number of Users that Withdrew [today: {number_of_users_that_withdrew_today} vs 3day avg: {three_day_average_of_users_that_withdrew}  vs 10 day avg: {ten_day_average_of_users_that_withdrew}] <br><br> 
+        
+        Total Jupiter SA users at start of day: {total_users_as_at_start_of_today} <br><br> 
+        
+        Number of new users which joined today [today: {number_of_users_that_joined_today} vs 3day avg: {three_day_average_of_users_that_joined} vs 10 day avg: {ten_day_average_of_users_that_joined}] <br><br> 
+        
+        Percentage of users who entered app today / Total Users: {percentage_of_users_that_entered_app_today_versus_total_users} <br><br> 
+        
+        Number of Users that tried saving (entered savings funnel - first event) [today: {number_of_users_that_tried_saving_today} vs 3day avg: {three_day_average_of_users_that_tried_saving} vs 10 day avg: {ten_day_average_of_users_that_tried_saving}] <br><br> 
+        
+        Number of users that tried withdrawing (entered withdrawal funnel - first event) [today: {number_of_users_that_tried_withdrawing_today} vs 3day avg: {three_day_average_of_users_that_tried_withdrawing} vs 10 day avg: {ten_day_average_of_users_that_tried_withdrawing}] <br><br> 
+        
+        Number of new users that saved today: {number_of_users_that_joined_today_and_saved} <br><br> 
+        
+        Percentage of users that saved / users that tried saving: {number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today} <br><br> 
+        
+        % of users whose Boosts expired without them using today: {percentage_of_users_whose_boosts_expired_without_them_using_it} <br><br> 
+        
+        % of users who signed up 3 days ago who have not opened app since then: {percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then} <br><br>
+        
+        
+        <b>Here’s something unusual you should consider:</b> <br><br>
+        {comparison_result_of_users_that_withdrew_against_number_that_saved} <br><br>    
+    """.format(
+        date_of_today=date_of_today,
+        current_time=current_time,
+        total_saved_amount_today=daily_metrics["total_saved_amount_today"],
+        number_of_users_that_saved_today=daily_metrics["number_of_users_that_saved_today"],
+        three_day_average_of_users_that_saved=daily_metrics["three_day_average_of_users_that_saved"],
+        ten_day_average_of_users_that_saved=daily_metrics["ten_day_average_of_users_that_saved"],
+        total_withdrawn_amount_today=daily_metrics["total_withdrawn_amount_today"],
+        number_of_users_that_withdrew_today=daily_metrics["number_of_users_that_withdrew_today"],
+        three_day_average_of_users_that_withdrew=daily_metrics["three_day_average_of_users_that_withdrew"],
+        ten_day_average_of_users_that_withdrew=daily_metrics["ten_day_average_of_users_that_withdrew"],
+        total_users_as_at_start_of_today=daily_metrics["total_users_as_at_start_of_today"],
+        number_of_users_that_joined_today=daily_metrics["number_of_users_that_joined_today"],
+        three_day_average_of_users_that_joined=daily_metrics["three_day_average_of_users_that_joined"],
+        ten_day_average_of_users_that_joined=daily_metrics["ten_day_average_of_users_that_joined"],
+        percentage_of_users_that_entered_app_today_versus_total_users=daily_metrics["percentage_of_users_that_entered_app_today_versus_total_users"],
+        number_of_users_that_tried_saving_today=daily_metrics["number_of_users_that_tried_saving_today"],
+        three_day_average_of_users_that_tried_saving=daily_metrics["three_day_average_of_users_that_tried_saving"],
+        ten_day_average_of_users_that_tried_saving=daily_metrics["ten_day_average_of_users_that_tried_saving"],
+        number_of_users_that_tried_withdrawing_today=daily_metrics["number_of_users_that_tried_withdrawing_today"],
+        three_day_average_of_users_that_tried_withdrawing=daily_metrics["three_day_average_of_users_that_tried_withdrawing"],
+        ten_day_average_of_users_that_tried_withdrawing=daily_metrics["ten_day_average_of_users_that_tried_withdrawing"],
+        number_of_users_that_joined_today_and_saved=daily_metrics["number_of_users_that_joined_today_and_saved"],
+        number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today=daily_metrics["number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today"],
+        percentage_of_users_whose_boosts_expired_without_them_using_it=daily_metrics["percentage_of_users_whose_boosts_expired_without_them_using_it"],
+        percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then=daily_metrics["percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then"],
+        comparison_result_of_users_that_withdrew_against_number_that_saved=daily_metrics["comparison_result_of_users_that_withdrew_against_number_that_saved"],
+    )
+
+    print("Daily email as html is: {}".format(daily_email_as_html))
+
+    return daily_email_as_plain_text, daily_email_as_html
 
 def send_daily_metrics_email_to_admin(request):
     print("Send daily email to admin")
     daily_metrics = fetch_daily_metrics()
-    email_message = compose_daily_email(daily_metrics)
-    notification_payload = construct_notification_payload_for_email(email_message)
+    email_messages = compose_daily_email(daily_metrics)
+    print("Composed Daily Metrics Email Message with plain text: {}".format(email_messages[0]))
+
+    notification_payload = construct_notification_payload_for_email({
+        "message": email_messages[0],
+        "messageInHTMLFormat": email_messages[1]
+    })
     notify_admins_via_email(notification_payload)
     print("Completed sending of daily email to admin")

@@ -1,6 +1,5 @@
 import pytest
 import datetime
-import time
 
 from mock import Mock
 from google.cloud import bigquery
@@ -49,6 +48,10 @@ from main \
     fetch_daily_metrics, \
     notify_admins_via_email, \
     construct_notification_payload_for_email, \
+    construct_fetch_dropoffs_request_payload, \
+    compare_number_of_users_that_withdrew_against_number_that_saved, \
+    format_response_of_fetch_dropoffs_count, \
+    fetch_count_of_dropoffs_per_stage_for_period, \
     compose_daily_email, \
     send_daily_metrics_email_to_admin
 
@@ -79,6 +82,9 @@ CONTACTS_TO_BE_NOTIFIED = main.CONTACTS_TO_BE_NOTIFIED
 EMAIL_SUBJECT_FOR_ADMINS = main.EMAIL_SUBJECT_FOR_ADMINS
 TIME_FORMAT = main.TIME_FORMAT
 BOOST_ID_KEY_CODE = main.BOOST_ID_KEY_CODE
+INITIATED_FIRST_SAVINGS_EVENT_CODE = main.INITIATED_FIRST_SAVINGS_EVENT_CODE
+USER_LEFT_APP_AT_PAYMENT_LINK_EVENT_CODE = main.USER_LEFT_APP_AT_PAYMENT_LINK_EVENT_CODE
+FUNNEL_ANALYSIS_SERVICE_URL = main.FUNNEL_ANALYSIS_SERVICE_URL
 
 sample_total_users = 10
 sample_number_of_users = 2
@@ -99,12 +105,57 @@ sample_full_event_data = [
     { "user_id": sample_user_id, "event_type": USER_OPENED_APP_EVENT_CODE, "time_transaction_occurred": sample_given_time, "source_of_event": INTERNAL_EVENT_SOURCE, "created_at": sample_given_time, "updated_at": sample_given_time, "context": "{\"boostId\": \"b123\"}"},
 ]
 
-sample_email_message = "Hello there"
+sample_email_message_as_plain_text = "Hello world"
+sample_email_message_as_html = "<h1>Hello world</h1>"
+
 sample_notification_payload_for_email = {
     "notificationType": EMAIL_TYPE,
     "contacts": CONTACTS_TO_BE_NOTIFIED,
-    "message": sample_email_message,
+    "message": sample_email_message_as_plain_text,
+    "messageInHTMLFormat": sample_email_message_as_html,
     "subject": EMAIL_SUBJECT_FOR_ADMINS
+}
+
+date_of_today = calculate_date_n_days_ago(TODAY)
+
+sample_raw_events_and_dates_list = [
+    {
+        "step_before_dropoff": INITIATED_FIRST_SAVINGS_EVENT_CODE,
+        "next_step": USER_LEFT_APP_AT_PAYMENT_LINK_EVENT_CODE,
+        "start_date": date_of_today,
+        "end_date": date_of_today,
+    },
+    {
+        "step_before_dropoff": ENTERED_SAVINGS_FUNNEL_EVENT_CODE,
+        "next_step": USER_LEFT_APP_AT_PAYMENT_LINK_EVENT_CODE,
+        "start_date": date_of_today,
+        "end_date": date_of_today,
+    },
+]
+
+sample_formatted_events_and_dates_list = {
+    "eventsAndDatesList": [
+        {
+            "events": {
+                "stepBeforeDropOff": sample_raw_events_and_dates_list[0]["step_before_dropoff"],
+                "nextStepList": sample_raw_events_and_dates_list[0]["next_step"],
+            },
+            "dateIntervals": {
+                "startDate": sample_raw_events_and_dates_list[0]["start_date"],
+                "endDate": sample_raw_events_and_dates_list[0]["end_date"],
+            }
+        },
+        {
+            "events": {
+                "stepBeforeDropOff": sample_raw_events_and_dates_list[1]["step_before_dropoff"],
+                "nextStepList": sample_raw_events_and_dates_list[1]["next_step"],
+            },
+            "dateIntervals": {
+                "startDate": sample_raw_events_and_dates_list[1]["start_date"],
+                "endDate": sample_raw_events_and_dates_list[1]["end_date"],
+            }
+        }
+    ]
 }
 
 @pytest.fixture
@@ -751,35 +802,35 @@ def test_calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_n
     mock_fetch_count_of_users_in_list_that_performed_event.assert_called_once_with(sample_config)
 
 
+@patch('main.convert_date_string_to_millisecond_int')
 def test_fetch_average_number_of_users_that_performed_event(
-        mock_fetch_count_of_users_that_performed_event
+    convert_date_string_to_millisecond_int_patch,
+    mock_fetch_count_of_users_that_performed_event,
 ):
 
     given_count = sample_count
 
     sample_config = {
         "event_type": USER_OPENED_APP_EVENT_CODE,
-        "least_time_to_consider": sample_least_time,
-        "max_time_to_consider": sample_max_time,
         "day_interval": THREE_DAYS,
     }
 
     main.fetch_count_of_users_that_performed_event = mock_fetch_count_of_users_that_performed_event
-
     mock_fetch_count_of_users_that_performed_event.return_value = given_count
 
     assert fetch_average_number_of_users_that_performed_event(
         sample_config
-    ) == (given_count / sample_config["day_interval"])
+    ) == avoid_division_by_zero_error(
+        (given_count + given_count + given_count),
+        sample_config["day_interval"]
+    )
 
-    mock_fetch_count_of_users_that_performed_event.assert_called_once_with({
-        "event_type": sample_config["event_type"],
-        "source_of_event": EXTERNAL_EVENT_SOURCE,
-        "least_time_to_consider": sample_config["least_time_to_consider"],
-        "max_time_to_consider": sample_config["max_time_to_consider"],
-    })
+    assert mock_fetch_count_of_users_that_performed_event.call_count == 3
+    assert convert_date_string_to_millisecond_int_patch.call_count == 6
 
+@patch('main.convert_date_string_to_millisecond_int')
 def test_fetch_average_number_of_users_that_performed_transaction_type(
+        convert_date_string_to_millisecond_int_patch,
         mock_fetch_count_of_users_that_performed_transaction_type
 ):
 
@@ -787,26 +838,22 @@ def test_fetch_average_number_of_users_that_performed_transaction_type(
 
     sample_config = {
         "transaction_type": SAVING_EVENT_TRANSACTION_TYPE,
-        "least_time_to_consider": sample_least_time,
-        "max_time_to_consider": sample_max_time,
         "day_interval": THREE_DAYS,
     }
 
     main.fetch_count_of_users_that_performed_transaction_type = mock_fetch_count_of_users_that_performed_transaction_type
-
     mock_fetch_count_of_users_that_performed_transaction_type.return_value = given_count
 
     assert fetch_average_number_of_users_that_performed_transaction_type(
         sample_config
-    ) == (given_count / sample_config["day_interval"])
-
-    mock_fetch_count_of_users_that_performed_transaction_type.assert_called_once_with(
-        {
-            "transaction_type": sample_config["transaction_type"],
-            "least_time_to_consider": sample_config["least_time_to_consider"],
-            "max_time_to_consider": sample_config["max_time_to_consider"],
-        }
+    ) == avoid_division_by_zero_error(
+        (given_count + given_count + given_count),
+        sample_config["day_interval"]
     )
+
+    assert mock_fetch_count_of_users_that_performed_transaction_type.call_count == 3
+    assert convert_date_string_to_millisecond_int_patch.call_count == 6
+
 
 def test_fetch_average_number_of_users_that_completed_signup_between_period(
         mock_fetch_user_ids_that_completed_signup_between_period
@@ -820,7 +867,6 @@ def test_fetch_average_number_of_users_that_completed_signup_between_period(
     }
 
     main.fetch_user_ids_that_completed_signup_between_period = mock_fetch_user_ids_that_completed_signup_between_period
-
     mock_fetch_user_ids_that_completed_signup_between_period.return_value = sample_user_ids_that_completed_signup
 
     assert fetch_average_number_of_users_that_completed_signup_between_period(
@@ -832,6 +878,8 @@ def test_fetch_average_number_of_users_that_completed_signup_between_period(
         sample_config["max_time_to_consider"],
     )
 
+@patch('main.fetch_count_of_dropoffs_per_stage_for_period')
+@patch('main.compare_number_of_users_that_withdrew_against_number_that_saved')
 @patch('main.calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event')
 @patch('main.calculate_percentage_of_users_whose_boosts_expired_without_them_using_it')
 @patch('main.calculate_ratio_of_users_that_saved_versus_users_that_tried_saving')
@@ -865,26 +913,30 @@ def test_fetch_daily_metrics(
         calculate_ratio_of_users_that_saved_versus_users_that_tried_saving_patch,
         calculate_percentage_of_users_whose_boosts_expired_without_them_using_it_patch,
         calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event_patch,
+        compare_number_of_users_that_withdrew_against_number_that_saved_patch,
+        fetch_count_of_dropoffs_per_stage_for_period_patch,
 ):
 
     fetch_daily_metrics()
 
     fetch_total_saved_amount_since_given_time_patch.assert_called_once()
     fetch_count_of_users_that_saved_since_given_time_patch.assert_called_once()
-    fetch_average_number_of_users_that_performed_transaction_type_patch.call_count == 4
+    assert fetch_average_number_of_users_that_performed_transaction_type_patch.call_count == 4
     fetch_total_withdrawn_amount_given_time_patch.assert_called_once()
     fetch_count_of_users_that_withdrew_since_given_time_patch.assert_called_once()
     fetch_total_number_of_users_patch.assert_called_once()
     fetch_count_of_users_that_signed_up_between_period_patch.assert_called_once()
-    fetch_average_number_of_users_that_completed_signup_between_period_patch.call_count == 2
+    assert fetch_average_number_of_users_that_completed_signup_between_period_patch.call_count == 2
     calculate_ratio_of_users_that_entered_app_today_versus_total_users_patch.assert_called_once()
     fetch_count_of_users_that_tried_saving_patch.assert_called_once()
-    fetch_average_number_of_users_that_performed_event_patch.call_count == 4
+    assert fetch_average_number_of_users_that_performed_event_patch.call_count == 4
     fetch_count_of_users_that_tried_withdrawing_patch.assert_called_once()
     fetch_count_of_new_users_that_saved_between_period_patch.assert_called_once()
     calculate_ratio_of_users_that_saved_versus_users_that_tried_saving_patch.assert_called_once()
     calculate_percentage_of_users_whose_boosts_expired_without_them_using_it_patch.assert_called_once()
     calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event_patch.assert_called_once()
+    compare_number_of_users_that_withdrew_against_number_that_saved_patch.assert_called_once()
+    assert fetch_count_of_dropoffs_per_stage_for_period_patch.call_count == 2
 
 def test_extract_key_from_context_data_in_big_query_response():
     sample_needed_key = BOOST_ID_KEY_CODE
@@ -935,7 +987,6 @@ def test_fetch_count_of_users_that_have_event_type_and_context_key_value(
         fetch_from_table_patch,
 ):
 
-    date_of_today = calculate_date_n_days_ago(TODAY)
     end_time_in_milliseconds_today = convert_date_string_to_millisecond_int(
         date_of_today,
         HOUR_MARKING_END_OF_DAY
@@ -989,7 +1040,7 @@ def test_fetch_count_of_users_initially_offered_boosts(
         sample_boost_ids_list
     ) == 2
 
-    mock_fetch_count_of_users_that_have_event_type_and_context_key_value.call_count == 2
+    assert mock_fetch_count_of_users_that_have_event_type_and_context_key_value.call_count == 2
 
 
 def test_calculate_percentage_of_users_whose_boosts_expired_without_them_using_it(
@@ -1000,7 +1051,6 @@ def test_calculate_percentage_of_users_whose_boosts_expired_without_them_using_i
     sample_count_of_users_initially_offered_boosts = 3
     given_start_event = BOOST_EXPIRED_EVENT_CODE
 
-    date_of_today = calculate_date_n_days_ago(TODAY)
     start_time_in_milliseconds_today = convert_date_string_to_millisecond_int(
         date_of_today,
         HOUR_MARKING_START_OF_DAY
@@ -1040,12 +1090,68 @@ def test_notify_admins_via_email(requests_patch):
     )
 
 def test_construct_notification_payload_for_email():
-    assert construct_notification_payload_for_email(sample_email_message) == {
+    sample_config = {
+        "message": sample_email_message_as_plain_text,
+        "messageInHTMLFormat": sample_email_message_as_html
+    }
+    assert construct_notification_payload_for_email(sample_config) == {
         "notificationType": EMAIL_TYPE,
         "contacts": CONTACTS_TO_BE_NOTIFIED,
-        "message": sample_email_message,
+        "message": sample_config["message"],
+        "messageInHTMLFormat": sample_config["messageInHTMLFormat"],
         "subject": EMAIL_SUBJECT_FOR_ADMINS
     }
+
+
+def test_compare_number_of_users_that_withdrew_against_number_that_saved():
+    assert compare_number_of_users_that_withdrew_against_number_that_saved(
+        8, 3
+    ) == "Number of Users that Withdrew GREATER THAN Number of Users that Saved"
+
+    assert compare_number_of_users_that_withdrew_against_number_that_saved(
+        1, 4
+    ) == "Number of Users that Withdrew LESS THAN Number of Users that Saved"
+
+    assert compare_number_of_users_that_withdrew_against_number_that_saved(
+        5, 5
+    ) == "Number of Users that Withdrew EQUAL Number of Users that Saved"
+
+def test_construct_fetch_dropoffs_request_payload():
+
+    assert construct_fetch_dropoffs_request_payload(sample_raw_events_and_dates_list) == sample_formatted_events_and_dates_list
+
+def test_format_response_of_fetch_dropoffs_count():
+    given_count = 1
+    sample_response_from_fetch_dropoffs_count = [
+        {
+            "dropOffCount": given_count,
+            "recoveryCount": given_count,
+            "dropOffStep": INITIATED_FIRST_SAVINGS_EVENT_CODE
+        },
+        {
+            "dropOffCount": given_count,
+            "recoveryCount": given_count,
+            "dropOffStep": ENTERED_SAVINGS_FUNNEL_EVENT_CODE
+        }
+    ]
+
+    expected_result = {
+        INITIATED_FIRST_SAVINGS_EVENT_CODE: given_count,
+        ENTERED_SAVINGS_FUNNEL_EVENT_CODE: given_count
+    }
+    assert format_response_of_fetch_dropoffs_count(sample_response_from_fetch_dropoffs_count) == expected_result
+
+@patch('main.json')
+@patch('main.requests')
+def test_fetch_number_of_dropoffs_per_stage_for_period(requests_patch, json_patch):
+    fetch_count_of_dropoffs_per_stage_for_period(sample_raw_events_and_dates_list)
+
+    requests_patch.post.assert_called_once_with(
+        FUNNEL_ANALYSIS_SERVICE_URL,
+        data=sample_formatted_events_and_dates_list
+    )
+
+    json_patch.loads.assert_called_once()
 
 def test_compose_daily_email(
         mock_fetch_current_time
@@ -1075,6 +1181,7 @@ def test_compose_daily_email(
         "number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today": given_count,
         "percentage_of_users_whose_boosts_expired_without_them_using_it": given_count,
         "percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then": given_count,
+        "comparison_result_of_users_that_withdrew_against_number_that_saved": given_count,
     }
 
     sample_current_time = "19:06"
@@ -1083,8 +1190,7 @@ def test_compose_daily_email(
 
     date_of_today = calculate_date_n_days_ago(TODAY)
     current_time = sample_current_time
-
-    assert compose_daily_email(sample_daily_metrics) == """
+    sample_daily_email_as_plain_text = """
         {date_of_today} {current_time} UTC
         
         Hello,
@@ -1115,7 +1221,11 @@ def test_compose_daily_email(
         
         % of users whose Boosts expired without them using today: {percentage_of_users_whose_boosts_expired_without_them_using_it}
         
-        % of users who signed up 3 days ago who have not opened app since then: {percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then}        
+        % of users who signed up 3 days ago who have not opened app since then: {percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then}
+        
+        
+        Here’s something unusual you should consider:
+        {comparison_result_of_users_that_withdrew_against_number_that_saved}        
     """.format(
         date_of_today=date_of_today,
         current_time=current_time,
@@ -1142,7 +1252,75 @@ def test_compose_daily_email(
         number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today=sample_daily_metrics["number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today"],
         percentage_of_users_whose_boosts_expired_without_them_using_it=sample_daily_metrics["percentage_of_users_whose_boosts_expired_without_them_using_it"],
         percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then=sample_daily_metrics["percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then"],
+        comparison_result_of_users_that_withdrew_against_number_that_saved=sample_daily_metrics["comparison_result_of_users_that_withdrew_against_number_that_saved"],
     )
+
+    sample_daily_email_as_html =  """
+        {date_of_today} {current_time} UTC <br><br>
+        
+        Hello, <br><br> 
+        
+        <b>Here’s how people used JupiterSave today:</b> <br><br> 
+
+        Total Saved Amount: {total_saved_amount_today} <br><br> 
+        
+        Number of Users that Saved [today: {number_of_users_that_saved_today} vs 3day avg: {three_day_average_of_users_that_saved} vs 10 day avg: {ten_day_average_of_users_that_saved} ] <br><br> 
+        
+        Total Withdrawal Amount Today: {total_withdrawn_amount_today} <br><br> 
+        
+        Number of Users that Withdrew [today: {number_of_users_that_withdrew_today} vs 3day avg: {three_day_average_of_users_that_withdrew}  vs 10 day avg: {ten_day_average_of_users_that_withdrew}] <br><br> 
+        
+        Total Jupiter SA users at start of day: {total_users_as_at_start_of_today} <br><br> 
+        
+        Number of new users which joined today [today: {number_of_users_that_joined_today} vs 3day avg: {three_day_average_of_users_that_joined} vs 10 day avg: {ten_day_average_of_users_that_joined}] <br><br> 
+        
+        Percentage of users who entered app today / Total Users: {percentage_of_users_that_entered_app_today_versus_total_users} <br><br> 
+        
+        Number of Users that tried saving (entered savings funnel - first event) [today: {number_of_users_that_tried_saving_today} vs 3day avg: {three_day_average_of_users_that_tried_saving} vs 10 day avg: {ten_day_average_of_users_that_tried_saving}] <br><br> 
+        
+        Number of users that tried withdrawing (entered withdrawal funnel - first event) [today: {number_of_users_that_tried_withdrawing_today} vs 3day avg: {three_day_average_of_users_that_tried_withdrawing} vs 10 day avg: {ten_day_average_of_users_that_tried_withdrawing}] <br><br> 
+        
+        Number of new users that saved today: {number_of_users_that_joined_today_and_saved} <br><br> 
+        
+        Percentage of users that saved / users that tried saving: {number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today} <br><br> 
+        
+        % of users whose Boosts expired without them using today: {percentage_of_users_whose_boosts_expired_without_them_using_it} <br><br> 
+        
+        % of users who signed up 3 days ago who have not opened app since then: {percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then} <br><br>
+        
+        
+        <b>Here’s something unusual you should consider:</b> <br><br>
+        {comparison_result_of_users_that_withdrew_against_number_that_saved} <br><br>    
+    """.format(
+        date_of_today=date_of_today,
+        current_time=current_time,
+        total_saved_amount_today=sample_daily_metrics["total_saved_amount_today"],
+        number_of_users_that_saved_today=sample_daily_metrics["number_of_users_that_saved_today"],
+        three_day_average_of_users_that_saved=sample_daily_metrics["three_day_average_of_users_that_saved"],
+        ten_day_average_of_users_that_saved=sample_daily_metrics["ten_day_average_of_users_that_saved"],
+        total_withdrawn_amount_today=sample_daily_metrics["total_withdrawn_amount_today"],
+        number_of_users_that_withdrew_today=sample_daily_metrics["number_of_users_that_withdrew_today"],
+        three_day_average_of_users_that_withdrew=sample_daily_metrics["three_day_average_of_users_that_withdrew"],
+        ten_day_average_of_users_that_withdrew=sample_daily_metrics["ten_day_average_of_users_that_withdrew"],
+        total_users_as_at_start_of_today=sample_daily_metrics["total_users_as_at_start_of_today"],
+        number_of_users_that_joined_today=sample_daily_metrics["number_of_users_that_joined_today"],
+        three_day_average_of_users_that_joined=sample_daily_metrics["three_day_average_of_users_that_joined"],
+        ten_day_average_of_users_that_joined=sample_daily_metrics["ten_day_average_of_users_that_joined"],
+        percentage_of_users_that_entered_app_today_versus_total_users=sample_daily_metrics["percentage_of_users_that_entered_app_today_versus_total_users"],
+        number_of_users_that_tried_saving_today=sample_daily_metrics["number_of_users_that_tried_saving_today"],
+        three_day_average_of_users_that_tried_saving=sample_daily_metrics["three_day_average_of_users_that_tried_saving"],
+        ten_day_average_of_users_that_tried_saving=sample_daily_metrics["ten_day_average_of_users_that_tried_saving"],
+        number_of_users_that_tried_withdrawing_today=sample_daily_metrics["number_of_users_that_tried_withdrawing_today"],
+        three_day_average_of_users_that_tried_withdrawing=sample_daily_metrics["three_day_average_of_users_that_tried_withdrawing"],
+        ten_day_average_of_users_that_tried_withdrawing=sample_daily_metrics["ten_day_average_of_users_that_tried_withdrawing"],
+        number_of_users_that_joined_today_and_saved=sample_daily_metrics["number_of_users_that_joined_today_and_saved"],
+        number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today=sample_daily_metrics["number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today"],
+        percentage_of_users_whose_boosts_expired_without_them_using_it=sample_daily_metrics["percentage_of_users_whose_boosts_expired_without_them_using_it"],
+        percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then=sample_daily_metrics["percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then"],
+        comparison_result_of_users_that_withdrew_against_number_that_saved=sample_daily_metrics["comparison_result_of_users_that_withdrew_against_number_that_saved"],
+    )
+
+    assert compose_daily_email(sample_daily_metrics) == (sample_daily_email_as_plain_text, sample_daily_email_as_html)
 
 @patch('main.notify_admins_via_email')
 @patch('main.construct_notification_payload_for_email')
@@ -1154,9 +1332,10 @@ def test_send_daily_metrics_email_to_admin(
         construct_notification_payload_for_email_patch,
         notify_admins_via_email_patch,
 ):
-    send_daily_metrics_email_to_admin()
+    send_daily_metrics_email_to_admin({})
 
     fetch_daily_metrics_patch.assert_called_once()
     compose_daily_email_patch.assert_called_once()
     construct_notification_payload_for_email_patch.assert_called_once()
     notify_admins_via_email_patch.assert_called_once()
+
