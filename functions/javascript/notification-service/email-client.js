@@ -31,7 +31,7 @@ const sendEmail = (payload, reqId) => {
         to: email,
         subject: `${ENVIRONMENT} - ${subject}`,
         text: message,
-        html: messageInHTMLFormat ? messageInHTMLFormat: message
+        html: messageInHTMLFormat ? messageInHTMLFormat : message
     }).
         then(() => {
             logger(`Request ID: ${reqId} - successfully sent message to email: ${email}`);
