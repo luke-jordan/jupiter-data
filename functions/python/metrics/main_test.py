@@ -52,6 +52,11 @@ from main \
     compare_number_of_users_that_withdrew_against_number_that_saved, \
     format_response_of_fetch_dropoffs_count, \
     fetch_count_of_dropoffs_per_stage_for_period, \
+    fetch_dropoffs_from_funnel_analysis, \
+    calculate_average_for_each_key_in_dict, \
+    construct_fetch_average_dropoffs_request_payload, \
+    calculate_average_and_format_response_of_fetch_average_dropoffs_count, \
+    fetch_average_count_of_dropoffs_per_stage_for_period, \
     compose_daily_email, \
     send_daily_metrics_email_to_admin
 
@@ -70,10 +75,12 @@ ENTERED_SAVINGS_FUNNEL_EVENT_CODE = main.ENTERED_SAVINGS_FUNNEL_EVENT_CODE
 ENTERED_WITHDRAWAL_FUNNEL_EVENT_CODE = main.ENTERED_WITHDRAWAL_FUNNEL_EVENT_CODE
 USER_COMPLETED_SIGNUP_EVENT_CODE = main.USER_COMPLETED_SIGNUP_EVENT_CODE
 HUNDRED_PERCENT = main.HUNDRED_PERCENT
-THREE_DAYS = main.THREE_DAYS
 HOUR_MARKING_START_OF_DAY = main.HOUR_MARKING_START_OF_DAY
 HOUR_MARKING_END_OF_DAY = main.HOUR_MARKING_END_OF_DAY
 TODAY = main.TODAY
+THREE_DAYS = main.THREE_DAYS
+TWO_DAYS = main.TWO_DAYS
+ONE_DAY = main.ONE_DAY
 BOOST_EXPIRED_EVENT_CODE = main.BOOST_EXPIRED_EVENT_CODE
 DEFAULT_FLAG_TIME = main.DEFAULT_FLAG_TIME
 NOTIFICATION_SERVICE_URL = main.NOTIFICATION_SERVICE_URL
@@ -85,6 +92,8 @@ BOOST_ID_KEY_CODE = main.BOOST_ID_KEY_CODE
 INITIATED_FIRST_SAVINGS_EVENT_CODE = main.INITIATED_FIRST_SAVINGS_EVENT_CODE
 USER_LEFT_APP_AT_PAYMENT_LINK_EVENT_CODE = main.USER_LEFT_APP_AT_PAYMENT_LINK_EVENT_CODE
 FUNNEL_ANALYSIS_SERVICE_URL = main.FUNNEL_ANALYSIS_SERVICE_URL
+USER_ENTERED_VALID_REFERRAL_CODE_EVENT_CODE = main.USER_ENTERED_VALID_REFERRAL_CODE_EVENT_CODE
+USER_ENTERED_REFERRAL_SCREEN_EVENT_CODE = main.USER_ENTERED_REFERRAL_SCREEN_EVENT_CODE
 
 sample_total_users = 10
 sample_number_of_users = 2
@@ -100,6 +109,22 @@ sample_amount = 50000
 sample_count = 3
 sample_context_key_value="5bbf01d4"
 sample_boost_id = "b123"
+sample_day_interval = 4
+sample_raw_fetch_average_count_payload_list =  [
+    {
+        "step_before_dropoff": INITIATED_FIRST_SAVINGS_EVENT_CODE,
+        "next_step": USER_LEFT_APP_AT_PAYMENT_LINK_EVENT_CODE,
+        "day_interval": THREE_DAYS,
+    },
+    {
+        "step_before_dropoff": USER_ENTERED_REFERRAL_SCREEN_EVENT_CODE,
+        "next_step": USER_ENTERED_VALID_REFERRAL_CODE_EVENT_CODE,
+        "day_interval": THREE_DAYS
+    }
+]
+date_of_three_days_ago = calculate_date_n_days_ago(THREE_DAYS)
+date_of_two_days_ago = calculate_date_n_days_ago(TWO_DAYS)
+date_of_one_day_ago = calculate_date_n_days_ago(ONE_DAY)
 
 sample_full_event_data = [
     { "user_id": sample_user_id, "event_type": USER_OPENED_APP_EVENT_CODE, "time_transaction_occurred": sample_given_time, "source_of_event": INTERNAL_EVENT_SOURCE, "created_at": sample_given_time, "updated_at": sample_given_time, "context": "{\"boostId\": \"b123\"}"},
@@ -138,7 +163,7 @@ sample_formatted_events_and_dates_list = {
         {
             "events": {
                 "stepBeforeDropOff": sample_raw_events_and_dates_list[0]["step_before_dropoff"],
-                "nextStepList": sample_raw_events_and_dates_list[0]["next_step"],
+                "nextStepList": [sample_raw_events_and_dates_list[0]["next_step"]],
             },
             "dateIntervals": {
                 "startDate": sample_raw_events_and_dates_list[0]["start_date"],
@@ -148,7 +173,7 @@ sample_formatted_events_and_dates_list = {
         {
             "events": {
                 "stepBeforeDropOff": sample_raw_events_and_dates_list[1]["step_before_dropoff"],
-                "nextStepList": sample_raw_events_and_dates_list[1]["next_step"],
+                "nextStepList": [sample_raw_events_and_dates_list[1]["next_step"]],
             },
             "dateIntervals": {
                 "startDate": sample_raw_events_and_dates_list[1]["start_date"],
@@ -878,6 +903,7 @@ def test_fetch_average_number_of_users_that_completed_signup_between_period(
         sample_config["max_time_to_consider"],
     )
 
+@patch('main.fetch_average_count_of_dropoffs_per_stage_for_period')
 @patch('main.fetch_count_of_dropoffs_per_stage_for_period')
 @patch('main.compare_number_of_users_that_withdrew_against_number_that_saved')
 @patch('main.calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event')
@@ -915,6 +941,7 @@ def test_fetch_daily_metrics(
         calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event_patch,
         compare_number_of_users_that_withdrew_against_number_that_saved_patch,
         fetch_count_of_dropoffs_per_stage_for_period_patch,
+        fetch_average_count_of_dropoffs_per_stage_for_period_patch
 ):
 
     fetch_daily_metrics()
@@ -937,6 +964,7 @@ def test_fetch_daily_metrics(
     calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event_patch.assert_called_once()
     compare_number_of_users_that_withdrew_against_number_that_saved_patch.assert_called_once()
     assert fetch_count_of_dropoffs_per_stage_for_period_patch.call_count == 2
+    assert fetch_average_count_of_dropoffs_per_stage_for_period_patch.call_count == 4
 
 def test_extract_key_from_context_data_in_big_query_response():
     sample_needed_key = BOOST_ID_KEY_CODE
@@ -1141,17 +1169,174 @@ def test_format_response_of_fetch_dropoffs_count():
     }
     assert format_response_of_fetch_dropoffs_count(sample_response_from_fetch_dropoffs_count) == expected_result
 
+@patch('main.format_response_of_fetch_dropoffs_count')
+@patch('main.fetch_dropoffs_from_funnel_analysis')
+@patch('main.construct_fetch_dropoffs_request_payload')
+def test_fetch_number_of_dropoffs_per_stage_for_period(
+        construct_fetch_dropoffs_request_payload_patch,
+        fetch_dropoffs_from_funnel_analysis_patch,
+        format_response_of_fetch_dropoffs_count_patch,
+):
+    fetch_count_of_dropoffs_per_stage_for_period(sample_raw_events_and_dates_list)
+
+    construct_fetch_dropoffs_request_payload_patch.assert_called_once_with(
+        sample_raw_events_and_dates_list
+    )
+
+    fetch_dropoffs_from_funnel_analysis_patch.assert_called_once()
+    format_response_of_fetch_dropoffs_count_patch.assert_called_once()
+
 @patch('main.json')
 @patch('main.requests')
-def test_fetch_number_of_dropoffs_per_stage_for_period(requests_patch, json_patch):
-    fetch_count_of_dropoffs_per_stage_for_period(sample_raw_events_and_dates_list)
+def test_fetch_dropoffs_from_funnel_analysis(requests_patch, json_patch):
+    fetch_dropoffs_from_funnel_analysis(sample_formatted_events_and_dates_list)
 
     requests_patch.post.assert_called_once_with(
         FUNNEL_ANALYSIS_SERVICE_URL,
-        data=sample_formatted_events_and_dates_list
+        json=sample_formatted_events_and_dates_list
     )
 
     json_patch.loads.assert_called_once()
+
+def test_construct_fetch_average_dropoffs_request_payload():
+    sample_formatted_events_and_dates_list_for_fetch_average = {
+        "eventsAndDatesList": [
+            {
+                "events": {
+                    "stepBeforeDropOff": sample_raw_fetch_average_count_payload_list[0]["step_before_dropoff"],
+                    "nextStepList": [sample_raw_fetch_average_count_payload_list[0]["next_step"]],
+                },
+                "dateIntervals": {
+                    "startDate": date_of_three_days_ago,
+                    "endDate": date_of_three_days_ago,
+                }
+            },
+            {
+                "events": {
+                    "stepBeforeDropOff": sample_raw_fetch_average_count_payload_list[0]["step_before_dropoff"],
+                    "nextStepList": [sample_raw_fetch_average_count_payload_list[0]["next_step"]],
+                },
+                "dateIntervals": {
+                    "startDate": date_of_two_days_ago,
+                    "endDate": date_of_two_days_ago,
+                }
+            },
+            {
+                "events": {
+                    "stepBeforeDropOff": sample_raw_fetch_average_count_payload_list[0]["step_before_dropoff"],
+                    "nextStepList": [sample_raw_fetch_average_count_payload_list[0]["next_step"]],
+                },
+                "dateIntervals": {
+                    "startDate": date_of_one_day_ago,
+                    "endDate": date_of_one_day_ago,
+                }
+            },
+            {
+                "events": {
+                    "stepBeforeDropOff": sample_raw_fetch_average_count_payload_list[1]["step_before_dropoff"],
+                    "nextStepList": [sample_raw_fetch_average_count_payload_list[1]["next_step"]],
+                },
+                "dateIntervals": {
+                    "startDate": date_of_three_days_ago,
+                    "endDate": date_of_three_days_ago,
+                }
+            },
+            {
+                "events": {
+                    "stepBeforeDropOff": sample_raw_fetch_average_count_payload_list[1]["step_before_dropoff"],
+                    "nextStepList": [sample_raw_fetch_average_count_payload_list[1]["next_step"]],
+                },
+                "dateIntervals": {
+                    "startDate": date_of_two_days_ago,
+                    "endDate": date_of_two_days_ago,
+                }
+            },
+            {
+                "events": {
+                    "stepBeforeDropOff": sample_raw_fetch_average_count_payload_list[1]["step_before_dropoff"],
+                    "nextStepList": [sample_raw_fetch_average_count_payload_list[1]["next_step"]],
+                },
+                "dateIntervals": {
+                    "startDate": date_of_one_day_ago,
+                    "endDate": date_of_one_day_ago,
+                }
+            }
+        ]
+    }
+    
+    assert construct_fetch_average_dropoffs_request_payload(
+        sample_raw_fetch_average_count_payload_list
+    ) == sample_formatted_events_and_dates_list_for_fetch_average
+
+
+def test_calculate_average_for_each_key_in_dict():
+    given_count = 3
+    sample_dict_with_keys_and_sum = {
+        INITIATED_FIRST_SAVINGS_EVENT_CODE: given_count,
+        ENTERED_WITHDRAWAL_FUNNEL_EVENT_CODE: given_count
+    }
+    expected_response = {
+        INITIATED_FIRST_SAVINGS_EVENT_CODE: avoid_division_by_zero_error(given_count, sample_day_interval),
+        ENTERED_WITHDRAWAL_FUNNEL_EVENT_CODE: avoid_division_by_zero_error(given_count, sample_day_interval)
+    }
+
+    assert calculate_average_for_each_key_in_dict(
+        sample_dict_with_keys_and_sum,
+        sample_day_interval
+    ) == expected_response
+
+
+def test_calculate_average_and_format_response_of_fetch_average_dropoffs_count():
+    given_count = 1
+    sample_interval = 2
+    sample_response_from_fetch_dropoffs_count = [
+        {
+            "dropOffCount": given_count,
+            "recoveryCount": given_count,
+            "dropOffStep": INITIATED_FIRST_SAVINGS_EVENT_CODE
+        },
+        {
+            "dropOffCount": given_count,
+            "recoveryCount": given_count,
+            "dropOffStep": INITIATED_FIRST_SAVINGS_EVENT_CODE
+        },
+        {
+            "dropOffCount": given_count,
+            "recoveryCount": given_count,
+            "dropOffStep": ENTERED_SAVINGS_FUNNEL_EVENT_CODE
+        },{
+            "dropOffCount": given_count,
+            "recoveryCount": given_count,
+            "dropOffStep": ENTERED_SAVINGS_FUNNEL_EVENT_CODE
+        }
+    ]
+
+    expected_result = {
+        INITIATED_FIRST_SAVINGS_EVENT_CODE: avoid_division_by_zero_error((given_count + given_count), sample_interval),
+        ENTERED_SAVINGS_FUNNEL_EVENT_CODE: avoid_division_by_zero_error((given_count + given_count), sample_interval),
+    }
+    assert calculate_average_and_format_response_of_fetch_average_dropoffs_count(
+        sample_response_from_fetch_dropoffs_count,
+        sample_interval
+    ) == expected_result
+
+@patch('main.calculate_average_and_format_response_of_fetch_average_dropoffs_count')
+@patch('main.fetch_dropoffs_from_funnel_analysis')
+@patch('main.construct_fetch_average_dropoffs_request_payload')
+def test_fetch_average_count_of_dropoffs_per_stage_for_period(
+    construct_fetch_average_dropoffs_request_payload_patch,
+    fetch_dropoffs_from_funnel_analysis_patch,
+    calculate_average_and_format_response_of_fetch_average_dropoffs_count_patch
+):
+    fetch_average_count_of_dropoffs_per_stage_for_period(sample_raw_fetch_average_count_payload_list, THREE_DAYS)
+
+    construct_fetch_average_dropoffs_request_payload_patch.assert_called_once_with(
+        sample_raw_fetch_average_count_payload_list
+    )
+
+    fetch_dropoffs_from_funnel_analysis_patch.assert_called_once()
+    calculate_average_and_format_response_of_fetch_average_dropoffs_count_patch.assert_called_once()
+
 
 def test_compose_daily_email(
         mock_fetch_current_time
@@ -1181,7 +1366,43 @@ def test_compose_daily_email(
         "number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today": given_count,
         "percentage_of_users_whose_boosts_expired_without_them_using_it": given_count,
         "percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then": given_count,
-        "comparison_result_of_users_that_withdrew_against_number_that_saved": given_count,
+        "comparison_result_of_users_that_withdrew_against_number_that_saved": "Number of Users that Withdrew GREATER THAN Number of Users that Saved",
+        "saving_sequence_number_of_dropoffs_today_per_stage": {
+            "USER_INITIATED_FIRST_ADD_CASH": given_count,
+            "USER_INITIATED_ADD_CASH": given_count,
+            "USER_LEFT_APP_AT_PAYMENT_LINK": given_count,
+            "USER_RETURNED_TO_PAYMENT_LINK": given_count,
+        },
+        "saving_sequence_three_day_average_count_of_dropoffs_per_stage": {
+            "USER_INITIATED_FIRST_ADD_CASH": given_count,
+            "USER_INITIATED_ADD_CASH": given_count,
+            "USER_LEFT_APP_AT_PAYMENT_LINK": given_count,
+            "USER_RETURNED_TO_PAYMENT_LINK": given_count,
+        },
+        "saving_sequence_ten_day_average_count_of_dropoffs_per_stage": {
+            "USER_INITIATED_FIRST_ADD_CASH": given_count,
+            "USER_INITIATED_ADD_CASH": given_count,
+            "USER_LEFT_APP_AT_PAYMENT_LINK": given_count,
+            "USER_RETURNED_TO_PAYMENT_LINK": given_count,
+        },
+        "onboarding_sequence_count_of_dropoffs_today_per_stage": {
+            "USER_ENTERED_REFERRAL_SCREEN": given_count,
+            "USER_ENTERED_VALID_REFERRAL_CODE": given_count,
+            "USER_PROFILE_REGISTER_SUCCEEDED": given_count,
+            "USER_PROFILE_PASSWORD_SUCCEEDED": given_count,
+        },
+        "onboarding_sequence_three_day_average_count_of_dropoffs_per_stage": {
+            "USER_ENTERED_REFERRAL_SCREEN": given_count,
+            "USER_ENTERED_VALID_REFERRAL_CODE": given_count,
+            "USER_PROFILE_REGISTER_SUCCEEDED": given_count,
+            "USER_PROFILE_PASSWORD_SUCCEEDED": given_count,
+        },
+        "onboarding_sequence_ten_day_average_count_of_dropoffs_per_stage": {
+            "USER_ENTERED_REFERRAL_SCREEN": given_count,
+            "USER_ENTERED_VALID_REFERRAL_CODE": given_count,
+            "USER_PROFILE_REGISTER_SUCCEEDED": given_count,
+            "USER_PROFILE_PASSWORD_SUCCEEDED": given_count,
+        },
     }
 
     sample_current_time = "19:06"
@@ -1225,7 +1446,19 @@ def test_compose_daily_email(
         
         
         Here’s something unusual you should consider:
-        {comparison_result_of_users_that_withdrew_against_number_that_saved}        
+        {comparison_result_of_users_that_withdrew_against_number_that_saved}
+        
+        Number of dropoffs per stage for SAVINGS sequence: 
+        USER_INITIATED_FIRST_ADD_CASH [today: {user_initiated_first_add_cash_dropoff_count_today} vs 3day avg: {user_initiated_first_add_cash_dropoff_count_three_day_average} vs 10 day avg: {user_initiated_first_add_cash_dropoff_count_ten_day_average}]
+        USER_INITIATED_ADD_CASH [today: {user_initiated_savings_dropoff_count_today} vs 3day avg: {user_initiated_savings_dropoff_count_three_day_average} vs 10 day avg: {user_initiated_savings_dropoff_count_ten_day_average}]
+        USER_LEFT_APP_AT_PAYMENT_LINK [today: {user_left_app_at_payment_link_dropoff_count_today} vs 3day avg: {user_left_app_at_payment_link_dropoff_count_three_day_average} vs 10 day avg: {user_left_app_at_payment_link_dropoff_count_ten_day_average}]
+        USER_RETURNED_TO_PAYMENT_LINK [today: {user_returned_to_payment_link_dropoff_count_today} vs 3day avg: {user_returned_to_payment_link_dropoff_count_three_day_average} vs 10 day avg: {user_returned_to_payment_link_dropoff_count_ten_day_average}]
+                 
+        Number of dropoffs per stage for ONBOARDING sequence:
+        USER_ENTERED_REFERRAL_SCREEN [today: {user_entered_referral_screen_dropoff_count_today} vs 3day avg: {user_entered_referral_screen_dropoff_count_three_day_average} vs 10 day avg: {user_entered_referral_screen_dropoff_count_ten_day_average}]
+        USER_ENTERED_VALID_REFERRAL_CODE [today: {user_entered_valid_referral_code_dropoff_count_today} vs 3day avg: {user_entered_valid_referral_code_dropoff_count_three_day_average} vs 10 day avg: {user_entered_valid_referral_code_dropoff_count_ten_day_average}]
+        USER_PROFILE_REGISTER_SUCCEEDED [today: {user_profile_register_succeeded_dropoff_count_today} vs 3day avg: {user_profile_register_succeeded_dropoff_count_three_day_average} vs 10 day avg: {user_profile_register_succeeded_dropoff_count_ten_day_average}]
+        USER_PROFILE_PASSWORD_SUCCEEDED [today: {user_profile_password_succeeded_dropoff_count_today} vs 3day avg: {user_profile_password_succeeded__dropoff_count_three_day_average} vs 10 day avg: {user_profile_password_succeeded_dropoff_count_ten_day_average}]        
     """.format(
         date_of_today=date_of_today,
         current_time=current_time,
@@ -1253,6 +1486,30 @@ def test_compose_daily_email(
         percentage_of_users_whose_boosts_expired_without_them_using_it=sample_daily_metrics["percentage_of_users_whose_boosts_expired_without_them_using_it"],
         percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then=sample_daily_metrics["percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then"],
         comparison_result_of_users_that_withdrew_against_number_that_saved=sample_daily_metrics["comparison_result_of_users_that_withdrew_against_number_that_saved"],
+        user_initiated_first_add_cash_dropoff_count_today=sample_daily_metrics["saving_sequence_number_of_dropoffs_today_per_stage"]["USER_INITIATED_FIRST_ADD_CASH"],
+        user_initiated_first_add_cash_dropoff_count_three_day_average=sample_daily_metrics["saving_sequence_three_day_average_count_of_dropoffs_per_stage"]["USER_INITIATED_FIRST_ADD_CASH"],
+        user_initiated_first_add_cash_dropoff_count_ten_day_average=sample_daily_metrics["saving_sequence_ten_day_average_count_of_dropoffs_per_stage"]["USER_INITIATED_FIRST_ADD_CASH"],
+        user_initiated_savings_dropoff_count_today=sample_daily_metrics["saving_sequence_number_of_dropoffs_today_per_stage"]["USER_INITIATED_ADD_CASH"],
+        user_initiated_savings_dropoff_count_three_day_average=sample_daily_metrics["saving_sequence_three_day_average_count_of_dropoffs_per_stage"]["USER_INITIATED_ADD_CASH"],
+        user_initiated_savings_dropoff_count_ten_day_average=sample_daily_metrics["saving_sequence_ten_day_average_count_of_dropoffs_per_stage"]["USER_INITIATED_ADD_CASH"],
+        user_left_app_at_payment_link_dropoff_count_today=sample_daily_metrics["saving_sequence_number_of_dropoffs_today_per_stage"]["USER_LEFT_APP_AT_PAYMENT_LINK"],
+        user_left_app_at_payment_link_dropoff_count_three_day_average=sample_daily_metrics["saving_sequence_three_day_average_count_of_dropoffs_per_stage"]["USER_LEFT_APP_AT_PAYMENT_LINK"],
+        user_left_app_at_payment_link_dropoff_count_ten_day_average=sample_daily_metrics["saving_sequence_ten_day_average_count_of_dropoffs_per_stage"]["USER_LEFT_APP_AT_PAYMENT_LINK"],
+        user_returned_to_payment_link_dropoff_count_today=sample_daily_metrics["saving_sequence_number_of_dropoffs_today_per_stage"]["USER_RETURNED_TO_PAYMENT_LINK"],
+        user_returned_to_payment_link_dropoff_count_three_day_average=sample_daily_metrics["saving_sequence_three_day_average_count_of_dropoffs_per_stage"]["USER_RETURNED_TO_PAYMENT_LINK"],
+        user_returned_to_payment_link_dropoff_count_ten_day_average=sample_daily_metrics["saving_sequence_ten_day_average_count_of_dropoffs_per_stage"]["USER_RETURNED_TO_PAYMENT_LINK"],
+        user_entered_referral_screen_dropoff_count_today=sample_daily_metrics["onboarding_sequence_count_of_dropoffs_today_per_stage"]["USER_ENTERED_REFERRAL_SCREEN"],
+        user_entered_referral_screen_dropoff_count_three_day_average=sample_daily_metrics["onboarding_sequence_three_day_average_count_of_dropoffs_per_stage"]["USER_ENTERED_REFERRAL_SCREEN"],
+        user_entered_referral_screen_dropoff_count_ten_day_average=sample_daily_metrics["onboarding_sequence_ten_day_average_count_of_dropoffs_per_stage"]["USER_ENTERED_REFERRAL_SCREEN"],
+        user_entered_valid_referral_code_dropoff_count_today=sample_daily_metrics["onboarding_sequence_count_of_dropoffs_today_per_stage"]["USER_ENTERED_VALID_REFERRAL_CODE"],
+        user_entered_valid_referral_code_dropoff_count_three_day_average=sample_daily_metrics["onboarding_sequence_three_day_average_count_of_dropoffs_per_stage"]["USER_ENTERED_VALID_REFERRAL_CODE"],
+        user_entered_valid_referral_code_dropoff_count_ten_day_average=sample_daily_metrics["onboarding_sequence_ten_day_average_count_of_dropoffs_per_stage"]["USER_ENTERED_VALID_REFERRAL_CODE"],
+        user_profile_register_succeeded_dropoff_count_today=sample_daily_metrics["onboarding_sequence_count_of_dropoffs_today_per_stage"]["USER_PROFILE_REGISTER_SUCCEEDED"],
+        user_profile_register_succeeded_dropoff_count_three_day_average=sample_daily_metrics["onboarding_sequence_three_day_average_count_of_dropoffs_per_stage"]["USER_PROFILE_REGISTER_SUCCEEDED"],
+        user_profile_register_succeeded_dropoff_count_ten_day_average=sample_daily_metrics["onboarding_sequence_ten_day_average_count_of_dropoffs_per_stage"]["USER_PROFILE_REGISTER_SUCCEEDED"],
+        user_profile_password_succeeded_dropoff_count_today=sample_daily_metrics["onboarding_sequence_count_of_dropoffs_today_per_stage"]["USER_PROFILE_PASSWORD_SUCCEEDED"],
+        user_profile_password_succeeded__dropoff_count_three_day_average=sample_daily_metrics["onboarding_sequence_three_day_average_count_of_dropoffs_per_stage"]["USER_PROFILE_PASSWORD_SUCCEEDED"],
+        user_profile_password_succeeded_dropoff_count_ten_day_average=sample_daily_metrics["onboarding_sequence_ten_day_average_count_of_dropoffs_per_stage"]["USER_PROFILE_PASSWORD_SUCCEEDED"],
     )
 
     sample_daily_email_as_html =  """
@@ -1286,11 +1543,23 @@ def test_compose_daily_email(
         
         % of users whose Boosts expired without them using today: {percentage_of_users_whose_boosts_expired_without_them_using_it} <br><br> 
         
-        % of users who signed up 3 days ago who have not opened app since then: {percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then} <br><br>
+        % of users who signed up 3 days ago who have not opened app since then: {percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then} <br><br><br><br>
         
         
         <b>Here’s something unusual you should consider:</b> <br><br>
-        {comparison_result_of_users_that_withdrew_against_number_that_saved} <br><br>    
+        {comparison_result_of_users_that_withdrew_against_number_that_saved} <br><br>
+        
+        Number of dropoffs per stage for SAVINGS sequence: <br><br>
+        USER_INITIATED_FIRST_ADD_CASH [today: {user_initiated_first_add_cash_dropoff_count_today} vs 3day avg: {user_initiated_first_add_cash_dropoff_count_three_day_average} vs 10 day avg: {user_initiated_first_add_cash_dropoff_count_ten_day_average}] <br><br>
+        USER_INITIATED_ADD_CASH [today: {user_initiated_savings_dropoff_count_today} vs 3day avg: {user_initiated_savings_dropoff_count_three_day_average} vs 10 day avg: {user_initiated_savings_dropoff_count_ten_day_average}] <br><br>
+        USER_LEFT_APP_AT_PAYMENT_LINK [today: {user_left_app_at_payment_link_dropoff_count_today} vs 3day avg: {user_left_app_at_payment_link_dropoff_count_three_day_average} vs 10 day avg: {user_left_app_at_payment_link_dropoff_count_ten_day_average}] <br><br>
+        USER_RETURNED_TO_PAYMENT_LINK [today: {user_returned_to_payment_link_dropoff_count_today} vs 3day avg: {user_returned_to_payment_link_dropoff_count_three_day_average} vs 10 day avg: {user_returned_to_payment_link_dropoff_count_ten_day_average}] <br><br>
+                 
+        Number of dropoffs per stage for ONBOARDING sequence: <br><br>
+        USER_ENTERED_REFERRAL_SCREEN [today: {user_entered_referral_screen_dropoff_count_today} vs 3day avg: {user_entered_referral_screen_dropoff_count_three_day_average} vs 10 day avg: {user_entered_referral_screen_dropoff_count_ten_day_average}] <br><br>
+        USER_ENTERED_VALID_REFERRAL_CODE [today: {user_entered_valid_referral_code_dropoff_count_today} vs 3day avg: {user_entered_valid_referral_code_dropoff_count_three_day_average} vs 10 day avg: {user_entered_valid_referral_code_dropoff_count_ten_day_average}] <br><br>
+        USER_PROFILE_REGISTER_SUCCEEDED [today: {user_profile_register_succeeded_dropoff_count_today} vs 3day avg: {user_profile_register_succeeded_dropoff_count_three_day_average} vs 10 day avg: {user_profile_register_succeeded_dropoff_count_ten_day_average}] <br><br>
+        USER_PROFILE_PASSWORD_SUCCEEDED [today: {user_profile_password_succeeded_dropoff_count_today} vs 3day avg: {user_profile_password_succeeded__dropoff_count_three_day_average} vs 10 day avg: {user_profile_password_succeeded_dropoff_count_ten_day_average}] <br><br>
     """.format(
         date_of_today=date_of_today,
         current_time=current_time,
@@ -1318,6 +1587,30 @@ def test_compose_daily_email(
         percentage_of_users_whose_boosts_expired_without_them_using_it=sample_daily_metrics["percentage_of_users_whose_boosts_expired_without_them_using_it"],
         percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then=sample_daily_metrics["percentage_of_users_who_signed_up_three_days_ago_who_have_not_opened_app_since_then"],
         comparison_result_of_users_that_withdrew_against_number_that_saved=sample_daily_metrics["comparison_result_of_users_that_withdrew_against_number_that_saved"],
+        user_initiated_first_add_cash_dropoff_count_today=sample_daily_metrics["saving_sequence_number_of_dropoffs_today_per_stage"]["USER_INITIATED_FIRST_ADD_CASH"],
+        user_initiated_first_add_cash_dropoff_count_three_day_average=sample_daily_metrics["saving_sequence_three_day_average_count_of_dropoffs_per_stage"]["USER_INITIATED_FIRST_ADD_CASH"],
+        user_initiated_first_add_cash_dropoff_count_ten_day_average=sample_daily_metrics["saving_sequence_ten_day_average_count_of_dropoffs_per_stage"]["USER_INITIATED_FIRST_ADD_CASH"],
+        user_initiated_savings_dropoff_count_today=sample_daily_metrics["saving_sequence_number_of_dropoffs_today_per_stage"]["USER_INITIATED_ADD_CASH"],
+        user_initiated_savings_dropoff_count_three_day_average=sample_daily_metrics["saving_sequence_three_day_average_count_of_dropoffs_per_stage"]["USER_INITIATED_ADD_CASH"],
+        user_initiated_savings_dropoff_count_ten_day_average=sample_daily_metrics["saving_sequence_ten_day_average_count_of_dropoffs_per_stage"]["USER_INITIATED_ADD_CASH"],
+        user_left_app_at_payment_link_dropoff_count_today=sample_daily_metrics["saving_sequence_number_of_dropoffs_today_per_stage"]["USER_LEFT_APP_AT_PAYMENT_LINK"],
+        user_left_app_at_payment_link_dropoff_count_three_day_average=sample_daily_metrics["saving_sequence_three_day_average_count_of_dropoffs_per_stage"]["USER_LEFT_APP_AT_PAYMENT_LINK"],
+        user_left_app_at_payment_link_dropoff_count_ten_day_average=sample_daily_metrics["saving_sequence_ten_day_average_count_of_dropoffs_per_stage"]["USER_LEFT_APP_AT_PAYMENT_LINK"],
+        user_returned_to_payment_link_dropoff_count_today=sample_daily_metrics["saving_sequence_number_of_dropoffs_today_per_stage"]["USER_RETURNED_TO_PAYMENT_LINK"],
+        user_returned_to_payment_link_dropoff_count_three_day_average=sample_daily_metrics["saving_sequence_three_day_average_count_of_dropoffs_per_stage"]["USER_RETURNED_TO_PAYMENT_LINK"],
+        user_returned_to_payment_link_dropoff_count_ten_day_average=sample_daily_metrics["saving_sequence_ten_day_average_count_of_dropoffs_per_stage"]["USER_RETURNED_TO_PAYMENT_LINK"],
+        user_entered_referral_screen_dropoff_count_today=sample_daily_metrics["onboarding_sequence_count_of_dropoffs_today_per_stage"]["USER_ENTERED_REFERRAL_SCREEN"],
+        user_entered_referral_screen_dropoff_count_three_day_average=sample_daily_metrics["onboarding_sequence_three_day_average_count_of_dropoffs_per_stage"]["USER_ENTERED_REFERRAL_SCREEN"],
+        user_entered_referral_screen_dropoff_count_ten_day_average=sample_daily_metrics["onboarding_sequence_ten_day_average_count_of_dropoffs_per_stage"]["USER_ENTERED_REFERRAL_SCREEN"],
+        user_entered_valid_referral_code_dropoff_count_today=sample_daily_metrics["onboarding_sequence_count_of_dropoffs_today_per_stage"]["USER_ENTERED_VALID_REFERRAL_CODE"],
+        user_entered_valid_referral_code_dropoff_count_three_day_average=sample_daily_metrics["onboarding_sequence_three_day_average_count_of_dropoffs_per_stage"]["USER_ENTERED_VALID_REFERRAL_CODE"],
+        user_entered_valid_referral_code_dropoff_count_ten_day_average=sample_daily_metrics["onboarding_sequence_ten_day_average_count_of_dropoffs_per_stage"]["USER_ENTERED_VALID_REFERRAL_CODE"],
+        user_profile_register_succeeded_dropoff_count_today=sample_daily_metrics["onboarding_sequence_count_of_dropoffs_today_per_stage"]["USER_PROFILE_REGISTER_SUCCEEDED"],
+        user_profile_register_succeeded_dropoff_count_three_day_average=sample_daily_metrics["onboarding_sequence_three_day_average_count_of_dropoffs_per_stage"]["USER_PROFILE_REGISTER_SUCCEEDED"],
+        user_profile_register_succeeded_dropoff_count_ten_day_average=sample_daily_metrics["onboarding_sequence_ten_day_average_count_of_dropoffs_per_stage"]["USER_PROFILE_REGISTER_SUCCEEDED"],
+        user_profile_password_succeeded_dropoff_count_today=sample_daily_metrics["onboarding_sequence_count_of_dropoffs_today_per_stage"]["USER_PROFILE_PASSWORD_SUCCEEDED"],
+        user_profile_password_succeeded__dropoff_count_three_day_average=sample_daily_metrics["onboarding_sequence_three_day_average_count_of_dropoffs_per_stage"]["USER_PROFILE_PASSWORD_SUCCEEDED"],
+        user_profile_password_succeeded_dropoff_count_ten_day_average=sample_daily_metrics["onboarding_sequence_ten_day_average_count_of_dropoffs_per_stage"]["USER_PROFILE_PASSWORD_SUCCEEDED"],
     )
 
     assert compose_daily_email(sample_daily_metrics) == (sample_daily_email_as_plain_text, sample_daily_email_as_html)
@@ -1338,4 +1631,3 @@ def test_send_daily_metrics_email_to_admin(
     compose_daily_email_patch.assert_called_once()
     construct_notification_payload_for_email_patch.assert_called_once()
     notify_admins_via_email_patch.assert_called_once()
-
