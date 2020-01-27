@@ -4,7 +4,7 @@ resource "google_cloudfunctions_function" "send-daily-metrics-as-email-function"
   available_memory_mb = 128
   source_archive_bucket = "${var.gcp_bucket_prefix[terraform.workspace]}-metrics-bucket"
   source_archive_object = "metrics_${var.deploy_code_commit_hash}.zip"
-  timeout = 120
+  timeout = 420
   entry_point = "send_daily_metrics_email_to_admin"
   trigger_http = true
   runtime = "python37"
