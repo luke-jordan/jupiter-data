@@ -50,7 +50,8 @@ SECOND_TO_MILLISECOND_FACTOR=constant.SECOND_TO_MILLISECOND_FACTOR
 HUNDRED_PERCENT=constant.HUNDRED_PERCENT
 DEFAULT_FLAG_TIME=constant.DEFAULT_FLAG_TIME
 EMAIL_TYPE=constant.EMAIL_TYPE
-EMAIL_SUBJECT_FOR_ADMINS=constant.EMAIL_SUBJECT_FOR_ADMINS
+DAILY_METRICS_EMAIL_SUBJECT_FOR_ADMINS=constant.DAILY_METRICS_EMAIL_SUBJECT_FOR_ADMINS
+DROPOFF_ANALYSIS_EMAIL_SUBJECT_FOR_ADMINS=constant.DROPOFF_ANALYSIS_EMAIL_SUBJECT_FOR_ADMINS
 TIME_FORMAT=constant.TIME_FORMAT
 DEFAULT_KEY_VALUE=constant.DEFAULT_KEY_VALUE
 INITIATED_FIRST_SAVINGS_EVENT_CODE=constant.INITIATED_FIRST_SAVINGS_EVENT_CODE
@@ -981,7 +982,7 @@ def construct_notification_payload_for_email(config):
         "contacts": CONTACTS_TO_BE_NOTIFIED,
         "message": config["message"],
         "messageInHTMLFormat": config["messageInHTMLFormat"],
-        "subject": EMAIL_SUBJECT_FOR_ADMINS
+        "subject": config["subject"]
     }
 
 def compose_daily_email(daily_metrics):
@@ -1127,7 +1128,8 @@ def send_daily_metrics_email_to_admin(request):
 
     notification_payload = construct_notification_payload_for_email({
         "message": email_messages[0],
-        "messageInHTMLFormat": email_messages[1]
+        "messageInHTMLFormat": email_messages[1],
+        "subject": DAILY_METRICS_EMAIL_SUBJECT_FOR_ADMINS
     })
     notify_admins_via_email(notification_payload)
     print("Completed sending of daily email to admin")
@@ -1504,7 +1506,8 @@ def send_dropoffs_analysis_email_to_admin(request):
 
     notification_payload = construct_notification_payload_for_email({
         "message": email_messages[0],
-        "messageInHTMLFormat": email_messages[1]
+        "messageInHTMLFormat": email_messages[1],
+        "subject": DROPOFF_ANALYSIS_EMAIL_SUBJECT_FOR_ADMINS
     })
     notify_admins_via_email(notification_payload)
     print("Completed sending dropoff analysis email to admin")

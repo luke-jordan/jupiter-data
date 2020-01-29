@@ -89,7 +89,7 @@ DEFAULT_FLAG_TIME = main.DEFAULT_FLAG_TIME
 NOTIFICATION_SERVICE_URL = main.NOTIFICATION_SERVICE_URL
 EMAIL_TYPE = main.EMAIL_TYPE
 CONTACTS_TO_BE_NOTIFIED = main.CONTACTS_TO_BE_NOTIFIED
-EMAIL_SUBJECT_FOR_ADMINS = main.EMAIL_SUBJECT_FOR_ADMINS
+DAILY_METRICS_EMAIL_SUBJECT_FOR_ADMINS = main.DAILY_METRICS_EMAIL_SUBJECT_FOR_ADMINS
 TIME_FORMAT = main.TIME_FORMAT
 BOOST_ID_KEY_CODE = main.BOOST_ID_KEY_CODE
 INITIATED_FIRST_SAVINGS_EVENT_CODE = main.INITIATED_FIRST_SAVINGS_EVENT_CODE
@@ -144,7 +144,7 @@ sample_notification_payload_for_email = {
     "contacts": CONTACTS_TO_BE_NOTIFIED,
     "message": sample_email_message_as_plain_text,
     "messageInHTMLFormat": sample_email_message_as_html,
-    "subject": EMAIL_SUBJECT_FOR_ADMINS
+    "subject": DAILY_METRICS_EMAIL_SUBJECT_FOR_ADMINS
 }
 
 date_of_today = calculate_date_n_days_ago(TODAY)
@@ -1120,14 +1120,15 @@ def test_notify_admins_via_email(requests_patch):
 def test_construct_notification_payload_for_email():
     sample_config = {
         "message": sample_email_message_as_plain_text,
-        "messageInHTMLFormat": sample_email_message_as_html
+        "messageInHTMLFormat": sample_email_message_as_html,
+        "subject": DAILY_METRICS_EMAIL_SUBJECT_FOR_ADMINS
     }
     assert construct_notification_payload_for_email(sample_config) == {
         "notificationType": EMAIL_TYPE,
         "contacts": CONTACTS_TO_BE_NOTIFIED,
         "message": sample_config["message"],
         "messageInHTMLFormat": sample_config["messageInHTMLFormat"],
-        "subject": EMAIL_SUBJECT_FOR_ADMINS
+        "subject": sample_config["subject"]
     }
 
 
