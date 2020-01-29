@@ -22,7 +22,8 @@ const sendEmail = (payload, reqId) => {
     const {
         email,
         message,
-        subject
+        subject,
+        messageInHTMLFormat
     } = payload;
     logger(`Request ID: ${reqId} - sending message to email: ${email}`);
     return transporter.sendMail({
@@ -30,7 +31,7 @@ const sendEmail = (payload, reqId) => {
         to: email,
         subject: `${ENVIRONMENT} - ${subject}`,
         text: message,
-        html: message
+        html: messageInHTMLFormat ? messageInHTMLFormat : message
     }).
         then(() => {
             logger(`Request ID: ${reqId} - successfully sent message to email: ${email}`);

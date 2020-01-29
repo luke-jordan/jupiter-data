@@ -8,4 +8,7 @@ resource "google_cloudfunctions_function" "sns-to-pubsub-function" {
   entry_point = "receiveNotification"
   trigger_http = true
   runtime = "nodejs10"
+  environment_variables = {
+    DEBUG = "*"
+  }
 }

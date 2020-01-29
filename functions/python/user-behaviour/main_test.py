@@ -158,7 +158,7 @@ def mock_big_query():
 
 @pytest.fixture
 def mock_date_string_to_millisecond_conversion():
-    return Mock(spec=convert_date_string_to_millisecond_int)\
+    return Mock(spec=convert_date_string_to_millisecond_int)
 
 @pytest.fixture
 def mock_extract_params_from_fetch_user_behaviour_request():

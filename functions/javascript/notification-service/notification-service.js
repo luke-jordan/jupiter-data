@@ -16,7 +16,10 @@ const { POST } = httpMethods;
 
 const sendEmailNotifications = (payload, options) => {
     const {
-        contacts, message, subject
+        contacts,
+        message,
+        subject,
+        messageInHTMLFormat
     } = payload;
     const {
         reqId
@@ -26,6 +29,7 @@ const sendEmailNotifications = (payload, options) => {
         const payloadForEachEmail = {
             email: contact,
             message,
+            messageInHTMLFormat,
             subject
         };
         emailClientService.sendEmail(payloadForEachEmail, reqId);
