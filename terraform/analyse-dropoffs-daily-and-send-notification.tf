@@ -1,11 +1,11 @@
-resource "google_cloudfunctions_function" "send-daily-metrics-as-email-function" {
-  name = "send-daily-metrics-as-email"
-  description = "Fetch daily metrics and notify admins via email"
+resource "google_cloudfunctions_function" "analyse-dropoffs-daily-and-send-notification" {
+  name = "analyse-dropoffs-daily-and-send-notification"
+  description = "Analyse dropoffs daily and send notification to admins"
   available_memory_mb = 128
   source_archive_bucket = "${var.gcp_bucket_prefix[terraform.workspace]}-metrics-bucket"
   source_archive_object = "metrics_${var.deploy_code_commit_hash}.zip"
   timeout = 420
-  entry_point = "send_daily_metrics_email_to_admin"
+  entry_point = "send_dropoffs_analysis_email_to_admin"
   trigger_http = true
   runtime = "python37"
   environment_variables = {
