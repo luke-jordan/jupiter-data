@@ -106,7 +106,7 @@ sample_path_to_file = "gs://jupiter-save/import/240333_2019-11-12_14%23327.json"
 sample_folder_name = "example"
 sample_gz_file = "240333_2019-11-14_21#327.gz.json"
 sample_json_file = "240333_2019-11-14_21#327.json"
-sample_line_from_json_file = json.dumps({"client_event_time": "2019-11-12 14:43:48.924000", "ip_address": "82.146.26.242", "library": "amplitude-android/2.9.2", "dma": None, "user_creation_time": "2019-08-02 06:57:10.096000", "insert_id": "e065c443-bc1b-4923-90e0-dc409a32caad", "schema": 12, "processed_time": "2019-11-13 20:55:09.245977", "client_upload_time": "2019-11-12 14:44:19.057000", "app": 240333, "user_id": "27b00e1c-4f32-4631-a67b-88aaf5a01d0c", "city": "Sofia", "event_type": "USER_OPENED_APP", "device_carrier": "A1 BG", "location_lat": None, "event_time": "2019-11-12 14:43:52.137000", "platform": "Android", "is_attribution_event": False, "os_version": "9", "paying": False, "amplitude_id": 105712354545, "device_type": "OnePlus 6", "sample_rate": None, "device_manufacturer": "OnePlus", "start_version": "2.13.1", "uuid": "ec132044-055a-11ea-9afc-0a13de2cb11e", "version_name": "2.13.1", "location_lng": None, "server_upload_time": "2019-11-12 14:44:22.289000", "event_id": 683, "device_id": "0e8656b0-31d8-45ab-b0d4-134fa4c8f50eR", "device_family": "OnePlus Phone", "os_name": "android", "adid": None, "amplitude_event_type": None, "device_brand": "OnePlus", "country": "Bulgaria", "device_model": "ONEPLUS A6003", "language": "English", "region": "Sofia-Capital", "session_id": 1573569828924, "idfa": None, "reference_time": "2019-11-12 14:43:48.924000"})
+sample_line_from_json_file = json.dumps({"client_event_time": "2019-11-12 14:43:48.924000", "ip_address": "82.146.26.242", "library": "amplitude-android/2.9.2", "dma": None, "user_creation_time": "2019-08-02 06:57:10.096000", "$insert_id": "e065c443-bc1b-4923-90e0-dc409a32caad", "$schema": 12, "processed_time": "2019-11-13 20:55:09.245977", "client_upload_time": "2019-11-12 14:44:19.057000", "app": 240333, "user_id": "27b00e1c-4f32-4631-a67b-88aaf5a01d0c", "city": "Sofia", "event_type": "USER_OPENED_APP", "device_carrier": "A1 BG", "location_lat": None, "event_time": "2019-11-12 14:43:52.137000", "platform": "Android", "is_attribution_event": False, "os_version": "9", "paying": False, "amplitude_id": 105712354545, "device_type": "OnePlus 6", "sample_rate": None, "device_manufacturer": "OnePlus", "start_version": "2.13.1", "uuid": "ec132044-055a-11ea-9afc-0a13de2cb11e", "version_name": "2.13.1", "location_lng": None, "server_upload_time": "2019-11-12 14:44:22.289000", "event_id": 683, "device_id": "0e8656b0-31d8-45ab-b0d4-134fa4c8f50eR", "device_family": "OnePlus Phone", "os_name": "android", "adid": None, "amplitude_event_type": None, "device_brand": "OnePlus", "country": "Bulgaria", "device_model": "ONEPLUS A6003", "language": "English", "region": "Sofia-Capital", "session_id": 1573569828924, "idfa": None, "reference_time": "2019-11-12 14:43:48.924000"})
 time_in_milliseconds_now = fetch_current_time_in_milliseconds()
 
 sample_processed_line = {
@@ -253,8 +253,11 @@ def test_value_paying():
     assert value_paying(None) == False
 
 def test_convert_date_string_to_millisecond_int():
-    assert convert_date_string_to_millisecond_int("2019-04-03 00:00:00.0000") == int(1554249600000.0)
-    assert convert_date_string_to_millisecond_int("2019-04-06 23:59:59.0000") == int(1554595199000.0)
+    assert convert_date_string_to_millisecond_int("2019-04-03 00:00:00") == int(1554249600000.0)
+    assert convert_date_string_to_millisecond_int("2019-04-06 23:59:59") == int(1554595199000.0)
+
+    assert convert_date_string_to_millisecond_int("2020-01-15 00:00:00.8730") == int(1579046400873)
+    assert convert_date_string_to_millisecond_int("2020-01-15 23:59:59.1564") == int(1579132799156)
 
 # TODO:
 # unzip_gzip, file_list

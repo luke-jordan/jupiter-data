@@ -173,8 +173,14 @@ def convert_date_string_to_millisecond_int(dateTimeString):
         "Converting date time string: {dateTimeString} to milliseconds for time of transaction"
             .format(dateTimeString=dateTimeString)
     )
+    expected_date_string_format = '%Y-%m-%d %H:%M:%S.%f'
+    try:
+        date_object = datetime.strptime(dateTimeString, expected_date_string_format)
+    except ValueError:
+        print('Date time string has no microsecond value, add microsecond to ensure consistency in formatting')
+        date_object_with_microsecond = dateTimeString + '.0000'
+        date_object = datetime.strptime(date_object_with_microsecond, expected_date_string_format)
 
-    date_object = datetime.strptime(dateTimeString, '%Y-%m-%d %H:%M:%S.%f')
     epoch = datetime.utcfromtimestamp(0)
     timeInMilliSecond = (date_object - epoch).total_seconds() * SECOND_TO_MILLISECOND_FACTOR
 
@@ -196,8 +202,8 @@ def process_line_json(line, current_time):
         context_data['library'] = value_def(parsed['library'])
         context_data['dma'] = value_def(parsed['dma'])
         context_data['user_creation_time'] = value_def(parsed['user_creation_time'])
-        context_data['insert_id'] = value_def(parsed['insert_id'])
-        context_data['schema'] = value_def(parsed['schema'])
+        context_data['insert_id'] = value_def(parsed['$insert_id'])
+        context_data['schema'] = value_def(parsed['$schema'])
         context_data['client_upload_time'] = value_def(parsed['client_upload_time'])
         context_data['app'] = value_def(parsed['app'])
         context_data['user_id'] = value_def(parsed['user_id'])
@@ -290,23 +296,27 @@ def process_gzip_files_in_root_location(day):
     # Loop through all new files, unzip them & remove the .gz
     print("Processing .gz files in root location: {name} for day: {day}".format(name=UNZIPPED_FILE_ROOT_LOCATION, day=day))
     for file in file_list('.gz'):
-        print("Parsing file: {name}".format(name=file))
-        lines = unzip_gzip(file)
+        try:
+            print("Parsing file: {name}".format(name=file))
+            lines = unzip_gzip(file)
 
-        FILE_NAME_JSON = file_json(file)
-        path_to_events_file_on_local = convert_text_to_json(FILE_NAME_JSON, lines)
+            FILE_NAME_JSON = file_json(file)
+            path_to_events_file_on_local = convert_text_to_json(FILE_NAME_JSON, lines)
 
-        upload_file_to_gcs(path_to_events_file_on_local, FILE_NAME_JSON, FORMATTED_FILES_GCS_FOLDER)
+            upload_file_to_gcs(path_to_events_file_on_local, FILE_NAME_JSON, FORMATTED_FILES_GCS_FOLDER)
 
-        # Import data from Google Cloud Storage into Google BigQuery
-        load_gcs_file_into_bigquery(construct_gcs_import_url(FILE_NAME_JSON), 'all_user_events')
-        print("===========================================================================")
-        print("===========================================================================")
-        print("======Completed Import from Amplitude to Big Query for: {file}======".format(file=FILE_NAME_JSON))
-        print("===========================================================================")
-        print("===========================================================================")
+            # Import data from Google Cloud Storage into Google BigQuery
+            load_gcs_file_into_bigquery(construct_gcs_import_url(FILE_NAME_JSON), 'all_user_events')
+            print("===========================================================================")
+            print("===========================================================================")
+            print("======Completed Import from Amplitude to Big Query for: {file}======".format(file=FILE_NAME_JSON))
+            print("===========================================================================")
+            print("===========================================================================")
 
-        remove_local_files_for_gz_extracts(file)
+            remove_local_files_for_gz_extracts(file)
+        except Exception as err:
+            print("Error occurred while processing a .gz file. Error: {}".format(err))
+
 
 
 def retrieve_yesterdays_date():
