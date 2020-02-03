@@ -269,6 +269,10 @@ jobs:
 
             if [ $CIRCLE_BRANCH == 'master' ] || [ $CIRCLE_BRANCH == 'staging' ] ; then
               export GOOGLE_APPLICATION_CREDENTIALS="google_credentials_for_terraform.json"
+
+              echo "Fetch private credentials used in some functions"
+              ./app/google-cloud-sdk/bin/gsutil cp jupiter-data-private-vars.tf gs://staging-terraform-state-bucket
+
               terraform init
 
               terraform workspace select $CIRCLE_BRANCH

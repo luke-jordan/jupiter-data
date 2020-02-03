@@ -94,3 +94,6 @@ tmp/
 # python test coverage files
 .coverage
 htmlcov/
+
+# secrets for repo
+jupiter-data-private-vars.tf
