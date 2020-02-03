@@ -9,6 +9,8 @@ const HASHING_ALGORITHM = config.get('HASHING_ALGORITHM');
 const DRY_RUN = config.get('DRY_RUN');
 const logger = require('debug')('jupiter:auth-validator');
 
+console.log('testing secret: ', SECRET);
+
 const generateHash = (key) => {
     const hash = crypto.createHmac(HASHING_ALGORITHM, SECRET).
         update(`${SECRET}_${key}`).

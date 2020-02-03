@@ -9,6 +9,12 @@ resource "google_cloudfunctions_function" "sns-to-pubsub-function" {
   trigger_http = true
   runtime = "nodejs10"
   environment_variables = {
-    DEBUG = "*"
+    DEBUG = "*",
+    NODE_CONFIG = "${
+      jsonencode(
+        {
+          "SECRET": "${var.auth_library_secret_code[terraform.workspace]}"
+        }
+    )}"
   }
 }
