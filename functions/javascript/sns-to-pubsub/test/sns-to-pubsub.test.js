@@ -140,10 +140,10 @@ describe('Amazon SNS to Google Pub/Sub Function', () => {
                 end: endResponseStub
             })
         };
-        let result;
+        let result = '';
         try {
             result = await receiveNotification(req, res);
-        } catch(error) {
+        } catch (error) {
             expect(error.message).to.equal(customError);
         }
         expect(result).to.be.undefined;
