@@ -8,9 +8,11 @@ const proxyquire = require('proxyquire').noCallThru();
 const uuid = require('uuid/v4');
 
 const requestGetStub = sinon.stub();
+const authValidatorStub = sinon.stub();
 
 const resetStubs = () => {
     requestGetStub.reset();
+    authValidatorStub.reset();
 };
 
 const sampleMessageId = uuid();
@@ -28,7 +30,8 @@ const MockGoogleCloud = {
 };
 
 const snsToPubSubFunctions = proxyquire('../index', {
-    '@google-cloud/pubsub': MockGoogleCloud
+    '@google-cloud/pubsub': MockGoogleCloud,
+    './libs/auth-validator': authValidatorStub
 });
 
 const {
@@ -101,6 +104,7 @@ describe('Amazon SNS to Google Pub/Sub Function', () => {
 
     it(`should publish message to pubsub successfully`, async () => {
         requestGetStub.returns(uuid());
+        authValidatorStub.returns();
         const req = {
             method: POST,
             body: samplePayloadMessageFromSNS,
@@ -116,6 +120,36 @@ describe('Amazon SNS to Google Pub/Sub Function', () => {
         const result = await receiveNotification(req, res);
         expect(result).to.be.undefined;
         expect(endResponseStub).to.have.been.calledOnce;
+        expect(authValidatorStub).to.have.been.calledOnce;
+        expect(requestGetStub).to.have.been.calledOnce;
         expect(res.status().end.firstCall.args[0]).to.equal(sampleMessageId);
+    });
+
+    it(`should fail to publish message to pubsub when auth validation fails`, async () => {
+        requestGetStub.returns(uuid());
+        const customError = 'Authentication Request Failed';
+        authValidatorStub.throws(customError);
+        const req = {
+            method: POST,
+            body: samplePayloadMessageFromSNS,
+            get: requestGetStub
+        };
+        const endResponseStub = sinon.stub();
+        const res = {
+            status: () => ({
+                end: endResponseStub
+            })
+        };
+        let result = '';
+        try {
+            result = await receiveNotification(req, res);
+        } catch (error) {
+            expect(error.message).to.equal(customError);
+        }
+        expect(result).to.be.undefined;
+        expect(requestGetStub).to.have.been.calledOnce;
+        expect(endResponseStub).to.have.been.calledOnce;
+        expect(authValidatorStub).to.have.been.calledOnce;
+        expect(res.status().end.firstCall.args[0]).to.equal('Invalid SNS message => authentication or processing error');
     });
 });

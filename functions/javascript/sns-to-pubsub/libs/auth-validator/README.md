@@ -13,4 +13,8 @@ if the `givenHash` and the `systemGeneratedHash` are the same value, then the re
 The `givenHash` should be generated with the algorithm:
 givenHash = hmac_256(secret + givenKey)
 
+The `secret` as mentioned above is stored (for staging and production) as a terraform variable in the google
+cloud file: `https://console.cloud.google.com/storage/browser/_details/staging-terraform-state-bucket/jupiter-data-private-vars.tf?project=jupiter-ml-alpha`.
+This secret is added to the config of the function by terraform when the Circle CI pipeline is running. 
+
 Please refer to the `generateHash` function for explicit details about the construction of the hash 
