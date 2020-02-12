@@ -219,12 +219,12 @@ const logFraudulentUserAndNotifyAdmins = async (event, userAccountInfo) => {
 };
 
 // Run the engine to evaluate facts against the rules
-const createEngineAndRunFactsAgainstRules = (facts, rules) => {
+const createEngineAndRunFactsAgainstRules = async (facts, rules) => {
     const engineWithRules = constructNewEngineAndAddRules(CUSTOM_RULES);
 
     logger(`Running facts: ${JSON.stringify(facts)} against rules: ${JSON.stringify(rules)}`);
 
-    engineWithRules.
+    await engineWithRules.
     run(facts).
     then((resultsOfPassedRules) => resultsOfPassedRules.events.forEach(async (event) => {
         await logFraudulentUserAndNotifyAdmins(event, facts.userAccountInfo);
@@ -234,12 +234,11 @@ const createEngineAndRunFactsAgainstRules = (facts, rules) => {
 };
 
 const fetchFactsFromUserBehaviourService = async (userId, accountId) => {
-    logger(
-        `Fetching facts from user behaviour service for user id: ${userId} and account id: ${accountId}`
-    );
     try {
         const formattedRulesWithLatestFlagTime = await obtainLastAlertTimesForUser(CUSTOM_RULES, userId);
-
+        logger(
+            `Fetching facts from user behaviour service for user id: ${userId} and account id: ${accountId}`
+        );
         const extraConfig = {
             url: FETCH_USER_BEHAVIOUR_URL,
             body: {
