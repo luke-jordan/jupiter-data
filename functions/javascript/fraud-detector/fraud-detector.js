@@ -142,25 +142,29 @@ const obtainLastAlertTimesForUser = async (rules, userId) => {
             ruleLabels
         }
     };
+    try {
+        const [ruleListWithLatestFlagTime] = await bigQueryClient.query(options);
 
-    const [ruleListWithLatestFlagTime] = await bigQueryClient.query(options);
-
-    let formattedAlertTimes = {};
-    if (ruleListWithLatestFlagTime && ruleListWithLatestFlagTime.length > 0) {
-        logger(
-            `Successfully obtained last alert times for user with id: ${userId} and rule labels: ${JSON.stringify(ruleLabels)}.
+        let formattedAlertTimes = {};
+        if (ruleListWithLatestFlagTime && ruleListWithLatestFlagTime.length > 0) {
+            logger(
+                `Successfully obtained last alert times for user with id: ${userId} and rule labels: ${JSON.stringify(ruleLabels)}.
         Alert times: ${JSON.stringify(ruleListWithLatestFlagTime)}`
+            );
+
+            formattedAlertTimes = attachRuleLabelsToLatestFlagTime(ruleListWithLatestFlagTime);
+        }
+
+        logger(
+            `Formatted last alert times with latest flag dates for user with id: ${userId}.
+        Formatted alert times: ${JSON.stringify(formattedAlertTimes)}`
         );
 
-        formattedAlertTimes = attachRuleLabelsToLatestFlagTime(ruleListWithLatestFlagTime);
+        return formattedAlertTimes;
+    } catch (error) {
+        logger(`Error occurred while obtaining last alert times for user id: ${userId} and rule labels: ${JSON.stringify(ruleLabels)}. Error: ${JSON.stringify(error)}`);
+        throw error;
     }
-
-    logger(
-        `Formatted last alert times with latest flag dates for user with id: ${userId}.
-        Formatted alert times: ${JSON.stringify(formattedAlertTimes)}`
-    );
-
-    return formattedAlertTimes;
 };
 
 const notifyAdminsOfNewlyFlaggedUser = async (payload) => {
@@ -237,9 +241,8 @@ const createEngineAndRunFactsAgainstRules = async (facts, rules) => {
         });
 };
 
-const fetchFactsFromUserBehaviourService = async (userId, accountId) => {
+const fetchFactsFromUserBehaviourService = async (userId, accountId, formattedRulesWithLatestFlagTime) => {
     try {
-        const formattedRulesWithLatestFlagTime = await obtainLastAlertTimesForUser(CUSTOM_RULES, userId);
         logger(
             `Fetching facts from user behaviour service for user id: ${userId} and account id: ${accountId}`
         );
@@ -343,7 +346,8 @@ const fetchFactsAboutUserAndRunEngine = async (req, res) => {
             return;
         }
 
-        const factsAboutUser = await fetchFactsFromUserBehaviourService(payload.userId, payload.accountId);
+        const formattedRulesWithLatestFlagTime = await obtainLastAlertTimesForUser(CUSTOM_RULES, payload.userId);
+        const factsAboutUser = await fetchFactsFromUserBehaviourService(payload.userId, payload.accountId, formattedRulesWithLatestFlagTime);
 
         await createEngineAndRunFactsAgainstRules(factsAboutUser, CUSTOM_RULES);
 
