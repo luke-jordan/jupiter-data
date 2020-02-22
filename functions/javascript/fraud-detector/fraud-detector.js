@@ -232,16 +232,13 @@ const createEngineAndRunFactsAgainstRules = async (facts, rules) => {
 
     logger(`Running facts: ${JSON.stringify(facts)} against rules: ${JSON.stringify(rules)}`);
 
-    let countOfRulesFlagged = 0;
     await engineWithRules.
     run(facts).
     then((resultsOfPassedRules) => resultsOfPassedRules.events.forEach(async (event) => {
         await logFraudulentUserAndNotifyAdmins(event, facts.userAccountInfo);
-        countOfRulesFlagged += 1;
     })).catch((error) => {
        logger(`Error occurred while Running engine with facts: ${JSON.stringify(facts)} and rules: ${JSON.stringify(rules)}. Error: ${JSON.stringify(error)}`);
         });
-    return countOfRulesFlagged;
 };
 
 const fetchFactsFromUserBehaviourService = async (userId, accountId, formattedRulesWithLatestFlagTime) => {
@@ -352,13 +349,13 @@ const fetchFactsAboutUserAndRunEngine = async (req, res) => {
         const formattedRulesWithLatestFlagTime = await obtainLastAlertTimesForUser(CUSTOM_RULES, payload.userId);
         const factsAboutUser = await fetchFactsFromUserBehaviourService(payload.userId, payload.accountId, formattedRulesWithLatestFlagTime);
 
-        const countOfRulesFlagged = await createEngineAndRunFactsAgainstRules(factsAboutUser, CUSTOM_RULES);
+        await createEngineAndRunFactsAgainstRules(factsAboutUser, CUSTOM_RULES);
 
         if (VERBOSE_MODE) {
             await sendNotificationOfResultToAdmins({ result: 'SUCCESS'});
         }
 
-        logger(`Completed request to fetch facts about user and run engine. Count of rules flagged: ${countOfRulesFlagged}`);
+        logger(`Completed request to fetch facts about user and run engine`);
     } catch (error) {
         logger(`Error occurred while fetching facts about user and running engine with facts/rules. Error: ${error.message}`);
 
