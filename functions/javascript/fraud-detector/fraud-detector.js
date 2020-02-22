@@ -15,6 +15,7 @@ const serviceUrls = config.get('serviceUrls');
 const EMAIL_SUBJECT_FOR_ADMINS = config.get('emailSubjectForAdmins');
 
 // These credentials are used to access google cloud services. See https://cloud.google.com/docs/authentication/getting-started
+// eslint-disable-next-line no-process-env
 process.env.GOOGLE_APPLICATION_CREDENTIALS = config.get('GOOGLE_APPLICATION_CREDENTIALS');
 
 const {
