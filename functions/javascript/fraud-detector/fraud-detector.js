@@ -14,6 +14,9 @@ const CUSTOM_RULES = require('./custom-rules').allRules;
 const serviceUrls = config.get('serviceUrls');
 const EMAIL_SUBJECT_FOR_ADMINS = config.get('emailSubjectForAdmins');
 
+// These credentials are used to access google cloud services. See https://cloud.google.com/docs/authentication/getting-started
+process.env.GOOGLE_APPLICATION_CREDENTIALS = config.get('GOOGLE_APPLICATION_CREDENTIALS');
+
 const {
     generateCurrentTimeInMilliseconds
 } = require('./utils');
@@ -346,6 +349,8 @@ const fetchFactsAboutUserAndRunEngine = async (req, res) => {
         if (VERBOSE_MODE) {
             await sendNotificationOfResultToAdmins({ result: 'SUCCESS'});
         }
+
+        logger('Completed request to fetch facts about user and run engine');
     } catch (error) {
         logger(`Error occurred while fetching facts about user and running engine with facts/rules. Error: ${error.message}`);
 
