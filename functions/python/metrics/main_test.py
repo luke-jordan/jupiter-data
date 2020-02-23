@@ -1158,7 +1158,7 @@ def test_compose_daily_email(
         "number_of_users_that_withdrew_today": given_count,
         "three_day_average_of_users_that_withdrew": given_count,
         "ten_day_average_of_users_that_withdrew": given_count,
-        "total_users_as_at_start_of_today": given_count,
+        "total_users_as_at_start_of_today": given_count * 5,
         "number_of_users_that_joined_today": given_count,
         "three_day_average_of_users_that_joined": given_count,
         "ten_day_average_of_users_that_joined": given_count,
