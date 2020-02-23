@@ -14,6 +14,10 @@ const CUSTOM_RULES = require('./custom-rules').allRules;
 const serviceUrls = config.get('serviceUrls');
 const EMAIL_SUBJECT_FOR_ADMINS = config.get('emailSubjectForAdmins');
 
+// These credentials are used to access google cloud services. See https://cloud.google.com/docs/authentication/getting-started
+// eslint-disable-next-line no-process-env
+process.env.GOOGLE_APPLICATION_CREDENTIALS = config.get('GOOGLE_APPLICATION_CREDENTIALS');
+
 const {
     generateCurrentTimeInMilliseconds
 } = require('./utils');
@@ -138,25 +142,29 @@ const obtainLastAlertTimesForUser = async (rules, userId) => {
             ruleLabels
         }
     };
+    try {
+        const [ruleListWithLatestFlagTime] = await bigQueryClient.query(options);
 
-    const [ruleListWithLatestFlagTime] = await bigQueryClient.query(options);
-
-    let formattedAlertTimes = {};
-    if (ruleListWithLatestFlagTime && ruleListWithLatestFlagTime.length > 0) {
-        logger(
-            `Successfully obtained last alert times for user with id: ${userId} and rule labels: ${JSON.stringify(ruleLabels)}.
+        let formattedAlertTimes = {};
+        if (ruleListWithLatestFlagTime && ruleListWithLatestFlagTime.length > 0) {
+            logger(
+                `Successfully obtained last alert times for user with id: ${userId} and rule labels: ${JSON.stringify(ruleLabels)}.
         Alert times: ${JSON.stringify(ruleListWithLatestFlagTime)}`
+            );
+
+            formattedAlertTimes = attachRuleLabelsToLatestFlagTime(ruleListWithLatestFlagTime);
+        }
+
+        logger(
+            `Formatted last alert times with latest flag dates for user with id: ${userId}.
+        Formatted alert times: ${JSON.stringify(formattedAlertTimes)}`
         );
 
-        formattedAlertTimes = attachRuleLabelsToLatestFlagTime(ruleListWithLatestFlagTime);
+        return formattedAlertTimes;
+    } catch (error) {
+        logger(`Error occurred while obtaining last alert times for user id: ${userId} and rule labels: ${JSON.stringify(ruleLabels)}. Error: ${JSON.stringify(error)}`);
+        throw error;
     }
-
-    logger(
-        `Formatted last alert times with latest flag dates for user with id: ${userId}.
-        Formatted alert times: ${JSON.stringify(formattedAlertTimes)}`
-    );
-
-    return formattedAlertTimes;
 };
 
 const notifyAdminsOfNewlyFlaggedUser = async (payload) => {
@@ -219,12 +227,12 @@ const logFraudulentUserAndNotifyAdmins = async (event, userAccountInfo) => {
 };
 
 // Run the engine to evaluate facts against the rules
-const createEngineAndRunFactsAgainstRules = (facts, rules) => {
+const createEngineAndRunFactsAgainstRules = async (facts, rules) => {
     const engineWithRules = constructNewEngineAndAddRules(CUSTOM_RULES);
 
     logger(`Running facts: ${JSON.stringify(facts)} against rules: ${JSON.stringify(rules)}`);
 
-    engineWithRules.
+    await engineWithRules.
     run(facts).
     then((resultsOfPassedRules) => resultsOfPassedRules.events.forEach(async (event) => {
         await logFraudulentUserAndNotifyAdmins(event, facts.userAccountInfo);
@@ -233,13 +241,11 @@ const createEngineAndRunFactsAgainstRules = (facts, rules) => {
         });
 };
 
-const fetchFactsFromUserBehaviourService = async (userId, accountId) => {
-    logger(
-        `Fetching facts from user behaviour service for user id: ${userId} and account id: ${accountId}`
-    );
+const fetchFactsFromUserBehaviourService = async (userId, accountId, formattedRulesWithLatestFlagTime) => {
     try {
-        const formattedRulesWithLatestFlagTime = await obtainLastAlertTimesForUser(CUSTOM_RULES, userId);
-
+        logger(
+            `Fetching facts from user behaviour service for user id: ${userId} and account id: ${accountId}`
+        );
         const extraConfig = {
             url: FETCH_USER_BEHAVIOUR_URL,
             body: {
@@ -340,13 +346,16 @@ const fetchFactsAboutUserAndRunEngine = async (req, res) => {
             return;
         }
 
-        const factsAboutUser = await fetchFactsFromUserBehaviourService(payload.userId, payload.accountId);
+        const formattedRulesWithLatestFlagTime = await obtainLastAlertTimesForUser(CUSTOM_RULES, payload.userId);
+        const factsAboutUser = await fetchFactsFromUserBehaviourService(payload.userId, payload.accountId, formattedRulesWithLatestFlagTime);
 
         await createEngineAndRunFactsAgainstRules(factsAboutUser, CUSTOM_RULES);
 
         if (VERBOSE_MODE) {
             await sendNotificationOfResultToAdmins({ result: 'SUCCESS'});
         }
+
+        logger(`Completed request to fetch facts about user and run engine`);
     } catch (error) {
         logger(`Error occurred while fetching facts about user and running engine with facts/rules. Error: ${error.message}`);
 

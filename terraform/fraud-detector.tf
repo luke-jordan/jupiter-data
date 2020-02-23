@@ -14,6 +14,7 @@ resource "google_cloudfunctions_function" "fraud-detector-function" {
       jsonencode(
         {
           "contactsToBeNotified": terraform.workspace == "master" ? ["luke@jupitersave.com", "avish@jupitersave.com"] : ["luke@jupitersave.com"]
+          "GOOGLE_APPLICATION_CREDENTIALS": "service-account-credentials.json"
         }
     )}" 
   }
