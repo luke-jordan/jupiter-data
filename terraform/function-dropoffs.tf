@@ -10,8 +10,11 @@ resource "google_cloudfunctions_function" "analyse-dropoffs-daily-and-send-notif
   source_archive_bucket = "${var.gcp_bucket_prefix[terraform.workspace]}-metrics-bucket"
   source_archive_object = "metrics_${var.deploy_code_commit_hash}.zip"
   entry_point = "send_dropoffs_analysis_email_to_admin"
-  
-  trigger_http = false
+    
+  event_trigger {
+    event_type = "google.pubsub.topic.publish"
+    resource = google_pubsub_topic.daily_analytics_email_topic.name
+  }
   
   environment_variables = {
     EMAIL_SANDBOX_ENABLED = terraform.workspace != "master"
