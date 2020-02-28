@@ -24,6 +24,7 @@ const {
 
 const {
     NOTIFICATION_SERVICE_URL,
+    AUTH_SERVICE_URL,
     FETCH_USER_BEHAVIOUR_URL
 } = serviceUrls;
 
@@ -78,9 +79,37 @@ const handleMissingParameterInReceivedPayload = (payload, res) => {
     return null;
 };
 
-const validateRequestAndExtractParams = (req, res) => {
+const verifyRequestToken = async (req, res) => {
+    logger(`Verifying the request token`);
+
+    const extraConfig = {
+        url: `${AUTH_SERVICE_URL}`,
+        method: POST,
+        body: { token: req.headers['Authentication'].substring('Bearer '.length) }
+    };
+    const responseFromAuthService = await sendHttpRequest(extraConfig, 'Verifying the request token with auth service');
+
+    // continue based on response;
+    if (responseFromAuthService && responseFromAuthService.body && responseFromAuthService.body.userRole === 'SYSTEM_ADMIN') {
+        logger(`Request token is valid`);
+        return responseFromAuthService;
+    }
+
+    logger(`Request token is NOT valid`);
+    res.status(httpStatus.UNAUTHORIZED).end(`Only ${POST} http method accepted`);
+    return;
+};
+
+const validateRequestAndExtractParams = async (req, res) => {
+    logger(`Validating request and extracting params`);
     if (req.method !== POST) {
         return handleNotSupportedHttpMethod(res);
+    }
+
+    const requestAuthorized = await verifyRequestToken(req, res);
+    if (!requestAuthorized) {
+        logger(`Request is not authorized`);
+        return;
     }
 
     try {
@@ -251,8 +280,6 @@ const constructOptionsForUserDetailsFetchFromFlagTable = async (payload) => {
         userId,
         accountId
     } = payload;
-
-
     return {
         query: sqlQueryForUserDetailsFetchFromFlagTable,
         location: BIG_QUERY_DATASET_LOCATION,
@@ -263,9 +290,9 @@ const constructOptionsForUserDetailsFetchFromFlagTable = async (payload) => {
     };
 };
 
-const retrieveUserDetailsFromFlagTable = async (req, res) => {
+const fetchUserDetailsFromFlagTable = async (req, res) => {
     try {
-        const payload = validateRequestAndExtractParams(req, res);
+        const payload = await validateRequestAndExtractParams(req, res);
         if (!payload) {
             return;
         }
@@ -397,7 +424,7 @@ const sendNotificationOfResultToAdmins = async (requestStatus) => {
 const fetchFactsAboutUserAndRunEngine = async (req, res) => {
     sendSuccessResponse(req, res); // so that function that triggers this can exit successfully
     try {
-        const payload = validateRequestAndExtractParams(req, res);
+        const payload = await validateRequestAndExtractParams(req, res);
         if (!payload) {
             return;
         }
@@ -433,8 +460,10 @@ module.exports = {
     notifyAdminsOfNewlyFlaggedUser,
     constructPayloadForUserFlagTable,
     insertUserFlagIntoTable,
+    logUserNotFlagged,
     fetchFactsAboutUserAndRunEngine,
-    retrieveUserDetailsFromFlagTable,
+    fetchUserDetailsFromFlagTable,
     sendNotificationOfResultToAdmins,
-    isRuleSafeOrIsExperimentalModeOn
+    isRuleSafeOrIsExperimentalModeOn,
+    constructOptionsForUserDetailsFetchFromFlagTable
 };

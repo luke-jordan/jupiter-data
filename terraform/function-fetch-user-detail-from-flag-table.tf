@@ -5,7 +5,7 @@ resource "google_cloudfunctions_function" "fetch-user-detail-from-flag-table-fun
   source_archive_bucket = "${var.gcp_bucket_prefix[terraform.workspace]}-fraud-detector-bucket"
   source_archive_object = "fraud_detector_${var.deploy_code_commit_hash}.zip"
   timeout = 60
-  entry_point = "retrieveUserDetailsFromFlagTable"
+  entry_point = "fetchUserDetailsFromFlagTable"
   trigger_http = true
   runtime = "nodejs10"
   environment_variables = {
