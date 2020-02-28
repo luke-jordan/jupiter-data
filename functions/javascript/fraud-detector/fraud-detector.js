@@ -79,6 +79,19 @@ const handleMissingParameterInReceivedPayload = (payload, res) => {
     return null;
 };
 
+const sendHttpRequest = async (extraConfig, specifiedRequestTitle) => {
+    logger(`Sending '${specifiedRequestTitle}' request with extra config: ${JSON.stringify(extraConfig)}`);
+
+    const response = await requestRetry({
+        ...baseConfigForRequestRetry,
+        ...extraConfig
+    });
+
+    logger(`Response from '${specifiedRequestTitle}' request with extra config: ${JSON.stringify(extraConfig)}. 
+    Response: ${JSON.stringify(response)}`);
+    return response;
+};
+
 const verifyRequestToken = async (req, res) => {
     logger(`Verifying the request token`);
 
@@ -97,7 +110,7 @@ const verifyRequestToken = async (req, res) => {
 
     logger(`Request token is NOT valid`);
     res.status(httpStatus.UNAUTHORIZED).end(`Only ${POST} http method accepted`);
-    return;
+    
 };
 
 const validateRequestAndExtractParams = async (req, res) => {
@@ -121,19 +134,6 @@ const validateRequestAndExtractParams = async (req, res) => {
     } catch (error) {
         sendFailureResponse(res, error);
     }
-};
-
-const sendHttpRequest = async (extraConfig, specifiedRequestTitle) => {
-    logger(`Sending '${specifiedRequestTitle}' request with extra config: ${JSON.stringify(extraConfig)}`);
-
-    const response = await requestRetry({
-        ...baseConfigForRequestRetry,
-        ...extraConfig
-    });
-
-    logger(`Response from '${specifiedRequestTitle}' request with extra config: ${JSON.stringify(extraConfig)}. 
-    Response: ${JSON.stringify(response)}`);
-    return response;
 };
 
 const constructPayloadForUserFlagTable = (userAccountInfo, ruleLabel, reasonForFlaggingUser) => {

@@ -50,7 +50,7 @@ const sampleResponseForFetchUserDetailFromFlagTable = [
         'reason': 'User has a deposit greater than 100,000 rands',
         'accuracy': sampleAccuracy,
         'created_at': sampleCreatedAtTime,
-        'updated_at': sampleUpdatedAtTime,
+        'updated_at': sampleUpdatedAtTime
     },
     {
         'user_id': userId,
@@ -59,8 +59,8 @@ const sampleResponseForFetchUserDetailFromFlagTable = [
         'reason': `User's latest inward transfer > 10x past 6 month average transfer`,
         'accuracy': sampleAccuracy,
         'created_at': sampleCreatedAtTime,
-        'updated_at': sampleUpdatedAtTime,
-    },
+        'updated_at': sampleUpdatedAtTime
+    }
 ];
 const optionsForFetchUserDetail = {
     query: `
@@ -334,11 +334,6 @@ describe('Fraud Detector', () => {
             statusCode: httpStatus.OK
         });
 
-        const {
-            userId,
-            accountId
-        } = samplePayloadFromFetchFactsTrigger;
-
         const extraConfigForFetchUserBehaviour = {
             url: `${FETCH_USER_BEHAVIOUR_URL}`,
             method: POST,
@@ -401,11 +396,6 @@ describe('Fraud Detector', () => {
             method: POST,
             body: payloadWithoutMessage
         };
-
-        const {
-            userId,
-            accountId
-        } = samplePayloadFromFetchFactsTrigger;
 
         const extraConfigForFetchUserBehaviour = {
             url: `${FETCH_USER_BEHAVIOUR_URL}`,
@@ -677,10 +667,6 @@ describe('Fraud Detector', () => {
             FROM \`${GOOGLE_PROJECT_ID}.${DATASET_ID}.${TABLE_ID}\`
             where \`user_id\` = @userId and \`account_id\` = @accountId
         `;
-        const {
-            userId,
-            accountId
-        } = sampleUserAccountInfo;
 
         const expectedOptions = {
             query: expectedQuery,
