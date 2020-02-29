@@ -99,6 +99,8 @@ htmlcov/
 # secrets for repo
 jupiter-data-private-vars.tf
 
-# Python caches
+# Python caches, virtual envs
 __pycache__/
 .pytest_cache/
+venv/
+env/

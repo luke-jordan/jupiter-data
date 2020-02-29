@@ -1341,7 +1341,7 @@ def compose_email_for_dropoff_analysis(dropoff_analysis_result):
 
     return dropoff_analysis_email_as_plain_text, dropoff_analysis_email_as_html
 
-def send_dropoffs_analysis_email_to_admin(request):
+def send_dropoffs_analysis_email_to_admin(data, context):
     print("Send daily email to admin")
     dropoff_analysis_counts = fetch_dropoff_count_for_savings_and_onboarding_sequence()
     email_messages = compose_email_for_dropoff_analysis(dropoff_analysis_counts)
