@@ -19,7 +19,7 @@ resource "google_cloudfunctions_function" "send-daily-metrics-as-email-function"
     FUNNEL_ANALYSIS_SERVICE_URL = google_cloudfunctions_function.funnel-analysis-function.https_trigger_url
     NOTIFICATION_SERVICE_URL = google_cloudfunctions_function.notification-service-function.https_trigger_url
     CONTACTS_TO_BE_NOTIFIED = "${terraform.workspace == "master" ? "luke@plutosave.com, avish@plutosave.com" : "luke@plutosave.com"}"
-    OWN_FUNCTION_URL = "https://${var.gcp_default_region}-${var.project}.cloudfunctions.net/send-daily-metrics-as-email"
+    OWN_FUNCTION_URL = "https://${var.gcp_default_region[terraform.workspace]}-${var.project[terraform.workspace]}.cloudfunctions.net/send-daily-metrics-as-email"
   }
 }
 
