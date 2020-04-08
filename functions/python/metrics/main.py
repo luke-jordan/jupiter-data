@@ -966,9 +966,11 @@ def fetch_daily_metrics():
         "comparison_result_of_users_that_withdrew_against_number_that_saved": comparison_result_of_users_that_withdrew_against_number_that_saved,
     }
 
-def notify_admins_via_email(payload):
+def notify_admins_via_email(payload, auth_token):
     print("Notifying admin via email")
-    response_from_notification_service = requests.post(NOTIFICATION_SERVICE_URL, data=payload)
+
+    auth_header = { 'Authorization': f'bearer ${auth_token}' }
+    response_from_notification_service = requests.post(NOTIFICATION_SERVICE_URL, data=payload, headers=auth_header)
     print(
         """
         Response from notification request.
@@ -1011,8 +1013,27 @@ def compose_daily_email(daily_metrics):
 
     return daily_email_as_plain_text, daily_email_as_html
 
+def obtain_gcp_token():
+    # Make sure to replace variables with appropriate values
+    receiving_function_url = os.getenv('OWN_FUNCTION_URL')
+
+    # Set up metadata server request
+    # See https://cloud.google.com/compute/docs/instances/verifying-instance-identity#request_signature
+    metadata_server_token_url = 'http://metadata/computeMetadata/v1/instance/service-accounts/default/identity?audience='
+
+    token_request_url = metadata_server_token_url + receiving_function_url
+    token_request_headers = {'Metadata-Flavor': 'Google'}
+
+    # Fetch the token
+    token_response = requests.get(token_request_url, headers=token_request_headers)
+    jwt = token_response.content.decode("utf-8")
+
+    return jwt
+
 def send_daily_metrics_email_to_admin(request):
-    print("Send daily email to admin")
+    print("Send daily email to admin, first fetch the token")
+    auth_token = obtain_gcp_token()
+
     daily_metrics = fetch_daily_metrics()
     email_messages = compose_daily_email(daily_metrics)
     print("Composed Daily Metrics Email Message with plain text: {}".format(email_messages[0]))
@@ -1026,7 +1047,7 @@ def send_daily_metrics_email_to_admin(request):
     if sandbox_enabled:
         print("Would have sent payload: ", notification_payload)
     else:
-        notify_admins_via_email(notification_payload)
+        notify_admins_via_email(notification_payload, auth_token)
     
     print("Completed sending of daily email to admin")
 
