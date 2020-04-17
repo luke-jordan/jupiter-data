@@ -2,16 +2,16 @@ import os
 import json
 import requests
 
-from helper import list_not_empty_or_undefined, avoid_division_by_zero_error, calculate_date_n_days_ago
+from .helper import list_not_empty_or_undefined, avoid_division_by_zero_error, calculate_date_n_days_ago
 
-from constant import INITIATED_FIRST_SAVINGS_EVENT_CODE, USER_LEFT_APP_AT_PAYMENT_LINK_EVENT_CODE, ENTERED_SAVINGS_FUNNEL_EVENT_CODE, USER_LEFT_APP_AT_PAYMENT_LINK_EVENT_CODE, USER_RETURNED_TO_PAYMENT_LINK_EVENT_CODE, PAYMENT_SUCCEEDED_EVENT_CODE
-from constant import USER_ENTERED_REFERRAL_SCREEN_EVENT_CODE, USER_ENTERED_VALID_REFERRAL_CODE_EVENT_CODE, USER_PROFILE_REGISTER_SUCCEEDED_EVENT_CODE, USER_PROFILE_PASSWORD_SUCCEEDED_EVENT_CODE, INITIATED_FIRST_SAVINGS_EVENT_CODE
-from constant import TODAY, THREE_DAYS
+from .constant import INITIATED_FIRST_SAVINGS_EVENT_CODE, USER_LEFT_APP_AT_PAYMENT_LINK_EVENT_CODE, ENTERED_SAVINGS_FUNNEL_EVENT_CODE, USER_LEFT_APP_AT_PAYMENT_LINK_EVENT_CODE, USER_RETURNED_TO_PAYMENT_LINK_EVENT_CODE, PAYMENT_SUCCEEDED_EVENT_CODE
+from .constant import USER_ENTERED_REFERRAL_SCREEN_EVENT_CODE, USER_ENTERED_VALID_REFERRAL_CODE_EVENT_CODE, USER_PROFILE_REGISTER_SUCCEEDED_EVENT_CODE, USER_PROFILE_PASSWORD_SUCCEEDED_EVENT_CODE, INITIATED_FIRST_SAVINGS_EVENT_CODE
+from .constant import TODAY, THREE_DAYS
 
 FUNNEL_ANALYSIS_SERVICE_URL = os.getenv("FUNNEL_ANALYSIS_SERVICE_URL")
 
 def construct_fetch_dropoffs_request_payload(raw_events_and_dates_list):
-    print("Constructing fetch dropoffs request payload. Raw Payload: {}".format(raw_events_and_dates_list))
+    # print("Constructing fetch dropoffs request payload. Raw Payload: {}".format(raw_events_and_dates_list))
 
     formatted_events_and_dates_list = []
     for events_with_dates in raw_events_and_dates_list:
@@ -32,7 +32,7 @@ def construct_fetch_dropoffs_request_payload(raw_events_and_dates_list):
         "eventsAndDatesList": formatted_events_and_dates_list
     }
 
-    print("Successfully constructed fetch dropoffs request payload. Formatted Payload: {}".format(dropoffs_request_payload))
+    # print("Successfully constructed fetch dropoffs request payload. Formatted Payload: {}".format(dropoffs_request_payload))
     return dropoffs_request_payload
 
 def construct_fetch_average_dropoffs_request_payload(raw_events_and_day_interval_list):
@@ -55,42 +55,35 @@ def construct_fetch_average_dropoffs_request_payload(raw_events_and_day_interval
     return construct_fetch_dropoffs_request_payload(raw_events_and_dates_list)
 
 def format_response_of_fetch_dropoffs_count(raw_response_list):
-    print("Formatting response of fetch dropoffs count. Raw response: {}".format(raw_response_list))
+    # print(f"Formatting response of fetch dropoffs count. Raw response: {raw_response_list}" )
     formatted_response_dict = {}
     if list_not_empty_or_undefined(raw_response_list):
         for item in raw_response_list:
             formatted_response_dict[item["dropOffStep"]] = item["dropOffCount"]
 
-    print("Successfully formatted response of fetch dropoffs count. Formatted response: {}".format(formatted_response_dict))
+    # print("Successfully formatted response of fetch dropoffs count. Formatted response: {}".format(formatted_response_dict))
     return formatted_response_dict
 
 def fetch_dropoffs_from_funnel_analysis(payload):
-    print("Fetching dropoffs from funnel analysis")
+    print("****** Fetching dropoffs from funnel analysis, payload: ", payload)
     response_from_funnel_analysis = requests.post(FUNNEL_ANALYSIS_SERVICE_URL, json=payload)
 
-    print("Successfully fetched dropoffs from funnel analysis")
-    return json.loads(response_from_funnel_analysis.text)
+    print(">>>>>>>>> Successfully fetched dropoffs from funnel analysis")
+    return json.loads(response_from_funnel_analysis['text'])
 
 def fetch_count_of_dropoffs_per_stage_for_period(raw_payload):
     formatted_payload = construct_fetch_dropoffs_request_payload(raw_payload)
 
-    print("Fetching number of dropoffs per stage with formatted payload: {}".format(formatted_payload))
+    # print("Fetching number of dropoffs per stage with formatted payload: {}".format(formatted_payload))
     response = fetch_dropoffs_from_funnel_analysis(formatted_payload)
-
-    print(
-        """
-        Response from fetch dropoffs.
-        Full response: {}
-        """.format(response)
-    )
 
     return format_response_of_fetch_dropoffs_count(response)
 
 def calculate_average_for_each_key_in_dict(dict_with_keys_and_sum, interval):
-    print(
-        "Calculating average for each key in dict: {dict_with_keys_and_sum} with interval: {interval}"
-            .format(dict_with_keys_and_sum=dict_with_keys_and_sum, interval=interval)
-    )
+    # print(
+    #     "Calculating average for each key in dict: {dict_with_keys_and_sum} with interval: {interval}"
+    #         .format(dict_with_keys_and_sum=dict_with_keys_and_sum, interval=interval)
+    # )
     dict_with_keys_and_average = {}
     for key, sum in dict_with_keys_and_sum.items():
         dict_with_keys_and_average[key] = avoid_division_by_zero_error(sum, interval)
@@ -128,16 +121,11 @@ def calculate_average_and_format_response_of_fetch_average_dropoffs_count(raw_re
 def fetch_average_count_of_dropoffs_per_stage_for_period(raw_payload, day_interval):
     formatted_payload = construct_fetch_average_dropoffs_request_payload(raw_payload)
 
-    print("Fetching average count of dropoffs per stage for period with payload: {}".format(formatted_payload))
+    # print("Fetching average count of dropoffs per stage for period with payload: {}".format(formatted_payload))
 
     response = fetch_dropoffs_from_funnel_analysis(formatted_payload)
 
-    print(
-        """
-        Response from fetch average dropoffs.
-        Full response: {}
-        """.format(response)
-    )
+    # print(f"Response from fetch average dropoffs. Full response: {response}")
 
     return calculate_average_and_format_response_of_fetch_average_dropoffs_count(response, day_interval)
 

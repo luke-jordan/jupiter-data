@@ -8,23 +8,23 @@ import copy
 
 from dotenv import load_dotenv
 
-from bigquery import fetch_total_saved_amount_since_given_time, fetch_count_of_new_users_that_saved_between_period
-from bigquery import fetch_count_of_users_that_saved_since_given_time, fetch_average_number_of_users_that_performed_transaction_type, fetch_average_number_of_users_that_performed_transaction_type
-from bigquery import fetch_count_of_users_that_tried_saving, fetch_average_number_of_users_that_performed_event
-from bigquery import fetch_average_number_of_users_that_completed_signup_between_period
-from bigquery import fetch_total_withdrawn_amount_given_time, fetch_total_number_of_users, fetch_count_of_users_that_withdrew_since_given_time, fetch_count_of_users_that_signed_up_between_period, calculate_ratio_of_users_that_entered_app_today_versus_total_users, fetch_count_of_users_that_tried_withdrawing
-from bigquery import calculate_percentage_of_users_whose_boosts_expired_without_them_using_it, calculate_ratio_of_users_that_saved_versus_users_that_tried_saving, calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event
+from .metricsbquery import fetch_total_saved_amount_since_given_time, fetch_count_of_new_users_that_saved_between_period
+from .metricsbquery import fetch_count_of_users_that_saved_since_given_time, fetch_average_number_of_users_that_performed_transaction_type, fetch_average_number_of_users_that_performed_transaction_type
+from .metricsbquery import fetch_count_of_users_that_tried_saving, fetch_average_number_of_users_that_performed_event
+from .metricsbquery import fetch_average_number_of_users_that_completed_signup_between_period
+from .metricsbquery import fetch_total_withdrawn_amount_given_time, fetch_total_number_of_users, fetch_count_of_users_that_withdrew_since_given_time, fetch_count_of_users_that_signed_up_between_period, calculate_ratio_of_users_that_entered_app_today_versus_total_users, fetch_count_of_users_that_tried_withdrawing
+from .metricsbquery import calculate_percentage_of_users_whose_boosts_expired_without_them_using_it, calculate_ratio_of_users_that_saved_versus_users_that_tried_saving, calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event
 
-from dropoffs import fetch_dropoff_count_for_savings_and_onboarding_sequence
+from .dropoffs import fetch_dropoff_count_for_savings_and_onboarding_sequence
 
-from helper import fetch_current_time, calculate_date_n_days_ago, convert_date_string_to_millisecond_int
-from helper import convert_value_to_percentage, avoid_division_by_zero_error, list_not_empty_or_undefined
+from .helper import fetch_current_time, calculate_date_n_days_ago, convert_date_string_to_millisecond_int
+from .helper import convert_value_to_percentage, avoid_division_by_zero_error, list_not_empty_or_undefined
 
-from constant import TODAY, ONE_DAY, THREE_DAYS, TEN_DAYS, HOUR_MARKING_START_OF_DAY, HOUR_MARKING_END_OF_DAY, EMAIL_TYPE
-from constant import SAVING_EVENT_TRANSACTION_TYPE, WITHDRAWAL_TRANSACTION_TYPE, ENTERED_SAVINGS_FUNNEL_EVENT_CODE, ENTERED_WITHDRAWAL_FUNNEL_EVENT_CODE
-from constant import DAILY_METRICS_EMAIL_SUBJECT_FOR_ADMINS, USER_COMPLETED_SIGNUP_EVENT_CODE, USER_OPENED_APP_EVENT_CODE
+from .constant import TODAY, ONE_DAY, THREE_DAYS, TEN_DAYS, HOUR_MARKING_START_OF_DAY, HOUR_MARKING_END_OF_DAY, EMAIL_TYPE
+from .constant import SAVING_EVENT_TRANSACTION_TYPE, WITHDRAWAL_TRANSACTION_TYPE, ENTERED_SAVINGS_FUNNEL_EVENT_CODE, ENTERED_WITHDRAWAL_FUNNEL_EVENT_CODE
+from .constant import DAILY_METRICS_EMAIL_SUBJECT_FOR_ADMINS, USER_COMPLETED_SIGNUP_EVENT_CODE, USER_OPENED_APP_EVENT_CODE
 
-from constant import DROPOFF_ANALYSIS_EMAIL_SUBJECT_FOR_ADMINS, USER_PROFILE_PASSWORD_SUCCEEDED_EVENT_CODE, USER_PROFILE_REGISTER_SUCCEEDED_EVENT_CODE, USER_ENTERED_VALID_REFERRAL_CODE_EVENT_CODE, USER_ENTERED_REFERRAL_SCREEN_EVENT_CODE, USER_RETURNED_TO_PAYMENT_LINK_EVENT_CODE, USER_LEFT_APP_AT_PAYMENT_LINK_EVENT_CODE, USER_LEFT_APP_AT_PAYMENT_LINK_EVENT_CODE, INITIATED_FIRST_SAVINGS_EVENT_CODE
+from .constant import DROPOFF_ANALYSIS_EMAIL_SUBJECT_FOR_ADMINS, USER_PROFILE_PASSWORD_SUCCEEDED_EVENT_CODE, USER_PROFILE_REGISTER_SUCCEEDED_EVENT_CODE, USER_ENTERED_VALID_REFERRAL_CODE_EVENT_CODE, USER_ENTERED_REFERRAL_SCREEN_EVENT_CODE, USER_RETURNED_TO_PAYMENT_LINK_EVENT_CODE, USER_LEFT_APP_AT_PAYMENT_LINK_EVENT_CODE, USER_LEFT_APP_AT_PAYMENT_LINK_EVENT_CODE, INITIATED_FIRST_SAVINGS_EVENT_CODE
 
 load_dotenv()
 
@@ -262,8 +262,8 @@ def notify_admins_via_email(payload, auth_token):
         Response from notification request.
         Status Code: {status_code} and Reason: {reason} 
         """.format(
-            status_code=response_from_notification_service.status_code,
-            reason=response_from_notification_service.reason
+            status_code=response_from_notification_service["status_code"],
+            reason=response_from_notification_service["reason"]
         )
     )
 
@@ -396,7 +396,9 @@ def send_dropoffs_analysis_email_to_admin(data, context):
     if sandbox_enabled:
         print("Email notification payload: ", notification_payload)
     else:
-        notify_admins_via_email(notification_payload)
+        auth_token = obtain_gcp_token()
+        print("Auth token fetched: ", auth_token)
+        notify_admins_via_email(notification_payload, auth_token)
     
     print("Completed sending dropoff analysis email to admin")
     
