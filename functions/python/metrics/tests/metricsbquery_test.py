@@ -5,32 +5,32 @@ from uuid import uuid4
 from mock import Mock
 from google.cloud import bigquery
 
-from ..metricsbquery import extract_key_value_from_first_item_of_big_query_response, \
-    extract_key_values_as_list_from_big_query_response, \
+from ..metricsbquery import extract_value_from_first_item_of_big_query_response, \
+    extract_values_as_list_from_big_query_response, \
     convert_big_query_response_to_list, \
     fetch_data_as_list_from_user_behaviour_table, \
     fetch_total_amount_using_transaction_type, \
     fetch_total_saved_amount_since_given_time, \
     fetch_total_withdrawn_amount_given_time, \
-    fetch_count_of_users_that_performed_transaction_type, \
+    fetch_count_of_users_by_transaction_type, \
     fetch_count_of_users_that_saved_since_given_time, \
     fetch_count_of_users_that_withdrew_since_given_time, \
-    fetch_count_of_users_that_performed_event, \
+    count_users_with_event_type, \
     fetch_count_of_users_that_entered_app_since_given_time, \
     fetch_total_number_of_users, \
     fetch_count_of_users_that_tried_saving, \
     fetch_count_of_users_that_tried_withdrawing, \
     calculate_ratio_of_users_that_entered_app_today_versus_total_users, \
     calculate_ratio_of_users_that_saved_versus_users_that_tried_saving, \
-    fetch_user_ids_that_performed_event_between_period, \
+    fetch_user_ids_by_event_type, \
     fetch_user_ids_that_completed_signup_between_period, \
     fetch_count_of_users_that_signed_up_between_period, \
-    fetch_count_of_users_in_list_that_performed_event, \
+    count_users_in_list_that_performed_event, \
     fetch_count_of_new_users_that_saved_between_period, \
     calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event, \
     fetch_average_number_of_users_that_performed_event, \
-    fetch_average_number_of_users_that_performed_transaction_type, \
-    fetch_average_number_of_users_that_completed_signup_between_period, \
+    fetch_avg_number_users_by_tx_type, \
+    count_avg_users_signedup, \
     extract_key_from_context_data_in_big_query_response, \
     fetch_full_events_based_on_constraints, \
     fetch_count_of_users_that_have_event_type_and_context_key_value, \
@@ -106,19 +106,19 @@ def mock_fetch_user_ids_that_completed_signup_between_period():
 
 @pytest.fixture
 def mock_fetch_count_of_users_in_list_that_performed_event():
-    return Mock(spec=fetch_count_of_users_in_list_that_performed_event)
+    return Mock(spec=count_users_in_list_that_performed_event)
 
 @pytest.fixture
 def mock_fetch_count_of_users_that_performed_event():
-    return Mock(spec=fetch_count_of_users_that_performed_event)
+    return Mock(spec=count_users_with_event_type)
 
 @pytest.fixture
 def mock_fetch_user_ids_that_performed_event_between_period():
-    return Mock(spec=fetch_user_ids_that_performed_event_between_period)
+    return Mock(spec=fetch_user_ids_by_event_type)
 
 @pytest.fixture
 def mock_fetch_count_of_users_that_performed_transaction_type():
-    return Mock(spec=fetch_count_of_users_that_performed_transaction_type)
+    return Mock(spec=fetch_count_of_users_by_transaction_type)
 
 @pytest.fixture
 def mock_fetch_full_events_based_on_constraints():
@@ -136,8 +136,8 @@ def test_extract_key_value_from_first_item_of_big_query_response_with_list():
     sample_response_list = [
         { "user_id": sample_user_id }
     ]
-    assert extract_key_value_from_first_item_of_big_query_response(sample_response_list, "user_id") == sample_user_id
-    assert extract_key_value_from_first_item_of_big_query_response([], "userId") == 0
+    assert extract_value_from_first_item_of_big_query_response(sample_response_list, "user_id") == sample_user_id
+    assert extract_value_from_first_item_of_big_query_response([], "userId") == 0
 
 def test_extract_key_values_as_list_from_big_query_response():
     sample_response_list = [
@@ -147,13 +147,7 @@ def test_extract_key_values_as_list_from_big_query_response():
     ]
 
     sample_formatted_list = [sample_user_id, sample_user_id, sample_user_id]
-    assert extract_key_values_as_list_from_big_query_response(sample_response_list, "user_id") == sample_formatted_list
-
-def test_convert_big_query_response_to_list():
-    sample_response_list = [
-        { "user_id": sample_user_id }
-    ]
-    assert convert_big_query_response_to_list(sample_response_list) == list(sample_response_list)
+    assert extract_values_as_list_from_big_query_response(sample_response_list, "user_id") == sample_formatted_list
 
 def test_fetch_data_as_list_from_user_behaviour_table(mock_big_query):
     sample_query = "select user from table where `user_id` = @userId"
@@ -274,7 +268,7 @@ def test_fetch_count_of_users_that_performed_transaction_type(
         bigquery.ScalarQueryParameter("maxTimeToConsider", "INT64", sample_config["max_time_to_consider"]),
     ]
 
-    fetch_count_of_users_that_performed_transaction_type(sample_config)
+    fetch_count_of_users_by_transaction_type(sample_config)
 
     fetch_from_table_patch.assert_called_once_with(sample_query, sample_query_params)
     extract_key_value_from_first_item_of_big_query_response_patch.assert_called_once()
@@ -344,7 +338,7 @@ def test_fetch_count_of_users_that_performed_event(
         bigquery.ScalarQueryParameter("sourceOfEvent", "STRING", sample_config["source_of_event"]),
     ]
 
-    fetch_count_of_users_that_performed_event(sample_config)
+    count_users_with_event_type(sample_config)
 
     fetch_from_table_patch.assert_called_once_with(sample_query, sample_query_params)
     extract_key_value_from_first_item_of_big_query_response_patch.assert_called_once()
@@ -513,7 +507,7 @@ def test_fetch_user_ids_that_performed_event_between_period(
         bigquery.ScalarQueryParameter("maxTimeToConsider", "INT64", sample_config["max_time_to_consider"]),
     ]
 
-    fetch_user_ids_that_performed_event_between_period(sample_config)
+    fetch_user_ids_by_event_type(sample_config)
 
     fetch_from_table_patch.assert_called_once_with(sample_query, sample_query_params)
     extract_key_values_as_list_from_big_query_response_patch.assert_called_once()
@@ -585,7 +579,7 @@ def test_fetch_count_of_users_in_list_that_performed_event(
         bigquery.ArrayQueryParameter("userList", "STRING", sample_config["user_list"]),
     ]
 
-    fetch_count_of_users_in_list_that_performed_event(sample_config)
+    count_users_in_list_that_performed_event(sample_config)
 
     fetch_from_table_patch.assert_called_once_with(sample_query, sample_query_params)
     extract_key_value_from_first_item_of_big_query_response_patch.assert_called_once()
@@ -721,7 +715,7 @@ def test_fetch_average_number_of_users_that_performed_transaction_type(
     main.fetch_count_of_users_that_performed_transaction_type = mock_fetch_count_of_users_that_performed_transaction_type
     mock_fetch_count_of_users_that_performed_transaction_type.return_value = given_count
 
-    assert fetch_average_number_of_users_that_performed_transaction_type(
+    assert fetch_avg_number_users_by_tx_type(
         sample_config
     ) == avoid_division_by_zero_error(
         (given_count + given_count + given_count),
@@ -746,7 +740,7 @@ def test_fetch_average_number_of_users_that_completed_signup_between_period(
     main.fetch_user_ids_that_completed_signup_between_period = mock_fetch_user_ids_that_completed_signup_between_period
     mock_fetch_user_ids_that_completed_signup_between_period.return_value = sample_user_ids_that_completed_signup
 
-    assert fetch_average_number_of_users_that_completed_signup_between_period(
+    assert count_avg_users_signedup(
         sample_config
     ) == (len(sample_user_ids_that_completed_signup) / sample_config["day_interval"])
 

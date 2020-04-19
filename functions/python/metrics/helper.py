@@ -24,7 +24,7 @@ def calculate_date_n_days_ago(num):
     # print("calculating date: {n} days before today".format(n=num))
     return (datetime.date.today() - datetime.timedelta(days=num)).isoformat()
 
-def convert_date_string_to_millisecond_int(dateString, hour):
+def convert_to_millisecond(dateString, hour):
     print(
         "Converting date string: {dateString} and hour: {hour} to milliseconds"
             .format(dateString=dateString, hour=hour)
