@@ -6,24 +6,23 @@ import copy
 
 from dotenv import load_dotenv
 
-from .bigquery import count_users_with_event_type
+from metricspkg.bquery import count_users_with_event_type
 
-from .metricsbquery import fetch_total_amount_using_transaction_type, fetch_count_of_new_users_that_saved_between_period
-from .metricsbquery import fetch_avg_number_users_by_tx_type
-from .metricsbquery import fetch_count_of_users_that_tried_saving, fetch_average_number_of_users_that_performed_event
-from .metricsbquery import count_avg_users_signedup
-from .metricsbquery import fetch_total_number_of_users
-from .metricsbquery import calculate_percentage_of_users_whose_boosts_expired_without_them_using_it, calculate_ratio_of_users_that_saved_versus_users_that_tried_saving, calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event
+from metricspkg.bquery import fetch_total_amount_using_transaction_type
+from metricspkg.bquery import fetch_avg_number_users_by_tx_type
+from metricspkg.bquery import count_avg_users_signedup
+from metricspkg.bquery import fetch_total_number_of_users, fetch_user_ids_by_event_type, count_users_in_list_that_performed_event
+from metricspkg.bquery import calculate_percentage_of_users_whose_boosts_expired_without_them_using_it, calculate_percentage_of_users_who_performed_event_n_days_ago_and_have_not_performed_other_event
+# from .metricsbquery import fetch_average_number_of_users_that_performed_event
 
-from .dropoffs import fetch_dropoff_count_for_savings_and_onboarding_sequence
+from metricspkg.dropoffs import fetch_dropoff_count_for_savings_and_onboarding_sequence
 
-from .helper import fetch_current_time, calculate_date_n_days_ago, convert_to_millisecond
+from metricspkg.helper import fetch_current_time, calculate_date_n_days_ago, convert_to_millisecond
 
-from .constant import TODAY, ONE_DAY, THREE_DAYS, TEN_DAYS, HOUR_MARKING_START_OF_DAY, HOUR_MARKING_END_OF_DAY, EMAIL_TYPE
-from .constant import SAVING_EVENT_TRANSACTION_TYPE, WITHDRAWAL_TRANSACTION_TYPE, ENTERED_SAVINGS_FUNNEL_EVENT_CODE
-from .constant import DAILY_METRICS_EMAIL_SUBJECT_FOR_ADMINS, USER_COMPLETED_SIGNUP_EVENT_CODE, USER_OPENED_APP_EVENT_CODE
-
-from .constant import *
+from metricspkg.constant import TODAY, ONE_DAY, THREE_DAYS, TEN_DAYS, HOUR_MARKING_START_OF_DAY, HOUR_MARKING_END_OF_DAY, EMAIL_TYPE
+from metricspkg.constant import SAVING_EVENT_TRANSACTION_TYPE, ENTERED_SAVINGS_FUNNEL_EVENT_CODE, INITIATED_FIRST_SAVINGS_EVENT_CODE, USER_LEFT_APP_AT_PAYMENT_LINK_EVENT_CODE, USER_RETURNED_TO_PAYMENT_LINK_EVENT_CODE
+from metricspkg.constant import USER_ENTERED_REFERRAL_SCREEN_EVENT_CODE, USER_PROFILE_REGISTER_SUCCEEDED_EVENT_CODE, USER_ENTERED_VALID_REFERRAL_CODE_EVENT_CODE, USER_PROFILE_PASSWORD_SUCCEEDED_EVENT_CODE
+from metricspkg.constant import DAILY_METRICS_EMAIL_SUBJECT_FOR_ADMINS, DROPOFF_ANALYSIS_EMAIL_SUBJECT_FOR_ADMINS, USER_COMPLETED_SIGNUP_EVENT_CODE, USER_OPENED_APP_EVENT_CODE, INTERNAL_EVENT_SOURCE
 
 load_dotenv()
 
@@ -57,44 +56,40 @@ def fetch_daily_metrics():
     end_of_today = convert_to_millisecond(date_of_today, HOUR_MARKING_END_OF_DAY)
     
     start_of_three_days_ago = convert_to_millisecond(calculate_date_n_days_ago(THREE_DAYS), HOUR_MARKING_START_OF_DAY)
+    
+    start_of_yesterday = convert_to_millisecond(calculate_date_n_days_ago(ONE_DAY), HOUR_MARKING_START_OF_DAY)
     end_of_yesterday = convert_to_millisecond(calculate_date_n_days_ago(ONE_DAY), HOUR_MARKING_END_OF_DAY)
 
     start_of_ten_days_ago = convert_to_millisecond(calculate_date_n_days_ago(TEN_DAYS), HOUR_MARKING_START_OF_DAY)
 
-    # * Total Saved Amount
+    # * Total Jupiter SA users at start of day (even if they did not perform an action) 
+    total_users_as_at_start_of_today = fetch_total_number_of_users(start_of_today)
+    
     total_saved_amount_today = fetch_total_amount_using_transaction_type(SAVING_EVENT_TRANSACTION_TYPE, start_of_today, end_of_today)
     
-    # * Number of Users that Saved [today vs 3day avg vs 10 day avg] 
-        # * Number of Users that Saved [today]
     number_of_users_that_saved_today = count_users_with_event_type(SAVING_EVENT_TRANSACTION_TYPE, start_of_today, end_of_today)
-
-    three_day_avg_users_saved = fetch_avg_number_users_by_tx_type(SAVING_EVENT_TRANSACTION_TYPE, THREE_DAYS)  
-    ten_day_avg_users_that_saved = fetch_avg_number_users_by_tx_type(SAVING_EVENT_TRANSACTION_TYPE, TEN_DAYS)
+    # three_day_avg_users_saved = fetch_avg_number_users_by_tx_type(SAVING_EVENT_TRANSACTION_TYPE, THREE_DAYS)  
+    # ten_day_avg_users_that_saved = fetch_avg_number_users_by_tx_type(SAVING_EVENT_TRANSACTION_TYPE, TEN_DAYS)
     
-    # * Add in total Jupiter SA users at start of day (even if they did not perform an action) 
-    total_users_as_at_start_of_today = fetch_total_number_of_users(start_of_today)
-
-    # *Number of new users which joined today [today vs 3day avg vs 10 day avg]
-        # * Number of Users that new users which joined [today]
+    number_of_users_entered_yesterday = count_users_with_event_type("USER_ENTERED_INTRO", start_of_yesterday, end_of_yesterday)
     number_of_users_that_joined_today = count_users_with_event_type(USER_COMPLETED_SIGNUP_EVENT_CODE, start_of_today, end_of_today, INTERNAL_EVENT_SOURCE)
-
-    three_day_average_of_users_that_joined = count_avg_users_signedup(start_of_three_days_ago, end_of_yesterday, THREE_DAYS)
-    ten_day_average_of_users_that_joined = count_avg_users_signedup(start_of_ten_days_ago, end_of_yesterday, TEN_DAYS)
+    # three_day_average_of_users_that_joined = count_avg_users_signedup(start_of_three_days_ago, end_of_yesterday, THREE_DAYS)
+    # ten_day_average_of_users_that_joined = count_avg_users_signedup(start_of_ten_days_ago, end_of_yesterday, TEN_DAYS)
 
     # * Number of Users that tried saving (entered savings funnel - first event) [today vs 3day avg vs 10 day avg]
         # * Number of Users that new users which tried saving [today]
-    number_of_users_that_tried_saving_today = fetch_count_of_users_that_tried_saving(start_of_today, end_of_today)
-    three_day_avg_initiated_saving = fetch_average_number_of_users_that_performed_event(ENTERED_SAVINGS_FUNNEL_EVENT_CODE, THREE_DAYS)
-    ten_day_avg_initiated_saving = fetch_average_number_of_users_that_performed_event(ENTERED_SAVINGS_FUNNEL_EVENT_CODE, TEN_DAYS)
+    # number_of_users_that_tried_saving_today = fetch_count_of_users_that_tried_saving(start_of_today, end_of_today)
+    # three_day_avg_initiated_saving = fetch_average_number_of_users_that_performed_event(ENTERED_SAVINGS_FUNNEL_EVENT_CODE, THREE_DAYS)
+    # ten_day_avg_initiated_saving = fetch_average_number_of_users_that_performed_event(ENTERED_SAVINGS_FUNNEL_EVENT_CODE, TEN_DAYS)
 
     # * Number of new users that joined today and saved today
-    number_of_users_that_joined_today_and_saved = fetch_count_of_new_users_that_saved_between_period(start_of_today, end_of_today)
+    # number_of_users_that_joined_today_and_saved = fetch_count_of_new_users_that_saved_between_period(start_of_today, end_of_today)
 
     # * Conversion rate (number of users that saved / number of users that tried saving)
-    number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today = calculate_ratio_of_users_that_saved_versus_users_that_tried_saving(
-        start_of_today,
-        end_of_today
-    )
+    # number_of_users_that_saved_today_versus_number_of_users_that_tried_saving_today = calculate_ratio_of_users_that_saved_versus_users_that_tried_saving(
+    #     start_of_today,
+    #     end_of_today
+    # )
 
     # * % of users whose Boosts expired without them using today
     percentage_of_users_whose_boosts_expired_without_them_using_it = calculate_percentage_of_users_whose_boosts_expired_without_them_using_it()
@@ -108,19 +103,24 @@ def fetch_daily_metrics():
         }
     )
 
+    users_who_received_message_yesterday = fetch_user_ids_by_event_type('MESSAGE_SENT', start_of_yesterday, start_of_today, INTERNAL_EVENT_SOURCE)
+    users_who_received_and_opened = count_users_in_list_that_performed_event(
+        "USER_OPENED_APP", start_of_yesterday, start_of_today, users_who_received_message_yesterday)
+
     daily_metrics.append(metric_item("Total users @ start of day", total_users_as_at_start_of_today))
 
     daily_metrics.append(metric_item("Total saved today", total_saved_amount_today))
 
     daily_metrics.append(metric_item("How many saved today", number_of_users_that_saved_today))
-    daily_metrics.append(metric_item("3-day avg daily saves", three_day_avg_users_saved))
-    daily_metrics.append(metric_item("10-day avg daily saves", ten_day_avg_users_that_saved))
+    # daily_metrics.append(metric_item("3-day avg daily saves", three_day_avg_users_saved))
+    # daily_metrics.append(metric_item("10-day avg daily saves", ten_day_avg_users_that_saved))
 
     daily_metrics.append(metric_item("Number users joined today", number_of_users_that_joined_today))
-    daily_metrics.append(metric_item("3-day avg users joined", three_day_average_of_users_that_joined))
-    daily_metrics.append(metric_item("10-day avg users join", ten_day_average_of_users_that_joined))
+    # daily_metrics.append(metric_item("3-day avg users joined", three_day_average_of_users_that_joined))
+    # daily_metrics.append(metric_item("10-day avg users join", ten_day_average_of_users_that_joined))
 
-    daily_metrics.append(metric_item("% sent message who opened app"))
+    daily_metrics.append(metric_item("Number users sent msg yesterday", users_who_received_message_yesterday))
+    # daily_metrics.append(metric_item(""))
     daily_metrics.append(metric_item("% whose boosts expired", percentage_of_users_whose_boosts_expired_without_them_using_it))
 
     return daily_metrics

@@ -49,14 +49,7 @@ SOURCE_OF_EVENT = 'AMPLITUDE'
 SECOND_TO_MILLISECOND_FACTOR=1000
 
 def fetch_current_time_in_milliseconds():
-    print("Fetching current time at UTC in milliseconds for created_at and updated_at datetime")
     currentTimeInMilliseconds = int(round(time.time() * SECOND_TO_MILLISECOND_FACTOR))
-    print(
-        """
-        Successfully fetched current time at UTC in milliseconds. Time at UTC: {}
-        for created_at and updated_at datetime
-        """.format(currentTimeInMilliseconds)
-    )
     return currentTimeInMilliseconds
 
 
@@ -169,10 +162,6 @@ def load_gcs_file_into_bigquery(path_to_file, table):
     assert job.state == 'DONE'
 
 def convert_date_string_to_millisecond_int(dateTimeString):
-    print(
-        "Converting date time string: {dateTimeString} to milliseconds for time of transaction"
-            .format(dateTimeString=dateTimeString)
-    )
     expected_date_string_format = '%Y-%m-%d %H:%M:%S.%f'
     try:
         date_object = datetime.strptime(dateTimeString, expected_date_string_format)
@@ -184,19 +173,15 @@ def convert_date_string_to_millisecond_int(dateTimeString):
     epoch = datetime.utcfromtimestamp(0)
     timeInMilliSecond = (date_object - epoch).total_seconds() * SECOND_TO_MILLISECOND_FACTOR
 
-    print(
-        """
-        Successfully converted date time string: {dateTimeString} to milliseconds: {timeInMilliSecond}
-        for time of transaction
-        """
-            .format(dateTimeString=dateTimeString, timeInMilliSecond=timeInMilliSecond)
-    )
     return int(timeInMilliSecond)
 
 def process_line_json(line, current_time):
     parsed = json.loads(line)
     if parsed:
         context_data = {}
+        # this is because if a user is not logged in, they only have the amplitude ID, and we need this to trace them properly
+        parsed_user_id = parsed['user_id'] if parsed['user_id'] != 'null' and parsed['used_id'] != None else parsed['amplitude_id']
+        
         context_data['client_event_time'] = value_def(parsed['client_event_time'])
         context_data['ip_address'] = value_def(parsed['ip_address'])
         context_data['library'] = value_def(parsed['library'])
@@ -206,7 +191,7 @@ def process_line_json(line, current_time):
         context_data['schema'] = value_def(parsed['$schema'])
         context_data['client_upload_time'] = value_def(parsed['client_upload_time'])
         context_data['app'] = value_def(parsed['app'])
-        context_data['user_id'] = value_def(parsed['user_id'])
+        context_data['user_id'] = value_def(parsed_user_id)
         context_data['city'] = value_def(parsed['city'])
         context_data['event_type'] = value_def(parsed['event_type'])
         context_data['device_carrier'] = value_def(parsed['device_carrier'])
@@ -254,7 +239,7 @@ def process_line_json(line, current_time):
         context_data['event_properties'] = properties
 
         row_for_all_events_table = {}
-        row_for_all_events_table['user_id'] = value_def(parsed['user_id'])
+        row_for_all_events_table['user_id'] = value_def(parsed_user_id)
         row_for_all_events_table['event_type'] = value_def(parsed['event_type'])
         row_for_all_events_table['time_transaction_occurred'] = convert_date_string_to_millisecond_int(value_def(parsed['client_event_time']))
         row_for_all_events_table['source_of_event'] = SOURCE_OF_EVENT
@@ -320,7 +305,7 @@ def process_gzip_files_in_root_location(day):
 
 
 def retrieve_yesterdays_date():
-    print("Getting date for Yesterday")
+    # print("Getting date for Yesterday")
     # this date must not be calculated as a global variable as cloud function global variables are set once deployed and do not change
     # setting as a global variable would lead to bad data as only the data being fetched daily would be for the saame date
     return (datetime.utcnow().date() - timedelta(days=1)).strftime("%Y%m%d")
@@ -332,15 +317,6 @@ def store_raw_amplitude_download_in_cloud_storage(day, raw_file_local):
     print("===========================================================================")
 
 def signal_operation_complete(day):
-    print("===========================================================================")
-    print("===========================================================================")
-    print("===========================================================================")
-    print("===========================================================================")
-    print("===========================================================================")
-    print("===========================================================================")
-    print("===========================================================================")
-    print("===========================================================================")
-    print("===========================================================================")
     print("===========================================================================")
     print("===========AMPLITUDE IMPORT COMPLETED for day: {day}! Gracias===========".format(day=day))
     # the `return` signals that the function is complete and can be terminated by the system
