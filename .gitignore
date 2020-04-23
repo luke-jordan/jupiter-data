@@ -66,6 +66,7 @@ jupiter_ml_python_credentials.json
 production-credentials.json
 staging-credentials.json
 service-account-credentials.json
+google_credentials_for_terraform.json
 
 # temporary deployment bundles
 *.zip
@@ -97,3 +98,9 @@ htmlcov/
 
 # secrets for repo
 jupiter-data-private-vars.tf
+
+# Python caches, virtual envs
+__pycache__/
+.pytest_cache/
+venv/
+env/

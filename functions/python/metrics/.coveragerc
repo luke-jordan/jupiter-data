@@ -1,0 +1,12 @@
+[run]
+omit =
+    # omit anything in a .local directory anywhere
+    */.local/*
+    # omit everything in /usr
+    /usr/*
+    # omit everything in the environment
+    */site-packages/*
+    # omit the tests themselves
+    */tests/*
+    # and, because this is dumb, the init file
+    */__init__.py
