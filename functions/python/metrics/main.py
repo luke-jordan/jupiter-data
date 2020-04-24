@@ -46,7 +46,8 @@ def compare_number_of_users_that_withdrew_against_number_that_saved(
     else:
         return "Number of Users that Withdrew EQUAL Number of Users that Saved"
 
-def fetch_daily_metrics():
+# including positional arg just so can call directly
+def fetch_daily_metrics(request):
     daily_metrics = []
     metric_item = lambda metric_name, metric_value: { "metric_name": metric_name, "metric_value": metric_value }
 
@@ -125,21 +126,29 @@ def fetch_daily_metrics():
 
     return daily_metrics
 
-def notify_admins_via_email(payload, auth_token):
-    print("Notifying admin via email")
+def notify_admins_via_email(payload):
+    sendgrid_url = "https://api.sendgrid.com/v3/mail/send"
+    sendgrid_api_key = os.getenv("SENDGRID_API_KEY")
+    auth_header = { 'Authorization': f'Bearer {sendgrid_api_key}'}
 
-    auth_header = { 'Authorization': f'bearer ${auth_token}' }
-    response_from_notification_service = requests.post(NOTIFICATION_SERVICE_URL, data=payload, headers=auth_header)
-    print(f"Response from notification request. Status Code: {response_from_notification_service['status_code']}")
+    print('Sending to sendgrid')
+    response_from_notification_service = requests.post(sendgrid_url, json=payload, headers=auth_header)
+    print('Response from Sendgrid as text: ', response_from_notification_service.text)
 
 def construct_notification_payload_for_email(config):
     print("Constructing notification payload for email")
+    to_emails = [{ "to": [{ "email": contact }]} for contact in CONTACTS_TO_BE_NOTIFIED]
 
     return {
-        "notificationType": EMAIL_TYPE,
-        "contacts": CONTACTS_TO_BE_NOTIFIED,
-        "message": config["message"],
-        "messageInHTMLFormat": config["messageInHTMLFormat"],
+        "from": { "email": "service@jupitersave.com", "name": "Jupiter Data" },
+        "personalizations": to_emails,
+        "content": [{
+            "value": config["message"],
+            "type": "text/plain"
+        }, {
+            "value": config["messageInHTMLFormat"],
+            "type": "text/html"
+        }],
         "subject": config["subject"]
     }
 
@@ -153,36 +162,18 @@ def compose_daily_email(daily_metrics):
     date_of_today = calculate_date_n_days_ago(TODAY)
     current_time = fetch_current_time()
 
-    metrics_table = [f"<tr><td>{metric['name']}</td><td>{metric['value']}</td></tr>" for metric in daily_metrics]
+    metrics_rows = [f"<tr><td>{metric['metric_name']}</td><td>{metric['metric_value']}</td></tr>" for metric in daily_metrics]
+    metrics_table = '\n'.join(metrics_rows)
 
-    email_parameters={ "metrics_table": metrics_table, "date_of_today": date_of_today, "current_time": current_time }
+    email_parameters= { "metrics_table": metrics_table, "date_of_today": date_of_today, "current_time": current_time }
 
     daily_email_as_html = construct_email_from_file_and_parameters('./templates/daily_stats_email.html', email_parameters)
     daily_email_as_plain_text = construct_email_from_file_and_parameters('./templates/daily_stats_email.txt', email_parameters)
 
     return daily_email_as_plain_text, daily_email_as_html
 
-def obtain_gcp_token():
-    # Make sure to replace variables with appropriate values
-    receiving_function_url = os.getenv('OWN_FUNCTION_URL')
-
-    # Set up metadata server request
-    # See https://cloud.google.com/compute/docs/instances/verifying-instance-identity#request_signature
-    metadata_server_token_url = 'http://metadata/computeMetadata/v1/instance/service-accounts/default/identity?audience='
-
-    token_request_url = metadata_server_token_url + receiving_function_url
-    token_request_headers = {'Metadata-Flavor': 'Google'}
-
-    # Fetch the token
-    token_response = requests.get(token_request_url, headers=token_request_headers)
-    jwt = token_response.content.decode("utf-8")
-
-    return jwt
-
 def send_daily_metrics_email_to_admin(request):
     print("Send daily email to admin, first fetch the token")
-    auth_token = obtain_gcp_token()
-
     daily_metrics = fetch_daily_metrics()
     email_messages = compose_daily_email(daily_metrics)
     print("Composed Daily Metrics Email Message with plain text: {}".format(email_messages[0]))
@@ -196,7 +187,7 @@ def send_daily_metrics_email_to_admin(request):
     if sandbox_enabled:
         print("Would have sent payload: ", notification_payload)
     else:
-        notify_admins_via_email(notification_payload, auth_token)
+        notify_admins_via_email(notification_payload)
     
     print("Completed sending of daily email to admin")
 
