@@ -24,6 +24,14 @@ variable "gcp_pub_sub_topic" {
   }
 }
 
+variable "gcp_default_continent" {
+  type = map(string)
+  default = {
+    "staging": "US"
+    "master": "EU"
+  }
+}
+
 variable "gcp_default_region" {
   type = map(string)
   default = {
