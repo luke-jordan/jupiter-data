@@ -47,7 +47,7 @@ def compare_number_of_users_that_withdrew_against_number_that_saved(
         return "Number of Users that Withdrew EQUAL Number of Users that Saved"
 
 # including positional arg just so can call directly
-def fetch_daily_metrics(request):
+def fetch_daily_metrics(request=None):
     daily_metrics = []
     metric_item = lambda metric_name, metric_value: { "metric_name": metric_name, "metric_value": metric_value }
 
@@ -120,10 +120,12 @@ def fetch_daily_metrics(request):
     # daily_metrics.append(metric_item("3-day avg users joined", three_day_average_of_users_that_joined))
     # daily_metrics.append(metric_item("10-day avg users join", ten_day_average_of_users_that_joined))
 
-    daily_metrics.append(metric_item("Number users sent msg yesterday", users_who_received_message_yesterday))
-    # daily_metrics.append(metric_item(""))
+    daily_metrics.append(metric_item("Number users sent msg yesterday", len(users_who_received_message_yesterday)))
+    daily_metrics.append(metric_item("Number of those who opened app", users_who_received_and_opened))
+    
     daily_metrics.append(metric_item("% whose boosts expired", percentage_of_users_whose_boosts_expired_without_them_using_it))
 
+    print(f'Compiled daily metrics: {daily_metrics}')
     return daily_metrics
 
 def notify_admins_via_email(payload):
