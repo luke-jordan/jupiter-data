@@ -15,12 +15,3 @@ resource "google_cloudfunctions_function" "notification-service-function" {
     DEBUG = "*"
   }
 }
-
-resource "google_cloudfunctions_function_iam_binding" "binding" {
-  cloud_function = google_cloudfunctions_function.notification-service-function.name
-  role = "roles/cloudfunctions.invoker"
-  members = [
-    "serviceAccount:${google_service_account.daily_metrics_mail_account.email}",
-    "serviceAccount:${google_service_account.daily_funnel_mail_account.email}"
-  ]
-}

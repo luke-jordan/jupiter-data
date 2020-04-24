@@ -19,6 +19,6 @@ resource "google_cloudfunctions_function" "send-daily-metrics-as-email-function"
   environment_variables = {
     FUNNEL_ANALYSIS_SERVICE_URL = google_cloudfunctions_function.funnel-analysis-function.https_trigger_url
     CONTACTS_TO_BE_NOTIFIED = "${terraform.workspace == "master" ? "luke@plutosave.com, avish@plutosave.com" : "luke@plutosave.com"}"
-    SENDGRID_API_KEY = var.sengrid_api_key[terraform.workspace]
+    SENDGRID_API_KEY = var.sendgrid_api_key[terraform.workspace]
   }
 }
