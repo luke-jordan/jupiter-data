@@ -66,14 +66,13 @@ def fetch_daily_metrics(request=None):
     # * Total Jupiter SA users at start of day (even if they did not perform an action) 
     total_users_as_at_start_of_today = fetch_total_number_of_users(start_of_today)
     
-    total_saved_amount_today = fetch_total_amount_using_transaction_type(SAVING_EVENT_TRANSACTION_TYPE, start_of_today, end_of_today)
-    
-    number_of_users_that_saved_today = count_users_with_event_type(SAVING_EVENT_TRANSACTION_TYPE, start_of_today, end_of_today)
+    total_saved_amount_yesterday = fetch_total_amount_using_transaction_type(SAVING_EVENT_TRANSACTION_TYPE, start_of_yesterday, end_of_yesterday)  
+    number_of_users_that_saved_yesterday = count_users_with_event_type("SAVING_PAYMENT_SUCCESSFUL", start_of_yesterday, end_of_yesterday, INTERNAL_EVENT_SOURCE)
     # three_day_avg_users_saved = fetch_avg_number_users_by_tx_type(SAVING_EVENT_TRANSACTION_TYPE, THREE_DAYS)  
     # ten_day_avg_users_that_saved = fetch_avg_number_users_by_tx_type(SAVING_EVENT_TRANSACTION_TYPE, TEN_DAYS)
     
     number_of_users_entered_yesterday = count_users_with_event_type("USER_ENTERED_INTRO", start_of_yesterday, end_of_yesterday)
-    number_of_users_that_joined_today = count_users_with_event_type(USER_COMPLETED_SIGNUP_EVENT_CODE, start_of_today, end_of_today, INTERNAL_EVENT_SOURCE)
+    number_of_users_that_joined_today = count_users_with_event_type("USER_CREATED_ACCOUNT", start_of_yesterday, end_of_yesterday, INTERNAL_EVENT_SOURCE)
     # three_day_average_of_users_that_joined = count_avg_users_signedup(start_of_three_days_ago, end_of_yesterday, THREE_DAYS)
     # ten_day_average_of_users_that_joined = count_avg_users_signedup(start_of_ten_days_ago, end_of_yesterday, TEN_DAYS)
 
@@ -110,18 +109,20 @@ def fetch_daily_metrics(request=None):
 
     daily_metrics.append(metric_item("Total users @ start of day", total_users_as_at_start_of_today))
 
-    daily_metrics.append(metric_item("Total saved today", total_saved_amount_today))
+    daily_metrics.append(metric_item("Total amount saved yesterday", f"R{total_saved_amount_yesterday}"))
 
-    daily_metrics.append(metric_item("How many saved today", number_of_users_that_saved_today))
+    daily_metrics.append(metric_item("How many saved yesterday", number_of_users_that_saved_yesterday))
     # daily_metrics.append(metric_item("3-day avg daily saves", three_day_avg_users_saved))
     # daily_metrics.append(metric_item("10-day avg daily saves", ten_day_avg_users_that_saved))
 
-    daily_metrics.append(metric_item("Number users joined today", number_of_users_that_joined_today))
+    daily_metrics.append(metric_item("Number users opened account yesterday", number_of_users_that_joined_today))
     # daily_metrics.append(metric_item("3-day avg users joined", three_day_average_of_users_that_joined))
     # daily_metrics.append(metric_item("10-day avg users join", ten_day_average_of_users_that_joined))
 
     daily_metrics.append(metric_item("Number users sent msg yesterday", len(users_who_received_message_yesterday)))
     daily_metrics.append(metric_item("Number of those who opened app", users_who_received_and_opened))
+    percent_opened = round(users_who_received_and_opened / len(users_who_received_message_yesterday) * 100)
+    daily_metrics.append(metric_item("% of messages led to open", f"{percent_opened}%"))
     
     daily_metrics.append(metric_item("% whose boosts expired", percentage_of_users_whose_boosts_expired_without_them_using_it))
 
@@ -179,6 +180,8 @@ def send_daily_metrics_email_to_admin(event, context):
     daily_metrics = fetch_daily_metrics()
     email_messages = compose_daily_email(daily_metrics)
     print("Composed Daily Metrics Email Message with plain text: {}".format(email_messages[0]))
+
+    subject_line = f"{DAILY_METRICS_EMAIL_SUBJECT_FOR_ADMINS}: {calculate_date_n_days_ago(TODAY)}"
 
     notification_payload = construct_notification_payload_for_email({
         "message": email_messages[0],
