@@ -174,7 +174,7 @@ def compose_daily_email(daily_metrics):
 
     return daily_email_as_plain_text, daily_email_as_html
 
-def send_daily_metrics_email_to_admin(request):
+def send_daily_metrics_email_to_admin(event, context):
     print("Send daily email to admin, first fetch the token")
     daily_metrics = fetch_daily_metrics()
     email_messages = compose_daily_email(daily_metrics)

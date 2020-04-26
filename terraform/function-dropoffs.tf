@@ -10,11 +10,13 @@ resource "google_cloudfunctions_function" "analyse-dropoffs-daily-and-send-notif
   source_archive_bucket = "${var.gcp_bucket_prefix[terraform.workspace]}-metrics-bucket"
   source_archive_object = "metrics_${var.deploy_code_commit_hash}.zip"
   entry_point = "send_dropoffs_analysis_email_to_admin"
-    
-  event_trigger {
-    event_type = "google.pubsub.topic.publish"
-    resource = google_pubsub_topic.daily_analytics_email_topic.name
-  }
+
+  trigger_http = true    
+
+  # event_trigger {
+  #   event_type = "google.pubsub.topic.publish"
+  #   resource = google_pubsub_topic.daily_analytics_email_topic.name
+  # }
 
   service_account_email = google_service_account.daily_funnel_mail_account.email
   

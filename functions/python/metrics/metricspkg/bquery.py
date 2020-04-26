@@ -38,7 +38,7 @@ def extract_values_as_list_from_big_query_response(raw_response_as_list, key):
     if list_not_empty_or_undefined(raw_response_as_list):
         for item in raw_response_as_list:
             key_value = item[key]
-            print("Value of key '{key}' in big query response is: {value}".format(key=key, value=key_value))
+            # print("Value of key '{key}' in big query response is: {value}".format(key=key, value=key_value))
             formatted_list.append(key_value)
 
     print(f"Big query response: {raw_response_as_list} has been formatted to list: {formatted_list}")

@@ -180,7 +180,7 @@ def process_line_json(line, current_time):
     if parsed:
         context_data = {}
         # this is because if a user is not logged in, they only have the amplitude ID, and we need this to trace them properly
-        parsed_user_id = parsed['user_id'] if parsed['user_id'] != 'null' and parsed['used_id'] != None else parsed['amplitude_id']
+        parsed_user_id = parsed['user_id'] if parsed['user_id'] != 'null' and parsed['user_id'] != None else parsed['amplitude_id']
         
         context_data['client_event_time'] = value_def(parsed['client_event_time'])
         context_data['ip_address'] = value_def(parsed['ip_address'])
