@@ -165,7 +165,7 @@ def compose_daily_email(daily_metrics):
     date_of_today = calculate_date_n_days_ago(TODAY)
     current_time = fetch_current_time()
 
-    metrics_rows = [f"<tr><td>{metric['metric_name']}</td><td>{metric['metric_value']}</td></tr>" for metric in daily_metrics]
+    metrics_rows = [f"<tr><td style=\"text-align:right\">{metric['metric_name']}</td><td>{metric['metric_value']}</td></tr>" for metric in daily_metrics]
     metrics_table = '\n'.join(metrics_rows)
 
     email_parameters= { "metrics_table": metrics_table, "date_of_today": date_of_today, "current_time": current_time }
@@ -186,7 +186,7 @@ def send_daily_metrics_email_to_admin(event, context):
     notification_payload = construct_notification_payload_for_email({
         "message": email_messages[0],
         "messageInHTMLFormat": email_messages[1],
-        "subject": DAILY_METRICS_EMAIL_SUBJECT_FOR_ADMINS
+        "subject": subject_line
     })
 
     if sandbox_enabled:
