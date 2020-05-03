@@ -67,6 +67,7 @@ production-credentials.json
 staging-credentials.json
 service-account-credentials.json
 google_credentials_for_terraform.json
+*credentials.json
 
 # temporary deployment bundles
 *.zip

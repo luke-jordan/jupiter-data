@@ -12,6 +12,8 @@ from datetime import datetime, timedelta, timezone
 from os import walk
 
 from google.cloud import bigquery, storage
+from google.api_core.exceptions import BadRequest
+
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -22,18 +24,18 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="jupiter_ml_python_credentials.json
 
 TEMP = tempfile.gettempdir()
 
-ACCOUNT_ID = os.getenv("AMPLITUDE_ACCOUNT_ID")
+AMPLITUDE_PROJECT_ID = os.getenv("AMPLITUDE_PROJECT_ID")
 API_KEY = os.getenv("AMPLITUDE_API_KEY")
 API_SECRET = os.getenv("AMPLITUDE_API_SECRET")
+
 PROJECT_ID = os.getenv("GOOGLE_PROJECT_ID")
 CLOUD_STORAGE_BUCKET = os.getenv("AMPLITUDE_SYNC_CLOUD_STORAGE_BUCKET")
-PROPERTIES = ["event_properties", "data", "groups", "group_properties",
-              "user_properties"]
+PROPERTIES = ["event_properties", "data", "groups", "group_properties", "user_properties"]
 
 UNZIPPED_FILE_ROOT_LOCATION = TEMP + "/amplitude/"
 
 # e.g. /tmp/amplitude/240333
-ACCOUNT_ID_DIRECTORY = "{unzipped_file_root_location}{id}/".format(unzipped_file_root_location=UNZIPPED_FILE_ROOT_LOCATION, id=ACCOUNT_ID)
+ACCOUNT_ID_DIRECTORY = f"{UNZIPPED_FILE_ROOT_LOCATION}{AMPLITUDE_PROJECT_ID}/"
 
 # Initiate Google BigQuery
 DATASET_IN_USE = "ops"
@@ -43,7 +45,7 @@ bigquery_client = bigquery.Client(project=PROJECT_ID)
 dataset_ref = bigquery_client.dataset(DATASET_IN_USE)
 
 # Initiate Google Cloud Storage
-storage_client = storage.Client()
+storage_client = storage.Client(project=PROJECT_ID)
 
 SOURCE_OF_EVENT = 'AMPLITUDE'
 SECOND_TO_MILLISECOND_FACTOR=1000
@@ -52,6 +54,18 @@ def fetch_current_time_in_milliseconds():
     currentTimeInMilliseconds = int(round(time.time() * SECOND_TO_MILLISECOND_FACTOR))
     return currentTimeInMilliseconds
 
+
+def fetch_data_from_amplitude(day):
+    storage_location = TEMP + "/amplitude.zip"
+    # Perform a CURL request to download the export from Amplitude
+    print("downloading data for {day} from amplitude".format(day=day))
+    os.system("curl -u " + API_KEY + ":" + API_SECRET + " \
+                 'https://amplitude.com/api/2/export?start=" + day + "T00&end="
+              + day + "T23'  >> " + storage_location)
+    print("completed download from amplitude for {day} to {storage_location}".format(day=day, storage_location=storage_location))
+    print("===========================================================================")
+    print("===========================================================================")
+    return storage_location
 
 def unzip_gzip(file):
     path_to_file = ACCOUNT_ID_DIRECTORY + file
@@ -135,10 +149,7 @@ def upload_file_to_gcs(path_to_file, new_filename, folder=''):
                                                file=new_filename))
     blob.upload_from_filename(path_to_file)
     print("Completed upload of file: {name} to gcs folder: {folder}".format(name=path_to_file, folder=folder))
-
-def construct_gcs_import_url(filename):
-    return "gs://{bucket}/{folder}/{name}".format(bucket=CLOUD_STORAGE_BUCKET, folder=FORMATTED_FILES_GCS_FOLDER, name=filename)
-
+    
 def value_def(value):
     value = None if value == 'null' else value
     return value
@@ -156,8 +167,13 @@ def load_gcs_file_into_bigquery(path_to_file, table):
     job = bigquery_client.load_table_from_uri(path_to_file,
                                               dataset_ref.table(table),
                                               job_config=job_config)
-    print("Successfully loaded json file: {name} from gcs into big query".format(name=path_to_file))
-    print(job.result())
+    print("Initiated loading json file: {name} from gcs into big query".format(name=path_to_file))
+    try:
+        print(job.result())
+    except BadRequest as e:
+        for e in job.errors:
+            print(f"ERROR: {e['message']}")
+            
     assert job.job_type == 'load'
     assert job.state == 'DONE'
 
@@ -180,7 +196,7 @@ def process_line_json(line, current_time):
     if parsed:
         context_data = {}
         # this is because if a user is not logged in, they only have the amplitude ID, and we need this to trace them properly
-        parsed_user_id = parsed['user_id'] if parsed['user_id'] != 'null' and parsed['user_id'] != None else parsed['amplitude_id']
+        parsed_user_id = parsed['user_id'] if parsed['user_id'] != 'null' and parsed['user_id'] != None else str(parsed['amplitude_id'])
         
         context_data['client_event_time'] = value_def(parsed['client_event_time'])
         context_data['ip_address'] = value_def(parsed['ip_address'])
@@ -256,19 +272,6 @@ def final_clean_up(file_location, day):
     remove_file(file_location)
     print("Successfully removed the original zip file: {file_location} downloaded from Amplitude for {day}".format(day=day, file_location=file_location))
 
-
-def fetch_data_from_amplitude(day):
-    storage_location = TEMP + "/amplitude.zip"
-    # Perform a CURL request to download the export from Amplitude
-    print("downloading data for {day} from amplitude".format(day=day))
-    os.system("curl -u " + API_KEY + ":" + API_SECRET + " \
-                 'https://amplitude.com/api/2/export?start=" + day + "T00&end="
-              + day + "T23'  >> " + storage_location)
-    print("completed download from amplitude for {day} to {storage_location}".format(day=day, storage_location=storage_location))
-    print("===========================================================================")
-    print("===========================================================================")
-    return storage_location
-
 # removes the local files that are generated when parsing a .gz file for loading into big query
 def remove_local_files_for_gz_extracts(file):
     # Remove JSON file
@@ -291,7 +294,8 @@ def process_gzip_files_in_root_location(day):
             upload_file_to_gcs(path_to_events_file_on_local, FILE_NAME_JSON, FORMATTED_FILES_GCS_FOLDER)
 
             # Import data from Google Cloud Storage into Google BigQuery
-            load_gcs_file_into_bigquery(construct_gcs_import_url(FILE_NAME_JSON), 'all_user_events')
+            gcs_url = f"gs://{CLOUD_STORAGE_BUCKET}/{FORMATTED_FILES_GCS_FOLDER}/{FILE_NAME_JSON}"
+            load_gcs_file_into_bigquery(gcs_url, 'all_user_events')
             print("===========================================================================")
             print("===========================================================================")
             print("======Completed Import from Amplitude to Big Query for: {file}======".format(file=FILE_NAME_JSON))
@@ -327,13 +331,19 @@ def signal_operation_complete(day):
 # `event` and `context` are parameters supplied when pub-sub calls this function, these parameters are not being used now
 def sync_amplitude_data_to_big_query(event, context):
     YESTERDAY = retrieve_yesterdays_date()
+    print("Event: ", event)
+
+    if 'day_to_sync' in event:
+        day_to_sync = event['day_to_sync']
+    else:
+        day_to_sync = YESTERDAY
 
     try:
         print("Trigger received from cloud scheduler")
-        download_from_amplitude_location = fetch_data_from_amplitude(YESTERDAY)
+        download_from_amplitude_location = fetch_data_from_amplitude(day_to_sync)
 
         # backup the downloaded file because it might be needed in the future
-        store_raw_amplitude_download_in_cloud_storage(YESTERDAY, download_from_amplitude_location)
+        store_raw_amplitude_download_in_cloud_storage(day_to_sync, download_from_amplitude_location)
 
         # unzip file to root location => '/tmp/amplitude/'
         unzip_file_to_root_location(download_from_amplitude_location)
@@ -341,10 +351,10 @@ def sync_amplitude_data_to_big_query(event, context):
         # most of the processing happens in this function: `process_gzip_files_in_root_location`
         # after unzipping file above, multiple '.json.gz' files are generated and we need to unravel that
         # each '.json.gz' file represents an hour of the day requested for e.g. '240333_2019-10-23_10#327.json.gz'
-        process_gzip_files_in_root_location(YESTERDAY)
+        process_gzip_files_in_root_location(day_to_sync)
 
-        final_clean_up(download_from_amplitude_location, YESTERDAY)
+        final_clean_up(download_from_amplitude_location, day_to_sync)
 
-        signal_operation_complete(YESTERDAY)
+        signal_operation_complete(day_to_sync)
     except Exception as err:
         print("Error while syncing data from amplitude to big query for {day}. Error {err}".format(day=YESTERDAY, err=err))

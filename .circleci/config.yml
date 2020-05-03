@@ -270,7 +270,7 @@ jobs:
               export GOOGLE_APPLICATION_CREDENTIALS="google_credentials_for_terraform.json"
 
               echo "Fetch private credentials used in some functions"
-              /home/circleci/app/google-cloud-sdk/bin/gsutil cp gs://staging-terraform-state-bucket/jupiter-data-private-vars.tf .
+              /home/circleci/app/google-cloud-sdk/bin/gsutil cp gs://$CIRCLE_BRANCH-jupiter-data-deployment/jupiter-data-private-vars.tf .
 
               terraform init
 

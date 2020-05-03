@@ -72,7 +72,12 @@ def fetch_daily_metrics(request=None):
     # ten_day_avg_users_that_saved = fetch_avg_number_users_by_tx_type(SAVING_EVENT_TRANSACTION_TYPE, TEN_DAYS)
     
     number_of_users_entered_yesterday = count_users_with_event_type("USER_ENTERED_INTRO", start_of_yesterday, end_of_yesterday)
-    number_of_users_that_joined_today = count_users_with_event_type("USER_CREATED_ACCOUNT", start_of_yesterday, end_of_yesterday, INTERNAL_EVENT_SOURCE)
+    
+    users_that_joined_today = fetch_user_ids_by_event_type("USER_CREATED_ACCOUNT", start_of_yesterday, end_of_yesterday, INTERNAL_EVENT_SOURCE)
+    number_of_users_that_joined_today = len(users_that_joined_today)
+
+    users_that_joined_and_saved = count_users_in_list_that_performed_event("SAVING_PAYMENT_SUCCESSFUL", start_of_yesterday, start_of_today, users_that_joined_today)
+    
     # three_day_average_of_users_that_joined = count_avg_users_signedup(start_of_three_days_ago, end_of_yesterday, THREE_DAYS)
     # ten_day_average_of_users_that_joined = count_avg_users_signedup(start_of_ten_days_ago, end_of_yesterday, TEN_DAYS)
 
@@ -116,6 +121,7 @@ def fetch_daily_metrics(request=None):
     # daily_metrics.append(metric_item("10-day avg daily saves", ten_day_avg_users_that_saved))
 
     daily_metrics.append(metric_item("Number users opened account yesterday", number_of_users_that_joined_today))
+    daily_metrics.append(metric_item("Number of those who saved", users_that_joined_and_saved))
     # daily_metrics.append(metric_item("3-day avg users joined", three_day_average_of_users_that_joined))
     # daily_metrics.append(metric_item("10-day avg users join", ten_day_average_of_users_that_joined))
 
