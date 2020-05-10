@@ -18,10 +18,10 @@ resource "google_cloudfunctions_function" "sync-amplitude-data-to-big-query-func
     resource = "projects/${var.project[terraform.workspace]}/topics/${var.gcp_pub_sub_topic["daily_runs_at_3am"]}"
   }
 
-  environment_variables {
-    AMPLITUDE_PROJECT_ID = "${var.amplitude_project_id[terraform.workspace]}"
-    AMPLITUDE_API_KEY = "${var.amplitude_api_key[terraform.workspace]}"
-    AMPLITUDE_API_SECRET = "${var.amplitude_api_secret[terraform.workspace]}"
+  environment_variables = {
+    AMPLITUDE_PROJECT_ID = var.amplitude_project_id[terraform.workspace]
+    AMPLITUDE_API_KEY = var.amplitude_api_key[terraform.workspace]
+    AMPLITUDE_API_SECRET = var.amplitude_api_secret[terraform.workspace]
   }
   
 }

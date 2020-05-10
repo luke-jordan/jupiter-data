@@ -61,6 +61,7 @@ def fetch_daily_metrics(request=None):
     start_of_yesterday = convert_to_millisecond(calculate_date_n_days_ago(ONE_DAY), HOUR_MARKING_START_OF_DAY)
     end_of_yesterday = convert_to_millisecond(calculate_date_n_days_ago(ONE_DAY), HOUR_MARKING_END_OF_DAY)
 
+    start_of_seven_days_ago = convert_to_millisecond(calculate_date_n_days_ago(7), HOUR_MARKING_START_OF_DAY)
     start_of_ten_days_ago = convert_to_millisecond(calculate_date_n_days_ago(TEN_DAYS), HOUR_MARKING_START_OF_DAY)
 
     # * Total Jupiter SA users at start of day (even if they did not perform an action) 
@@ -77,6 +78,9 @@ def fetch_daily_metrics(request=None):
     number_of_users_that_joined_today = len(users_that_joined_today)
 
     users_that_joined_and_saved = count_users_in_list_that_performed_event("SAVING_PAYMENT_SUCCESSFUL", start_of_yesterday, start_of_today, users_that_joined_today)
+
+    users_joined_in_last_week = fetch_user_ids_by_event_type("USER_CREATED_ACCOUNT", start_of_seven_days_ago, end_of_yesterday, INTERNAL_EVENT_SOURCE)
+    number_of_those_that_saved = count_users_in_list_that_performed_event("SAVING_PAYMENT_SUCCESSFUL", start_of_seven_days_ago, end_of_yesterday, users_joined_in_last_week, INTERNAL_EVENT_SOURCE)
     
     # three_day_average_of_users_that_joined = count_avg_users_signedup(start_of_three_days_ago, end_of_yesterday, THREE_DAYS)
     # ten_day_average_of_users_that_joined = count_avg_users_signedup(start_of_ten_days_ago, end_of_yesterday, TEN_DAYS)
@@ -124,6 +128,10 @@ def fetch_daily_metrics(request=None):
     daily_metrics.append(metric_item("Number of those who saved", users_that_joined_and_saved))
     # daily_metrics.append(metric_item("3-day avg users joined", three_day_average_of_users_that_joined))
     # daily_metrics.append(metric_item("10-day avg users join", ten_day_average_of_users_that_joined))
+
+    daily_metrics.append(metric_item("Number opened account in last week", len(users_joined_in_last_week)))
+    percent_saved = (number_of_those_that_saved / len(users_joined_in_last_week)) * 100
+    daily_metrics.append(metric_item("% who completed save", f"{percent_saved:.2f}"))
 
     daily_metrics.append(metric_item("Number users sent msg yesterday", len(users_who_received_message_yesterday)))
     daily_metrics.append(metric_item("Number of those who opened app", users_who_received_and_opened))
