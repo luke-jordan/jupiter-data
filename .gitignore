@@ -105,3 +105,6 @@ __pycache__/
 .pytest_cache/
 venv/
 env/
+
+# notebook checkpoints
+.ipynb_checkpoints/
