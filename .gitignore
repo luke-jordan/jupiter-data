@@ -108,3 +108,7 @@ env/
 
 # notebook checkpoints
 .ipynb_checkpoints/
+
+# data and model dumps
+*.csv
+*.joblib
