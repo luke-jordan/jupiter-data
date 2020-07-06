@@ -3,6 +3,7 @@ provider "google" {
   project = var.project[terraform.workspace]
   region = var.gcp_default_region[terraform.workspace]
   zone = var.gcp_default_zone[terraform.workspace]
+  version = "~> 3.28"
 }
 
 terraform {
