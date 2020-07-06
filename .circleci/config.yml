@@ -204,14 +204,14 @@ jobs:
               export CODE_BUCKET=jupiter_cloudfunctions_${CIRCLE_BRANCH}
 
               cd $HOME
-              ./app/google-cloud-sdk/bin/gsutil cp sns_to_pubsub_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/sns-to-pubsub/${CIRCLE_SHA1}.zip
-              ./app/google-cloud-sdk/bin/gsutil cp notification_service_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/notification-service/${CIRCLE_SHA1}.zip
-              ./app/google-cloud-sdk/bin/gsutil cp fraud_detector_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/fraud-detector/${CIRCLE_SHA1}.zip
-              ./app/google-cloud-sdk/bin/gsutil cp sync_amplitude_data_to_big_query_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/sync-amplitude-data-to-big-query/${CIRCLE_SHA1}.zip
-              ./app/google-cloud-sdk/bin/gsutil cp user_behaviour_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/user-behaviour/${CIRCLE_SHA1}.zip
-              ./app/google-cloud-sdk/bin/gsutil cp pubsub_to_big_query_for_sns_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/pubsub-to-big-query-for-sns/${CIRCLE_SHA1}.zip
-              ./app/google-cloud-sdk/bin/gsutil cp funnel_analysis_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/funnel-analysis/${CIRCLE_SHA1}.zip
-              ./app/google-cloud-sdk/bin/gsutil cp metrics_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/metrics-bucket/${CIRCLE_SHA1}.zip
+              ./app/google-cloud-sdk/bin/gsutil cp sns_to_pubsub_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/sns_to_pubsub/${CIRCLE_SHA1}.zip
+              ./app/google-cloud-sdk/bin/gsutil cp notification_service_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/notification_service/${CIRCLE_SHA1}.zip
+              ./app/google-cloud-sdk/bin/gsutil cp fraud_detector_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/fraud_detector/${CIRCLE_SHA1}.zip
+              ./app/google-cloud-sdk/bin/gsutil cp sync_amplitude_data_to_big_query_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/sync_amplitude_data_to_big_query/${CIRCLE_SHA1}.zip
+              ./app/google-cloud-sdk/bin/gsutil cp user_behaviour_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/user_behaviour/${CIRCLE_SHA1}.zip
+              ./app/google-cloud-sdk/bin/gsutil cp pubsub_to_big_query_for_sns_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/pubsub_to_big_query_for_sns/${CIRCLE_SHA1}.zip
+              ./app/google-cloud-sdk/bin/gsutil cp funnel_analysis_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/funnel_analysis/${CIRCLE_SHA1}.zip
+              ./app/google-cloud-sdk/bin/gsutil cp metrics_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/metrics/${CIRCLE_SHA1}.zip
             fi
 
       - run:
