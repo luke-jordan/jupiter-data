@@ -79,7 +79,7 @@ atlassian-ide-plugin.xml
 /.idea
 cache.properties
 .DS_Store
-
+settings.json
 
 *.dll
 *.exe

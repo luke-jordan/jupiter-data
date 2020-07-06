@@ -8,21 +8,21 @@ resource "google_pubsub_topic" "sns_transfer_topic" {
 }
 
 # Helper topic for scheduling daily import from Amplitude
-resource "google_pubsub_topic" " daily_amplitude_import_topic" {
-    name = "daily-runs"
+resource "google_pubsub_topic" "daily_amplitude_import_topic" {
+    name = "amplitude_daily_runs"
 
     labels = {
         environment = terraform.workspace
     }
 }
 
-resource "google_cloud_scheduler_job" "daily_email_job" {
+resource "google_cloud_scheduler_job" "daily_amplitude_job" {
     name = "amplitude_import_daily_run"
     description = "Runs once a day at 3am. It sends a message to Pub/Sub which then triggers the function that syncs data from Amplitude to BigQuery"
-    scheduled = "0 3 * * *"
+    schedule = "0 3 * * *"
 
     pubsub_target {
-      topic_name = google_pubsub_topic.daily_amplitude_import_topic
+      topic_name = google_pubsub_topic.daily_amplitude_import_topic.id
       data = base64encode("{}")
     }
 }
