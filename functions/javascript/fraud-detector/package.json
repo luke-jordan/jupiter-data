@@ -4,7 +4,7 @@
   "description": "flags users that are considered dodgy based on specific rules",
   "main": "fraud-detector.js",
   "scripts": {
-    "test": "DEBUG=* nyc mocha",
+    "test": "DEBUG=*:test nyc mocha",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },

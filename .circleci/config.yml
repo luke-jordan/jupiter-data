@@ -196,7 +196,7 @@ jobs:
       - run:
           name: upload zipped artifacts to cloud storage
           command: |
-            export CODE_BUCKET = jupiter_cloudfunctions_${CIRCLE_BRANCH}
+            export CODE_BUCKET=jupiter_cloudfunctions_${CIRCLE_BRANCH}
 
             if [ $CIRCLE_BRANCH == 'master' ]; then
               echo "On branch $CIRCLE_BRANCH, uploading artifacts."

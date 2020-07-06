@@ -4,7 +4,7 @@
   "description": "Accepts data from AWS SNS and publishes to GCP Pub/Sub",
   "main": "index.js",
   "scripts": {
-    "test": "DEBUG=* nyc mocha",
+    "test": "DEBUG=*:test nyc mocha",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },
