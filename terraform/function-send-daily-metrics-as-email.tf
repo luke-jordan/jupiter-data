@@ -18,8 +18,8 @@ resource "google_cloudfunctions_function" "send-daily-metrics-as-email-function"
     resource = google_pubsub_topic.daily_analytics_email_topic.id
   }
 
-  # just use this; attempts to do fine grained with Gcloud's hideous IAM structure failed
-  service_account_email = "jupiter-production-258809@appspot.gserviceaccount.com"
+  # just use this; attempts to do fine grained with Gcloud's hideous IAM structure failed (and actually, don't even do this)
+  # service_account_email = "jupiter-production-258809@appspot.gserviceaccount.com"
 
   environment_variables = {
     FUNNEL_ANALYSIS_SERVICE_URL = google_cloudfunctions_function.funnel-analysis-function.https_trigger_url

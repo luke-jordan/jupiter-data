@@ -10,7 +10,7 @@ resource "google_cloudfunctions_function" "analyse-dropoffs-daily-and-send-notif
   timeout = 420
   
   source_archive_bucket = google_storage_bucket.function_code.name
-  source_archive_object = "dropoffs/${var.deploy_code_commit_hash}.zip"
+  source_archive_object = "metrics/${var.deploy_code_commit_hash}.zip"
 
   trigger_http = true
 

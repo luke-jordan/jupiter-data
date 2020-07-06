@@ -1,16 +1,11 @@
 
 resource "google_bigquery_dataset" "primary_dataset" {
   dataset_id    = "ops"
-  friendly_name = "Primary Ops Dataset"
+  description   = "Primary Ops Dataset"
   location      = var.gcp_default_continent[terraform.workspace]
 
   labels = {
       env = terraform.workspace
-  }
-
-  access {
-    role          = "OWNER"
-    user_by_email = "luke@plutosave.com"
   }
 
   access {
