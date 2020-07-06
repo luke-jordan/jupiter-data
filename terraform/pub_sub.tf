@@ -56,7 +56,7 @@ resource "google_pubsub_topic" "daily_model_training" {
     }
 }
 
-resource "google_cloud_scheduler_job" " daily_training_job" {
+resource "google_cloud_scheduler_job" "daily_training_job" {
     name = "model_training_daily_job"
     description = "Daily model training scheduled"
     schedule = "0 3 * * *"
