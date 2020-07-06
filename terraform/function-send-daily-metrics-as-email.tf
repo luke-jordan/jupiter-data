@@ -22,6 +22,8 @@ resource "google_cloudfunctions_function" "send-daily-metrics-as-email-function"
   # service_account_email = "jupiter-production-258809@appspot.gserviceaccount.com"
 
   environment_variables = {
+    GOOGLE_PROJECT_ID = var.project[terraform.workspace]
+    BIG_QUERY_DATASET_LOCATION = var.gcp_default_continent[terraform.workspace]
     FUNNEL_ANALYSIS_SERVICE_URL = google_cloudfunctions_function.funnel-analysis-function.https_trigger_url
     CONTACTS_TO_BE_NOTIFIED = "${terraform.workspace == "master" ? "luke@plutosave.com, avish@plutosave.com" : "luke@plutosave.com"}"
     SENDGRID_API_KEY = var.sendgrid_api_key[terraform.workspace]

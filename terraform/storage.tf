@@ -15,3 +15,12 @@ resource "google_storage_bucket" "trained_models" {
 
     force_destroy = false
 }
+
+# Intermediary storage bucket for amplitude data
+
+resource "google_storage_bucket" "amplitude_data" {
+    name = "jupiter_amplitude_${terraform.workspace}"
+    location = var.gcp_default_continent[terraform.workspace]
+
+    force_destroy = false
+}

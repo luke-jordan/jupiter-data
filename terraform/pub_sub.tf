@@ -46,3 +46,23 @@ resource "google_cloud_scheduler_job" "daily_email_job" {
         data = base64encode("{}")
     }
 }
+
+# Helper topic for scheduling of daily model training
+resource "google_pubsub_topic" "daily_model_training" {
+    name = "daily_model_training"
+
+    labels = {
+        environment = terraform.workspace
+    }
+}
+
+resource "google_cloud_scheduler_job" " daily_training_job" {
+    name = "model_training_daily_job"
+    description = "Daily model training scheduled"
+    schedule = "0 3 * * *"
+
+    pubsub_target {
+      topic_name = google_pubsub_topic.daily_model_training.id
+      data = base64encode("{}")
+    }
+}

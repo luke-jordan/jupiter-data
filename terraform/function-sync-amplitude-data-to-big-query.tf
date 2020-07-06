@@ -18,6 +18,7 @@ resource "google_cloudfunctions_function" "sync-amplitude-data-to-big-query-func
   }
 
   environment_variables = {
+    AMPLITUDE_SYNC_CLOUD_STORAGE_BUCKET = google_storage_bucket.amplitude_data.name
     AMPLITUDE_PROJECT_ID = var.amplitude_project_id[terraform.workspace]
     AMPLITUDE_API_KEY = var.amplitude_api_key[terraform.workspace]
     AMPLITUDE_API_SECRET = var.amplitude_api_secret[terraform.workspace]
