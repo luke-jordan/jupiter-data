@@ -160,6 +160,17 @@ jobs:
                fi
                zip -rq $HOME/metrics_$CIRCLE_SHA1.zip .
 
+               cd $HOME/app/functions/python/boost-induce-model
+               echo $CIRCLE_SHA1 > last_commit.txt
+               echo "Setting environment variables for boost inducement model"
+               if [ $CIRCLE_BRANCH == 'master' ]; then
+                echo $PRODUCTION_GCLOUD_SERVICE_KEY >> service-account-credentials.json
+               fi
+               if [ $CIRCLE_BRANCH == 'staging' ]; then
+                echo $STAGING_GCLOUD_SERVICE_KEY >> service-account-credentials.json
+               fi
+               zip -rq $HOME/boost_model_$CIRCLE_SHA1.zip .
+
             fi
 
       - run:
@@ -212,6 +223,8 @@ jobs:
               ./app/google-cloud-sdk/bin/gsutil cp pubsub_to_big_query_for_sns_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/pubsub_to_big_query_for_sns/${CIRCLE_SHA1}.zip
               ./app/google-cloud-sdk/bin/gsutil cp funnel_analysis_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/funnel_analysis/${CIRCLE_SHA1}.zip
               ./app/google-cloud-sdk/bin/gsutil cp metrics_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/metrics/${CIRCLE_SHA1}.zip
+
+              ./app/google-cloud-sdk/bin/gsutil cp boost_model_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/boost_model/${CIRCLE_SHA1}.zip
             fi
 
       - run:

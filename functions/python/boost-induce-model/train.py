@@ -202,36 +202,42 @@ def upload_to_blob(storage_client, storage_bucket, local_file, remote_file):
     print(f"File {local_file} uploaded to {remote_file} on {storage_bucket}.")
 
 
-def persist_model(clf, send_to_storage=False, storage_bucket=None, latest_model_name=None):
-    file_name = f"boost_incuding_model_{datetime.today().strftime('%Y_%m_%dT%H:%M:%S')}.joblib"
-    dump(clf, file_name)
-    print(f"Model dumped to {file_name}")
+def persist_model(clf, local_folder=".", model_file_prefix="boost_inducing_model", storage_bucket=None, store_as_latest=False):
+    file_name_dated = f"{model_file_prefix}_{datetime.today().strftime('%Y_%m_%dT%H:%M:%S')}.joblib"
+    file_name_local = f"{local_folder}/{file_name_dated}"
+    dump(clf, file_name_dated)
+    print(f"Model dumped to {file_name_local}")
     
-    if send_to_storage:
+    if storage_bucket:
         storage_client = storage.Client()
-        upload_to_blob(storage_client, storage_bucket, file_name, file_name)
-        if latest_model_name:
-            upload_to_blob(storage_client, storage_bucket, file_name, latest_model_name)
+        upload_to_blob(storage_client, storage_bucket, file_name_local, file_name_dated)
+        # main todo : decide whether to do this based on reported scores
+        if store_as_latest:
+            latest_model_name = f"{model_file_prefix}_latest.joblib"
+            upload_to_blob(storage_client, storage_bucket, file_name_local, latest_model_name)
 
 # ############################################################
 # PUTTING IT ALL TOGETHER ####################################
 # ############################################################
 
-def train_model():
+def train_model(local_folder=None, model_file_prefix=None, storage_bucket=None):
+    print('Fetching boosts and saves')
     boosts_with_saves = obtain_boosts_with_saves()
+    print('Fetching boosts with redemptions')
     boosts_with_redeems = obtain_boosts_with_prior_redemptions()
+    print('Cleaning up and constructing labels')
     data = clean_up_and_construct_labels(boosts_with_saves, boosts_with_redeems)
 
-    print(data.has_prior_redeemed.value_counts())
-    print(data.is_save_within_day.value_counts())
+    print('Value counts for prior redemption: ', data.has_prior_redeemed.value_counts())
+    print('Value counts on save within day: ', data.is_save_within_day.value_counts())
 
     feature_frame = feature_extraction(data)
-    print(feature_frame.dtypes)
+    print('Data types for feature DF: ', feature_frame.dtypes)
 
     X_small = feature_frame[["boost_amount_whole_currency", "day_of_month", "day_of_week", "boost_prior_saves", "has_prior_redeemed", "boost_type_category"]]
     # will one hot encode day of week when more data so less sparse
     X_encoded = pd.get_dummies(X_small, prefix_sep="_", columns=["boost_type_category"]) 
-    print(X_encoded.dtypes)
+    print('Data types one-hot encoded: ', X_encoded.dtypes)
 
     X_train, X_test, Y_train, Y_test = train_test_split(X_encoded, data.is_save_within_day, test_size=0.2)
     
@@ -240,15 +246,23 @@ def train_model():
         {'C': [1, 10, 100], 'kernel': ['linear'], 'class_weight': ['balanced'] },
         {'C': [1, 10, 100], 'gamma': [0.001, 0.0001], 'kernel': ['rbf'], 'class_weight': ['balanced'] },
     ]
+    print('Established parameter grid: ', param_grid)
 
     search_svc = svm.SVC()
     svc_clf = GridSearchCV(search_svc, param_grid, verbose=1)
 
     # and here we go
+    print('Initiating training')
     svc_clf.fit(X_encoded, data.is_save_within_day)
 
-    # note : should log these to a table somewhere
-    precision_recall_fscore_support(Y_test, svc_clf.predict(X_test), average='binary')
+    # note : should log these to a table somewhere, and use to decide whether to replace existing model
+    print('Results: ', precision_recall_fscore_support(Y_test, svc_clf.predict(X_test), average='binary'))
+    
+    if local_folder:
+        print('Persisting model, possibly to storage')
+        persist_model(svc_clf, local_folder, model_file_prefix, storage_bucket, True)
+    else:
+        print('No local folder passed, not dumping model')
 
     return 'COMPLETE'
     
