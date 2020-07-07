@@ -24,7 +24,12 @@ resource "google_cloudfunctions_function" "train-boost-inducement-model" {
   environment_variables = {
     GOOGLE_PROJECT_ID = var.project[terraform.workspace]
     BIG_QUERY_DATASET_LOCATION = var.gcp_default_continent[terraform.workspace]
-    CONTACTS_TO_BE_NOTIFIED = "luke@jupitersave.com"}"
+
+    MODEL_LOCAL_FOLDER = "/tmp"
+    MODEL_STORAGE_BUCKET = google_storage_bucket.trained_models.name
+    MODEL_FILE_PREFIX = "boost_inducement_model"
+
+    CONTACTS_TO_BE_NOTIFIED = "luke@jupitersave.com"
     SENDGRID_API_KEY = var.sendgrid_api_key[terraform.workspace]
   }
 }
