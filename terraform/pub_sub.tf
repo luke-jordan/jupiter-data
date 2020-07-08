@@ -59,7 +59,7 @@ resource "google_pubsub_topic" "daily_model_training" {
 resource "google_cloud_scheduler_job" "daily_training_job" {
     name = "model_training_daily_job"
     description = "Daily model training scheduled"
-    schedule = "0 3 * * *"
+    schedule = "0 17 * * *"
 
     pubsub_target {
       topic_name = google_pubsub_topic.daily_model_training.id
