@@ -224,7 +224,7 @@ jobs:
               ./app/google-cloud-sdk/bin/gsutil cp funnel_analysis_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/funnel_analysis/${CIRCLE_SHA1}.zip
               ./app/google-cloud-sdk/bin/gsutil cp metrics_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/metrics/${CIRCLE_SHA1}.zip
 
-              ./app/google-cloud-sdk/bin/gsutil cp boost_model_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/boost_model/${CIRCLE_SHA1}.zip
+              ./app/google-cloud-sdk/bin/gsutil cp boost_model_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/boost_inducement/${CIRCLE_SHA1}.zip
             fi
 
       - run:
