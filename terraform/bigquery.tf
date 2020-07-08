@@ -23,6 +23,13 @@ resource "google_bigquery_dataset" "primary_dataset" {
     special_group = "projectWriters"
   }
 
+  # this is a bit insane, but sometimes GCP is enough to make someone insane
+  lifecycle {
+    ignore_changes = [
+      description, friendly_name
+    ]
+  }
+
 }
 
 resource "google_bigquery_table" "all_user_events" {
