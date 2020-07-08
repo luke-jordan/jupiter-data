@@ -195,17 +195,19 @@ def feature_extraction(data):
 # UTILITY METHODS FOR STORING MODEL
 
 def upload_to_blob(storage_client, storage_bucket, local_file, remote_file):
+    print(f"Uploading from {local_file} to {remote_file} in {storage_bucket}")
     bucket = storage_client.bucket(storage_bucket)
     blob = bucket.blob(remote_file)
 
-    blob.upload_from_filename(f"./{local_file}")
+    blob.upload_from_filename(local_file)
     print(f"File {local_file} uploaded to {remote_file} on {storage_bucket}.")
 
 
 def persist_model(clf, local_folder=".", model_file_prefix="boost_inducing_model", storage_bucket=None, store_as_latest=False):
     file_name_dated = f"{model_file_prefix}_{datetime.today().strftime('%Y_%m_%dT%H:%M:%S')}.joblib"
     file_name_local = f"{local_folder}/{file_name_dated}"
-    dump(clf, file_name_dated)
+    print(f"Dumping model to: {file_name_dated}")
+    dump(clf, file_name_local)
     print(f"Model dumped to {file_name_local}")
     
     if storage_bucket:
@@ -221,6 +223,8 @@ def persist_model(clf, local_folder=".", model_file_prefix="boost_inducing_model
 # ############################################################
 
 def train_model(local_folder=None, model_file_prefix=None, storage_bucket=None):
+    result_store = {}
+
     print('Fetching boosts and saves')
     boosts_with_saves = obtain_boosts_with_saves()
     print('Fetching boosts with redemptions')
@@ -230,6 +234,10 @@ def train_model(local_folder=None, model_file_prefix=None, storage_bucket=None):
 
     print('Value counts for prior redemption: ', data.has_prior_redeemed.value_counts())
     print('Value counts on save within day: ', data.is_save_within_day.value_counts())
+
+    # as below, need to do as type cast
+    result_store['n'] = len(data)
+    result_store['n_positive'] = int(data.is_save_within_day.value_counts()[True])
 
     feature_frame = feature_extraction(data)
     print('Data types for feature DF: ', feature_frame.dtypes)
@@ -255,8 +263,19 @@ def train_model(local_folder=None, model_file_prefix=None, storage_bucket=None):
     print('Initiating training')
     svc_clf.fit(X_encoded, data.is_save_within_day)
 
-    # note : should log these to a table somewhere, and use to decide whether to replace existing model
-    print('Results: ', precision_recall_fscore_support(Y_test, svc_clf.predict(X_test), average='binary'))
+    # note : these get logged in a datastore; todo : use to decide whether to replace curr model (but then need consistent test data)
+    scores = precision_recall_fscore_support(Y_test, svc_clf.predict(X_test), average='binary')
+    print('Results: ', scores)
+    precision, recall, fscore, support = scores
+
+    # type conversion is for later storage (sklearn returns as numpy.float not plain float, and gcp gets annoyed)
+    result_store['precision'] = float(precision)
+    result_store['recall'] = float(recall)
+    result_store['fscore'] = float(fscore)
+    # result_store['support'] = support # sometimes comes out as None, in which case causes bit of unpleasantness
+ 
+    result_store['accuracy'] = accuracy_score(Y_test, svc_clf.predict(X_test))
+    print('Accuracy: ', result_store['accuracy'])
     
     if local_folder:
         print('Persisting model, possibly to storage')
@@ -264,5 +283,5 @@ def train_model(local_folder=None, model_file_prefix=None, storage_bucket=None):
     else:
         print('No local folder passed, not dumping model')
 
-    return 'COMPLETE'
+    return result_store
     
