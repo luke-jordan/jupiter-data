@@ -6,13 +6,15 @@ const Engine = require('json-rules-engine').Engine;
 const logger = require('debug')('jupiter:fraud-detector');
 const requestRetry = require('requestretry');
 const httpStatus = require('http-status');
+
 const GOOGLE_PROJECT_ID = config.get('GOOGLE_PROJECT_ID');
 const BIG_QUERY_DATASET_LOCATION = config.get('BIG_QUERY_DATASET_LOCATION');
 const DATASET_ID = config.get('BIG_QUERY_DATASET_ID');
 const TABLE_ID = config.get('BIG_QUERY_TABLE_ID');
 const CUSTOM_RULES = require('./custom-rules').allRules;
-const serviceUrls = config.get('serviceUrls');
 const EMAIL_SUBJECT_FOR_ADMINS = config.get('emailSubjectForAdmins');
+
+const serviceUrls = config.get('serviceUrls');
 
 // These credentials are used to access google cloud services. See https://cloud.google.com/docs/authentication/getting-started
 // eslint-disable-next-line no-process-env

@@ -4,7 +4,7 @@
   "description": "Sends notification to users via multiple channels e.g. email, phone",
   "main": "notification-service.js",
   "scripts": {
-    "test": "DEBUG=* nyc mocha",
+    "test": "DEBUG=*:test nyc mocha",
     "generate-coverage": "nyc report --reporter=text-lcov > coverage.lcov",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"

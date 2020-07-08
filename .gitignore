@@ -79,7 +79,7 @@ atlassian-ide-plugin.xml
 /.idea
 cache.properties
 .DS_Store
-
+settings.json
 
 *.dll
 *.exe
@@ -105,3 +105,10 @@ __pycache__/
 .pytest_cache/
 venv/
 env/
+
+# notebook checkpoints
+.ipynb_checkpoints/
+
+# data and model dumps
+*.csv
+*.joblib

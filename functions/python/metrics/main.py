@@ -64,7 +64,7 @@ def fetch_daily_metrics(request=None):
     start_of_seven_days_ago = convert_to_millisecond(calculate_date_n_days_ago(7), HOUR_MARKING_START_OF_DAY)
     start_of_ten_days_ago = convert_to_millisecond(calculate_date_n_days_ago(TEN_DAYS), HOUR_MARKING_START_OF_DAY)
 
-    # * Total Jupiter SA users at start of day (even if they did not perform an action) 
+    # * Total Jupiter SA users at start of day (even if they did not perform an action)
     total_users_as_at_start_of_today = fetch_total_number_of_users(start_of_today)
     
     total_saved_amount_yesterday = fetch_total_amount_using_transaction_type(SAVING_EVENT_TRANSACTION_TYPE, start_of_yesterday, end_of_yesterday)  

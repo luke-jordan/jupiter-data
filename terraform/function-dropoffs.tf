@@ -3,15 +3,16 @@ resource "google_cloudfunctions_function" "analyse-dropoffs-daily-and-send-notif
   name = "analyse-dropoffs-daily-and-send-notification"
   description = "Analyse dropoffs daily and send notification to admins"
   
+  entry_point = "send_dropoffs_analysis_email_to_admin"
+
   runtime = "python37"
   available_memory_mb = 128
   timeout = 420
   
-  source_archive_bucket = "${var.gcp_bucket_prefix[terraform.workspace]}-metrics-bucket"
-  source_archive_object = "metrics_${var.deploy_code_commit_hash}.zip"
-  entry_point = "send_dropoffs_analysis_email_to_admin"
+  source_archive_bucket = google_storage_bucket.function_code.name
+  source_archive_object = "metrics/${var.deploy_code_commit_hash}.zip"
 
-  trigger_http = true    
+  trigger_http = true
 
   # event_trigger {
   #   event_type = "google.pubsub.topic.publish"
