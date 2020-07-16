@@ -1,6 +1,6 @@
-resource "google_cloudfunctions_function" "train-boost-inducement-model" {
+resource "google_cloudfunctions_function" "boost-inducement-infer" {
   
-  name = "infer-boost-inducement"
+  name = "boost-inducement-infer"
   description = "Infer which users should be offered a boost"
   
   entry_point = "select_users_for_boost"

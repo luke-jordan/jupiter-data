@@ -8,9 +8,12 @@ from infer import make_inference
 
 trained_model = retrieve_and_load_model()
 
-def select_users_for_boost(params):
-    candidate_users = params.get('candidate_users')
-    boost_parameters = params.get('boost_parameters')
+def select_users_for_boost(request):
+    print('Selecting user for boost, received: ', request)
+    
+    params = request.json
+    candidate_users = params['candidate_users']
+    boost_parameters = params['boost_parameters']
 
     prediction_result = make_inference(candidate_users, boost_parameters, trained_model)
 
