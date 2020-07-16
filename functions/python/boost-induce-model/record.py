@@ -9,6 +9,8 @@ from google.cloud import datastore, storage
 
 branch = os.getenv('ENVIRONMENT', 'staging')
 
+# UTILITY METHODS FOR STORING MODEL AND DATASETS, AND RETRIEVING
+
 def retrieve_and_load_model(model_name = 'boost_inducement_model_latest'):
     storage_client = storage.Client()
     bucket_name = f'jupiter_models_{branch}'
@@ -25,6 +27,46 @@ def retrieve_and_load_model(model_name = 'boost_inducement_model_latest'):
         print('Model loaded: ', model)
         return model
 
+def export_and_upload_df(dataframe, file_prefix, bucket_name):
+    """Uploads a file to the bucket."""
+    storage_client = storage.Client()
+    file_name = f"{file_prefix}_{datetime.today().strftime('%Y_%m_%dT%H:%M:%S')}.csv"
+    dataframe.to_csv(file_name, index=False)
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(file_name)
+
+    blob.upload_from_filename(f"./{file_name}")
+
+    print(f"File {file_name} uploaded to {bucket_name}.")
+    
+
+def upload_to_blob(storage_client, storage_bucket, local_file, remote_file):
+    print(f"Uploading from {local_file} to {remote_file} in {storage_bucket}")
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(storage_bucket)
+    blob = bucket.blob(remote_file)
+
+    blob.upload_from_filename(local_file)
+    print(f"File {local_file} uploaded to {remote_file} on {storage_bucket}.")
+
+
+def persist_model(clf, local_folder=".", model_file_prefix="boost_inducing_model", storage_bucket=None, store_as_latest=False):
+    file_name_dated = f"{model_file_prefix}_{datetime.today().strftime('%Y_%m_%dT%H:%M:%S')}.joblib"
+    file_name_local = f"{local_folder}/{file_name_dated}"
+    print(f"Dumping model to: {file_name_dated}")
+    dump(clf, file_name_local)
+    print(f"Model dumped to {file_name_local}")
+    
+    if storage_bucket:
+        storage_client = storage.Client()
+        upload_to_blob(storage_client, storage_bucket, file_name_local, file_name_dated)
+        # main todo : decide whether to do this based on reported scores
+        if store_as_latest:
+            latest_model_name = f"{model_file_prefix}_latest.joblib"
+            upload_to_blob(storage_client, storage_bucket, file_name_local, latest_model_name)
+
+# AND THESE ONES FOR RECORDING THE RESULT OF A MODEL TRAIN AND SENDING AN EMAIL WITH THOSE RESULTS
 
 def compose_email_body(results):
     return f"""

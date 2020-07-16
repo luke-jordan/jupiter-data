@@ -2,11 +2,10 @@
 
 import json
 from datetime import datetime
-from joblib import dump, load
 
 import pandas as pd
 
-from google.cloud import bigquery, storage
+from google.cloud import bigquery
 
 from sklearn import svm
 from sklearn.model_selection import train_test_split, GridSearchCV
@@ -14,22 +13,6 @@ from sklearn.metrics import precision_recall_fscore_support, accuracy_score
 from sklearn.preprocessing import OneHotEncoder
 
 client = bigquery.Client()
-
-def export_and_upload_df(dataframe, file_prefix, bucket_name):
-    """Uploads a file to the bucket."""
-    # bucket_name = "your-bucket-name"
-    # source_file_name = "local/path/to/file"
-    # destination_blob_name = "storage-object-name"
-    
-    file_name = f"{file_prefix}_{datetime.today().strftime('%Y_%m_%dT%H:%M:%S')}.csv"
-    dataframe.to_csv(file_name, index=False)
-    storage_client = storage.Client()
-    bucket = storage_client.bucket(bucket_name)
-    blob = bucket.blob(file_name)
-
-    blob.upload_from_filename(f"./{file_name}")
-
-    print(f"File {file_name} uploaded to {bucket_name}.")
 
 # ############################################################
 # FEATURE ENGINEERING SECTION ################################
@@ -192,32 +175,6 @@ def feature_extraction(data):
     stripped_df = data[features_of_interest]
     return stripped_df
 
-# UTILITY METHODS FOR STORING MODEL
-
-def upload_to_blob(storage_client, storage_bucket, local_file, remote_file):
-    print(f"Uploading from {local_file} to {remote_file} in {storage_bucket}")
-    bucket = storage_client.bucket(storage_bucket)
-    blob = bucket.blob(remote_file)
-
-    blob.upload_from_filename(local_file)
-    print(f"File {local_file} uploaded to {remote_file} on {storage_bucket}.")
-
-
-def persist_model(clf, local_folder=".", model_file_prefix="boost_inducing_model", storage_bucket=None, store_as_latest=False):
-    file_name_dated = f"{model_file_prefix}_{datetime.today().strftime('%Y_%m_%dT%H:%M:%S')}.joblib"
-    file_name_local = f"{local_folder}/{file_name_dated}"
-    print(f"Dumping model to: {file_name_dated}")
-    dump(clf, file_name_local)
-    print(f"Model dumped to {file_name_local}")
-    
-    if storage_bucket:
-        storage_client = storage.Client()
-        upload_to_blob(storage_client, storage_bucket, file_name_local, file_name_dated)
-        # main todo : decide whether to do this based on reported scores
-        if store_as_latest:
-            latest_model_name = f"{model_file_prefix}_latest.joblib"
-            upload_to_blob(storage_client, storage_bucket, file_name_local, latest_model_name)
-
 # ############################################################
 # PUTTING IT ALL TOGETHER ####################################
 # ############################################################
@@ -277,11 +234,5 @@ def train_model(local_folder=None, model_file_prefix=None, storage_bucket=None):
     result_store['accuracy'] = accuracy_score(Y_test, svc_clf.predict(X_test))
     print('Accuracy: ', result_store['accuracy'])
     
-    if local_folder:
-        print('Persisting model, possibly to storage')
-        persist_model(svc_clf, local_folder, model_file_prefix, storage_bucket, True)
-    else:
-        print('No local folder passed, not dumping model')
-
-    return result_store
+    return svc_clf, result_store, feature_frame
     

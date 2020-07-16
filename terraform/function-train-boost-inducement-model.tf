@@ -25,6 +25,8 @@ resource "google_cloudfunctions_function" "train-boost-inducement-model" {
     GOOGLE_PROJECT_ID = var.project[terraform.workspace]
     BIG_QUERY_DATASET_LOCATION = var.gcp_default_continent[terraform.workspace]
 
+    ENVIRONMENT = terraform.workspace
+
     MODEL_LOCAL_FOLDER = "/tmp"
     MODEL_STORAGE_BUCKET = google_storage_bucket.trained_models.name
     MODEL_FILE_PREFIX = "boost_inducement_model"
