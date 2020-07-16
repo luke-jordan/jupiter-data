@@ -3,8 +3,22 @@
 import os
 
 from train import train_model
-from record import store_and_send_results
-# from .infer import make_inference
+from record import store_and_send_results, retrieve_and_load_model
+from infer import make_inference
+
+trained_model = retrieve_and_load_model()
+
+def select_users_for_boost(request):
+    print('Selecting user for boost, received: ', request)
+    
+    params = request.json
+    candidate_users = params['candidate_users']
+    boost_parameters = params['boost_parameters']
+
+    prediction_result = make_inference(candidate_users, boost_parameters, trained_model)
+
+    return prediction_result[['user_id', 'should_offer']].to_json(orient='records')
+
 
 def train_boost_inducement_model(event=None, context=None):
     local_folder = os.getenv('MODEL_LOCAL_FOLDER')
@@ -21,8 +35,5 @@ def train_boost_inducement_model(event=None, context=None):
 
     store_and_send_results(results)
 
-def infer_boost_inducement():
-    return ['user-id']
-
-if __name__ == '__main__':
-    train_boost_inducement_model()
+# if __name__ == '__main__':
+#     train_boost_inducement_model()

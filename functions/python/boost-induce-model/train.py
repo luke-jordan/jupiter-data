@@ -138,7 +138,7 @@ def clean_up_and_construct_labels(boosts_with_saves, boosts_with_prior_redeemed)
     df["is_save_within_day"] = df["time_from_boost_to_save"] < 24
     
     df["boost_amount_whole_currency"] = df["parsed_context"].apply(
-        lambda context: context["boostAmount"] / unit_convertors[context["boostUnit"]])
+        lambda context: int(context["boostAmount"]) / unit_convertors[context["boostUnit"]])
     
     df["boost_type"] = df["parsed_context"].apply(lambda context: context["boostType"])
     df["boost_category"] = df["parsed_context"].apply(lambda context: context["boostCategory"])

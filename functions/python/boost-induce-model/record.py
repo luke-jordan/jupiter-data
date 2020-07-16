@@ -2,7 +2,29 @@ import os
 import requests
 from datetime import datetime
 
-from google.cloud import datastore
+from joblib import dump, load
+from tempfile import TemporaryFile
+
+from google.cloud import datastore, storage
+
+branch = os.getenv('ENVIRONMENT', 'staging')
+
+def retrieve_and_load_model(model_name = 'boost_inducement_model_latest'):
+    storage_client = storage.Client()
+    bucket_name = f'jupiter_models_{branch}'
+    print('Storage initiated, fetching model from: ', bucket_name)
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(f'{model_name}.joblib')
+    
+    with TemporaryFile() as temp_file:
+        print('Downloading to temporary file')
+        blob.download_to_file(temp_file)
+        print('Fetched, about to load')
+        temp_file.seek(0)
+        model = load(temp_file)
+        print('Model loaded: ', model)
+        return model
+
 
 def compose_email_body(results):
     return f"""
