@@ -14,20 +14,22 @@ from sklearn.preprocessing import OneHotEncoder
 
 client = bigquery.Client()
 
+PROJECT_ID = 'jupiter-production-258809'
+
 # ############################################################
 # FEATURE ENGINEERING SECTION ################################
 # ############################################################
 
 def obtain_boosts_with_saves():
-    sql = """
+    sql = f"""
     with boost_offers as (
             select *, TIMESTAMP_MILLIS(created_at) as creation_timestamp 
-            from ops.all_user_events 
+            from {PROJECT_ID}.ops.all_user_events 
             where event_type like 'BOOST_CREATED%'
 
     ), save_events as (
             select *, TIMESTAMP_MILLIS(created_at) as creation_timestamp 
-            from ops.all_user_events 
+            from {PROJECT_ID}.ops.all_user_events 
             where event_type = 'SAVING_PAYMENT_SUCCESSFUL'
     )
     select boost_offers.user_id, boost_offers.event_type, boost_offers.context, 
@@ -41,15 +43,15 @@ def obtain_boosts_with_saves():
 
 
 def obtain_boosts_with_prior_redemptions():
-    sql = """
+    sql = f"""
     with boost_offers as (
             select *, TIMESTAMP_MILLIS(created_at) as creation_timestamp 
-            from ops.all_user_events 
+            from {PROJECT_ID}.ops.all_user_events 
             where event_type like 'BOOST_CREATED%'
 
     ), boost_redemptions as (
             select *, TIMESTAMP_MILLIS(created_at) as creation_timestamp 
-            from ops.all_user_events 
+            from {PROJECT_ID}.ops.all_user_events 
             where event_type = 'BOOST_REDEEMED'
     )
     select boost_offers.user_id, boost_offers.event_type, boost_offers.context, 
@@ -179,7 +181,7 @@ def feature_extraction(data):
 # PUTTING IT ALL TOGETHER ####################################
 # ############################################################
 
-def train_model(local_folder=None, model_file_prefix=None, storage_bucket=None):
+def train_and_evaluate():
     result_store = {}
 
     print('Fetching boosts and saves')
@@ -207,15 +209,15 @@ def train_model(local_folder=None, model_file_prefix=None, storage_bucket=None):
     X_train, X_test, Y_train, Y_test = train_test_split(X_encoded, data.is_save_within_day, test_size=0.2)
     
     # see results notebook for removing C = 1000 for the moment
-    param_grid = [
-        {'C': [1, 10, 100], 'kernel': ['linear'], 'class_weight': ['balanced'] },
-        {'C': [1, 10, 100], 'gamma': [0.001, 0.0001], 'kernel': ['rbf'], 'class_weight': ['balanced'] },
-    ]
-    # param_grid = [{ 'C': [1, 10], 'kernel': ['linear'], 'class_weight': ['balanced' ]}]
+    # param_grid = [
+    #     {'C': [1, 10, 100], 'kernel': ['linear'], 'class_weight': ['balanced'] },
+    #     {'C': [1, 10, 100], 'gamma': [0.001, 0.0001], 'kernel': ['rbf'], 'class_weight': ['balanced'] },
+    # ]
+    param_grid = [{ 'C': [1, 10], 'kernel': ['linear'], 'class_weight': ['balanced' ]}]
     print('Established parameter grid: ', param_grid)
 
     search_svc = svm.SVC()
-    svc_clf = GridSearchCV(search_svc, param_grid, verbose=1)
+    svc_clf = GridSearchCV(search_svc, param_grid, verbose=True, n_jobs=2, cv=2)
 
     # and here we go
     print('Initiating training')
