@@ -31,4 +31,20 @@ resource "google_cloudfunctions_function" "boost-inducement-infer" {
     CONTACTS_TO_BE_NOTIFIED = "luke@jupitersave.com"
     SENDGRID_API_KEY = var.sendgrid_api_key[terraform.workspace]
   }
+
+}
+
+# this is not great, but (1) it is temporary, (2) GCP is utter, utter hell, and we will never use it again,
+# (3) the only thing this function exposes, at all, is you pass it IDs, it says offer or not. in extremis that could
+# probably be used with some major probing to unearth stuff, but only if all user IDs known.
+# i.e., not great, but not exposing quite so much, at least not yet. and simplest will be a quick JWT based lock 
+# (definitely _not_ using the extreme hell that is GCP IAP, Endpoints etc - whole Docker container to do API, OIDC, etc., etc., shiver)
+
+resource "google_cloudfunctions_function_iam_member" "invoker" {
+  project        = google_cloudfunctions_function.boost-inducement-infer.project
+  region         = google_cloudfunctions_function.boost-inducement-infer.region
+  cloud_function = google_cloudfunctions_function.boost-inducement-infer.name
+
+  role   = "roles/cloudfunctions.invoker"
+  member = "allUsers"
 }
