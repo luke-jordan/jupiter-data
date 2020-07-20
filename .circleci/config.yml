@@ -55,10 +55,10 @@ jobs:
           command: |
             TRAINER_PACKAGE_PATH="$PWD/boost_target_trainer"
             MAIN_TRAINER_MODULE="boost_target_trainer.task"
-            PACKAGE_STAGING_PATH="jupiter_models_${CIRCLE_BRANCH}/boost_inducement/"
+            PACKAGE_STAGING_PATH="gs://jupiter_models_${CIRCLE_BRANCH}/boost_inducement/"
             
             JOB_NAME=my_ml_job_$(date -u +%y%m%d_%H%M%S)
-            JOB_DIR="jupiter_models_${CIRCLE_BRANCH}/boost_inducement/"
+            JOB_DIR="gs://jupiter_models_${CIRCLE_BRANCH}/boost_inducement/"
             REGION=GOOGLE_COMPUTE_ZONE
 
             gcloud ai-platform jobs submit training $JOB_NAME \
