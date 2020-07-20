@@ -177,6 +177,28 @@ def feature_extraction(data):
     stripped_df = data[features_of_interest]
     return stripped_df
 
+#  some painful stuff happening with some categories being missing and then one-hot goes badly wrong
+def ensure_all_one_hots(df):
+    all_boost_type_categories = [
+        'GAME::CHASE_ARROW', 
+        'GAME::DESTROY_IMAGE',
+        'GAME::TAP_SCREEN', 
+        'SIMPLE::ROUND_UP',
+        'SIMPLE::SIMPLE_SAVE', 
+        'SIMPLE::TIME_LIMITED',
+        'SIMPLE::TARGET_BALANCE',
+        'SOCIAL::FRIENDS_ADDED',
+        'SOCIAL::NUMBER_FRIENDS',
+    ]
+    
+    assignment_args = {}
+    for category in all_boost_type_categories:
+        column_name = f'boost_type_category_{category}'
+        if column_name not in df:
+            assignment_args[column_name] = 0
+    
+    return df.assign(**assignment_args)
+
 # ############################################################
 # PUTTING IT ALL TOGETHER ####################################
 # ############################################################
@@ -204,16 +226,16 @@ def train_and_evaluate():
     X_small = feature_frame[["boost_amount_whole_currency", "day_of_month", "day_of_week", "boost_prior_saves", "has_prior_redeemed", "boost_type_category"]]
     # will one hot encode day of week when more data so less sparse
     X_encoded = pd.get_dummies(X_small, prefix_sep="_", columns=["boost_type_category"]) 
+    X_encoded = ensure_all_one_hots(X_encoded)
     print('Data types one-hot encoded: ', X_encoded.dtypes)
 
     X_train, X_test, Y_train, Y_test = train_test_split(X_encoded, data.is_save_within_day, test_size=0.2)
     
     # see results notebook for removing C = 1000 for the moment
-    # param_grid = [
-    #     {'C': [1, 10, 100], 'kernel': ['linear'], 'class_weight': ['balanced'] },
-    #     {'C': [1, 10, 100], 'gamma': [0.001, 0.0001], 'kernel': ['rbf'], 'class_weight': ['balanced'] },
-    # ]
-    param_grid = [{ 'C': [1, 10], 'kernel': ['linear'], 'class_weight': ['balanced' ]}]
+    param_grid = [
+        {'C': [1, 10, 100], 'kernel': ['linear'], 'class_weight': ['balanced'] },
+        {'C': [1, 10, 100], 'gamma': [0.001, 0.0001], 'kernel': ['rbf'], 'class_weight': ['balanced'] },
+    ]
     print('Established parameter grid: ', param_grid)
 
     search_svc = svm.SVC()

@@ -9,15 +9,15 @@ orbs:
 workflows:
   test_train_deploy:
     jobs:
-      - deploy_functions:
-          filters:
-            branches:
-              ignore: refactor/ml-package-1
       - train_models:
           filters:
             branches:
               only: refactor/ml-package-1
-
+      - deploy_functions
+        # filters:
+        #   branches:
+        #     ignore: refactor/ml-package-1
+      
 jobs:
   train_models:
     docker:

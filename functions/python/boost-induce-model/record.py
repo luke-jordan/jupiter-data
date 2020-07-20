@@ -11,7 +11,7 @@ branch = os.getenv('ENVIRONMENT', 'staging')
 
 # UTILITY METHODS FOR STORING MODEL AND DATASETS, AND RETRIEVING
 
-def retrieve_and_load_model(model_name = 'boost_inducement_model_latest'):
+def retrieve_and_load_model(model_name = 'boost_target_model'):
     storage_client = storage.Client()
     bucket_name = f'jupiter_models_{branch}'
     print('Storage initiated, fetching model from: ', bucket_name)

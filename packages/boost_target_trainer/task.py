@@ -27,6 +27,11 @@ def main(arguments=None):
     util.BUCKET_NAME = arguments['--storage_bucket']
     util.persist_model(clf)
 
+    print('Persisted the model')
+    util.store_and_send_results(results)
+
+    return model
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # using this for now instead of docopt because that is being badly fragile
