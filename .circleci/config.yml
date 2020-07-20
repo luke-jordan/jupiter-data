@@ -21,7 +21,7 @@ workflows:
 jobs:
   train_models:
     docker:
-      - image: circleci/python:38
+      - image: google/cloud-sdk
 
     working_directory: ~/app/packages
 
