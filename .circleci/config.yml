@@ -39,9 +39,9 @@ jobs:
             fi
 
             if [ $CIRCLE_BRANCH == 'refactor/ml-package-1' ]; then
-              GCLOUD_SERVICE_KEY=$STAGING_GCLOUD_SERVICE_KEY
-              GOOGLE_PROJECT_ID=$STAGING_GOOGLE_PROJECT_ID
-              GOOGLE_COMPUTE_ZONE=$STAGING_GOOGLE_COMPUTE_ZONE
+              echo "export GCLOUD_SERVICE_KEY=$STAGING_GCLOUD_SERVICE_KEY" >> $BASH_ENV
+              echo "export GOOGLE_PROJECT_ID=$STAGING_GOOGLE_PROJECT_ID >> $BASH_ENV
+              echo "export GOOGLE_COMPUTE_ZONE=$STAGING_GOOGLE_COMPUTE_ZONE >> $BASH_ENV
             fi
 
             echo "Project ID set: $GOOGLE_PROJECT_ID"
@@ -55,18 +55,24 @@ jobs:
           command: |
             TRAINER_PACKAGE_PATH="$PWD/boost_target_trainer"
             MAIN_TRAINER_MODULE="boost_target_trainer.task"
-            PACKAGE_STAGING_PATH="gs://jupiter_models_${CIRCLE_BRANCH}/boost_inducement/"
+            # STORAGE_BUCKET="gs://jupiter_models_${CIRCLE_BRANCH}"
+            STORAGE_BUCKET="gs://jupiter_models_staging"
             
-            JOB_NAME=my_ml_job_$(date -u +%y%m%d_%H%M%S)
-            JOB_DIR="gs://jupiter_models_${CIRCLE_BRANCH}/boost_inducement/"
-            REGION=GOOGLE_COMPUTE_ZONE
+            JOB_NAME=boost_induce_training_job_$(date -u +%y%m%d_%H%M%S)
+            JOB_DIR="gs://jupiter_models_staging/boost_inducement/"
+            [[ $CIRCLE_BRANCH = "master" ]] && REGION=$MASTER_GOOGLE_COMPUTE_ZONE || REGION=$STAGING_GOOGLE_COMPUTE_ZONE
 
             gcloud ai-platform jobs submit training $JOB_NAME \
-              --staging-bucket $PACKAGE_STAGING_PATH \
+              --staging-bucket $STORAGE_BUCKET \
               --job-dir $JOB_DIR  \
               --package-path $TRAINER_PACKAGE_PATH \
               --module-name $MAIN_TRAINER_MODULE \
-              --region $REGION
+              --region $REGION \
+              --runtime-version 2.1
+              --python-version 3.7
+              -- \
+              --project-id $GOOGLE_PROJECT_ID
+
 
   deploy_functions:
     docker:

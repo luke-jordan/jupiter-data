@@ -184,7 +184,7 @@ def feature_extraction(data):
 def train_and_evaluate():
     result_store = {}
 
-    print('Fetching boosts and saves')
+    print('Fetching boosts and saves, project ID: ', PROJECT_ID)
     boosts_with_saves = obtain_boosts_with_saves()
     print('Fetching boosts with redemptions')
     boosts_with_redeems = obtain_boosts_with_prior_redemptions()
