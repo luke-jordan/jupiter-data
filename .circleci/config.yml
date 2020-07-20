@@ -13,7 +13,7 @@ workflows:
           filters:
             branches:
               ignore: refactor/ml-package-1
-      - train_models
+      - train_models:
           filters:
             branches:
               only: refactor/ml-package-1
