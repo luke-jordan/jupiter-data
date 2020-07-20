@@ -73,7 +73,7 @@ jobs:
               --package-path $TRAINER_PACKAGE_PATH \
               --module-name $MAIN_TRAINER_MODULE \
               --region $REGION \
-              --runtime-version 2.1
+              --runtime-version 2.1 \
               --python-version 3.7
               -- \
               --project-id $GOOGLE_PROJECT_ID
