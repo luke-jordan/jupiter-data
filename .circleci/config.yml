@@ -2,17 +2,76 @@
 #
 # Check https://circleci.com/docs/2.0/language-javascript/ for more details
 #
-version: 2
-jobs:
-  build:
-    docker:
-      # specify the version you desire here
-      - image: circleci/node:10
+version: 2.1
+orbs:
+  gcp-cli: circleci/gcp-cli@1.8.4
 
-      # Specify service dependencies here if necessary
-      # CircleCI maintains a library of pre-built images
-      # documented at https://circleci.com/docs/2.0/circleci-images/
-      # - image: circleci/mongo:3.4.4
+workflows:
+  test_train_deploy:
+    jobs:
+      - deploy_functions:
+          filters:
+            branches:
+              ignore: refactor/ml-package-1
+      - train_models
+          filters:
+            branches:
+              only: refactor/ml-package-1
+
+jobs:
+  train_models:
+    docker:
+      - image: circleci/python:38
+
+    working_directory: ~/app/packages
+
+    steps:
+      - checkout
+   
+      - run:
+          name: Set basic environment
+          command: |
+            if [ $CIRCLE_BRANCH == 'master' ]; then
+              echo "Setting variables for master branch"
+              GCLOUD_SERVICE_KEY=$PRODUCTION_GCLOUD_SERVICE_KEY
+              GOOGLE_PROJECT_ID=$PRODUCTION_GOOGLE_PROJECT_ID
+              GOOGLE_COMPUTE_ZONE=$PRODUCTION_GOOGLE_COMPUTE_ZONE
+            fi
+
+            if [ $CIRCLE_BRANCH == 'refactor/ml-package-1' ]; then
+              GCLOUD_SERVICE_KEY=$STAGING_GCLOUD_SERVICE_KEY
+              GOOGLE_PROJECT_ID=$STAGING_GOOGLE_PROJECT_ID
+              GOOGLE_COMPUTE_ZONE=$STAGING_GOOGLE_COMPUTE_ZONE
+            fi
+
+      - run:
+          name: Set up gcloud
+          command: |
+            echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
+            gcloud --quiet config set project ${GOOGLE_PROJECT_ID}
+            gcloud --quiet config set compute/zone ${GOOGLE_COMPUTE_ZONE}
+
+      - run:
+          name: Tell GCP to initiate boost inducement
+          command: |
+            TRAINER_PACKAGE_PATH="$PWD/boost_target_trainer"
+            MAIN_TRAINER_MODULE="boost_target_trainer.task"
+            PACKAGE_STAGING_PATH="jupiter_models_${CIRCLE_BRANCH}/boost_inducement/"
+            
+            JOB_NAME=my_ml_job_$(date -u +%y%m%d_%H%M%S)
+            JOB_DIR="jupiter_models_${CIRCLE_BRANCH}/boost_inducement/"
+            REGION=GOOGLE_COMPUTE_ZONE
+
+            gcloud ai-platform jobs submit training $JOB_NAME \
+              --staging-bucket $PACKAGE_STAGING_PATH \
+              --job-dir $JOB_DIR  \
+              --package-path $TRAINER_PACKAGE_PATH \
+              --module-name $MAIN_TRAINER_MODULE \
+              --region $REGION
+
+  deploy_functions:
+    docker:
+      - image: circleci/node:10
 
     working_directory: ~/app
 
