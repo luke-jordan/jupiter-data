@@ -29,7 +29,7 @@ jobs:
       - checkout
    
       - run:
-          name: Set basic environment
+          name: Set basic environment & gcloud
           command: |
             if [ $CIRCLE_BRANCH == 'master' ]; then
               echo "Setting variables for master branch"
@@ -44,9 +44,8 @@ jobs:
               GOOGLE_COMPUTE_ZONE=$STAGING_GOOGLE_COMPUTE_ZONE
             fi
 
-      - run:
-          name: Set up gcloud
-          command: |
+            echo "Project ID set: $GOOGLE_PROJECT_ID"
+
             echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
             gcloud --quiet config set project ${GOOGLE_PROJECT_ID}
             gcloud --quiet config set compute/zone ${GOOGLE_COMPUTE_ZONE}
