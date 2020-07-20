@@ -76,7 +76,7 @@ jobs:
               --runtime-version 2.1 \
               --python-version 3.7 \
               -- \
-              --project-id $GOOGLE_PROJECT_ID
+              --project_id $GOOGLE_PROJECT_ID
 
 
   deploy_functions:
