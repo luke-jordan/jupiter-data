@@ -31,6 +31,6 @@ if __name__ == '__main__':
       help='Project ID',
       default='jupiter-ml-alpha'
     )
-    args = parser.parse_args()
+    args, unknown = parser.parse_known_args()
     arguments = { '--project-id': args.project_id }
     main(arguments)
