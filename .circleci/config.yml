@@ -15,7 +15,7 @@ workflows:
               only: 
                 - staging
                 - master
-      - deploy_functions
+      - deploy_functions:
           filters:
             branches:
               only: 
@@ -42,7 +42,7 @@ jobs:
               GOOGLE_COMPUTE_ZONE=$PRODUCTION_GOOGLE_COMPUTE_ZONE
             fi
 
-            if [ $CIRCLE_BRANCH == 'refactor/ml-package-1' ]; then
+            if [ $CIRCLE_BRANCH == 'staging' ]; then
               echo "export GCLOUD_SERVICE_KEY=\$STAGING_GCLOUD_SERVICE_KEY" >> $BASH_ENV
               echo "export GOOGLE_PROJECT_ID=\$STAGING_GOOGLE_PROJECT_ID" >> $BASH_ENV
               echo "export GOOGLE_COMPUTE_ZONE=\$STAGING_GOOGLE_COMPUTE_ZONE" >> $BASH_ENV
