@@ -12,12 +12,16 @@ workflows:
       - train_models:
           filters:
             branches:
-              only: refactor/ml-package-1
+              only: 
+                - staging
+                - master
       - deploy_functions
-        # filters:
-        #   branches:
-        #     ignore: refactor/ml-package-1
-      
+          filters:
+            branches:
+              only: 
+                - staging
+                - master
+  
 jobs:
   train_models:
     docker:
