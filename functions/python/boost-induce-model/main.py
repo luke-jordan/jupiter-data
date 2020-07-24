@@ -9,13 +9,16 @@ from train import train_model
 from infer import make_inference
 
 local_folder = os.getenv('MODEL_LOCAL_FOLDER', '/tmp')
-model_file_prefix = os.getenv('MODEL_FILE_PREFIX', 'boost_inducement_model')
+model_file_prefix = os.getenv('MODEL_FILE_PREFIX', 'boost_target_model_latest')
 storage_bucket = os.getenv('MODEL_STORAGE_BUCKET', 'jupiter_models_master')
-
-trained_model = record.retrieve_and_load_model()
 
 def select_users_for_boost(request):
     print('Selecting user for boost, received: ', request)
+
+    # for the moment, doing this in here, because it's relatively quick (few millis) and GCP seems
+    # to have a different container spin-up method than AWS (i.e., need a new deployment to refresh)
+    print('Fetch model (should be quick)')
+    trained_model = record.retrieve_and_load_model()
     
     params = request.json
     candidate_users = params['candidate_users']
@@ -36,16 +39,9 @@ def train_boost_inducement_model(event=None, context=None):
         model_prefix: {model_file_prefix}, and storage_bucket={storage_bucket}
     ''')
     
-    # clf, results, dataframe = train_model(local_folder=local_folder, model_file_prefix=model_file_prefix, storage_bucket=storage_bucket)
-    # print('Completed training (and persisting) model, now to record it')
-
-    # print('Persisting model, possibly to storage')
-    # record.persist_model(clf, local_folder, model_file_prefix, storage_bucket, True)
-
-    # print('Also persisting dataframe')
-    # record.store_and_send_results(results)
-
-    # trained_model = clf
+    # This has become far too heavy for cloud function already, so moved across to ML Engine
+    # May use this to, via ML engine, trigger a new job again
+    print('Would have trained model, for now, just exiting')
 
     return 'OK'
 

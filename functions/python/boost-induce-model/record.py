@@ -8,10 +8,11 @@ from tempfile import TemporaryFile
 from google.cloud import datastore, storage
 
 branch = os.getenv('ENVIRONMENT', 'staging')
+model_file_prefix = os.getenv('MODEL_FILE_PREFIX', 'boost_target_model_latest')
 
 # UTILITY METHODS FOR STORING MODEL AND DATASETS, AND RETRIEVING
 
-def retrieve_and_load_model(model_name = 'boost_target_model'):
+def retrieve_and_load_model(model_name = 'boost_target_model_latest'):
     storage_client = storage.Client()
     bucket_name = f'jupiter_models_{branch}'
     print('Storage initiated, fetching model from: ', bucket_name)
@@ -50,22 +51,6 @@ def upload_to_blob(storage_client, storage_bucket, local_file, remote_file):
     blob.upload_from_filename(local_file)
     print(f"File {local_file} uploaded to {remote_file} on {storage_bucket}.")
 
-
-def persist_model(clf, local_folder=".", model_file_prefix="boost_inducing_model", storage_bucket=None, store_as_latest=False):
-    file_name_dated = f"{model_file_prefix}_{datetime.today().strftime('%Y_%m_%dT%H:%M:%S')}.joblib"
-    file_name_local = f"{local_folder}/{file_name_dated}"
-    print(f"Dumping model to: {file_name_dated}")
-    dump(clf, file_name_local)
-    print(f"Model dumped to {file_name_local}")
-    
-    if storage_bucket:
-        storage_client = storage.Client()
-        upload_to_blob(storage_client, storage_bucket, file_name_local, file_name_dated)
-        # main todo : decide whether to do this based on reported scores
-        if store_as_latest:
-            latest_model_name = f"{model_file_prefix}_latest.joblib"
-            upload_to_blob(storage_client, storage_bucket, file_name_local, latest_model_name)
-
 # AND THESE ONES FOR RECORDING THE RESULT OF A MODEL TRAIN AND SENDING AN EMAIL WITH THOSE RESULTS
 
 def compose_email_body(results):
@@ -103,25 +88,3 @@ def send_email_with_results(results):
     response_from_notification_service = requests.post(sendgrid_url, json=payload, headers=auth_header)
     print('Response from Sendgrid as text: ', response_from_notification_service.text)
 
-
-def store_results(results):
-    datastore_client = datastore.Client()
-    kind = "TrainingResult"
-    name = f"boost_inducement_{datetime.today().strftime('%Y_%m_%dT%H:%M:%S')}"
-    result_key = datastore_client.key(kind, name)
-
-    model_result = datastore.Entity(key=result_key)
-    model_result['date'] = datetime.today()
-    model_result.update(results)
-
-    datastore_client.put(model_result)
-
-
-def store_and_send_results(results):
-    print('Received results to store: ', results)
-
-    store_results(results)
-    # print("Sendgrid key : ", os.getenv('SENDGRID_API_KEY'))
-    if (os.getenv('SENDGRID_API_KEY') is not None):
-        send_email_with_results(results)
-    

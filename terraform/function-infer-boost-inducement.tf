@@ -26,7 +26,7 @@ resource "google_cloudfunctions_function" "boost-inducement-infer" {
 
     MODEL_LOCAL_FOLDER = "/tmp"
     MODEL_STORAGE_BUCKET = google_storage_bucket.trained_models.name
-    MODEL_FILE_PREFIX = "boost_inducement_model"
+    MODEL_FILE_PREFIX = "boost_target_model_latest"
 
     CONTACTS_TO_BE_NOTIFIED = "luke@jupitersave.com"
     SENDGRID_API_KEY = var.sendgrid_api_key[terraform.workspace]
