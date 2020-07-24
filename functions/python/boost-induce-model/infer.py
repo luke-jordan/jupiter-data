@@ -54,7 +54,8 @@ def add_one_hots(df, boost_type_category):
         'SIMPLE::TIME_LIMITED',
         'SIMPLE::TARGET_BALANCE',
         'SOCIAL::FRIENDS_ADDED',
-        'SOCIAL::NUMBER_FRIENDS'
+        'SOCIAL::NUMBER_FRIENDS',
+        'WITHDRAWAL::CANCEL_WITHDRAWAL'
     ]
     
     assignment_args = {}
