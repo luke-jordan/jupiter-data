@@ -36,18 +36,18 @@ def train_boost_inducement_model(event=None, context=None):
         model_prefix: {model_file_prefix}, and storage_bucket={storage_bucket}
     ''')
     
-    clf, results, dataframe = train_model(local_folder=local_folder, model_file_prefix=model_file_prefix, storage_bucket=storage_bucket)
-    print('Completed training (and persisting) model, now to record it')
+    # clf, results, dataframe = train_model(local_folder=local_folder, model_file_prefix=model_file_prefix, storage_bucket=storage_bucket)
+    # print('Completed training (and persisting) model, now to record it')
 
-    print('Persisting model, possibly to storage')
-    record.persist_model(clf, local_folder, model_file_prefix, storage_bucket, True)
+    # print('Persisting model, possibly to storage')
+    # record.persist_model(clf, local_folder, model_file_prefix, storage_bucket, True)
 
-    print('Also persisting dataframe')
-    record.store_and_send_results(results)
+    # print('Also persisting dataframe')
+    # record.store_and_send_results(results)
 
-    trained_model = clf
+    # trained_model = clf
 
-    return json.dumps(results)
+    return 'OK'
 
 # if __name__ == '__main__':
 #     train_boost_inducement_model()
