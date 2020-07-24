@@ -28,7 +28,7 @@ def main(arguments=None):
     util.persist_model(clf)
 
     print('Persisted the model')
-    util.store_and_send_results(results)
+    # util.store_and_send_results(results)
 
     return model
 

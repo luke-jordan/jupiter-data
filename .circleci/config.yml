@@ -62,8 +62,7 @@ jobs:
             TRAINER_PACKAGE_PATH="$PWD/boost_target_trainer"
             MAIN_TRAINER_MODULE="boost_target_trainer.task"
 
-            # STORAGE_BUCKET="jupiter_models_${CIRCLE_BRANCH}"
-            STORAGE_BUCKET="jupiter_models_staging"
+            STORAGE_BUCKET="jupiter_models_${CIRCLE_BRANCH}"
             STORAGE_BUCKET_PATH="gs://${STORAGE_BUCKET}"
             
             JOB_NAME=boost_induce_training_job_$(date -u +%y%m%d_%H%M%S)

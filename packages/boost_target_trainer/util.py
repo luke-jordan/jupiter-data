@@ -1,7 +1,8 @@
 from datetime import datetime
 from joblib import dump
 
-from google.cloud import datastore, storage
+# from google.cloud import datastore, storage
+from google.cloud import storage
 
 OUTPUT_DIR = '.'
 BUCKET_NAME = 'jupiter_models_master'
@@ -84,23 +85,23 @@ def send_email_with_results(results):
     print('Response from Sendgrid as text: ', response_from_notification_service.text)
 
 
-def store_results(results):
-    datastore_client = datastore.Client()
-    kind = "TrainingResult"
-    name = f"boost_inducement_{datetime.today().strftime('%Y_%m_%dT%H:%M:%S')}"
-    result_key = datastore_client.key(kind, name)
+# def store_results(results):
+#     datastore_client = datastore.Client()
+#     kind = "TrainingResult"
+#     name = f"boost_inducement_{datetime.today().strftime('%Y_%m_%dT%H:%M:%S')}"
+#     result_key = datastore_client.key(kind, name)
 
-    model_result = datastore.Entity(key=result_key)
-    model_result['date'] = datetime.today()
-    model_result.update(results)
+#     model_result = datastore.Entity(key=result_key)
+#     model_result['date'] = datetime.today()
+#     model_result.update(results)
 
-    datastore_client.put(model_result)
+#     datastore_client.put(model_result)
 
 
 def store_and_send_results(results):
     print('Received results to store: ', results)
 
-    store_results(results)
+    # store_results(results)
     # print("Sendgrid key : ", os.getenv('SENDGRID_API_KEY'))
     if (os.getenv('SENDGRID_API_KEY') is not None):
         send_email_with_results(results)

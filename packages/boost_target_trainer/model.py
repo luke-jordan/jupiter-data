@@ -239,7 +239,7 @@ def train_and_evaluate():
     print('Established parameter grid: ', param_grid)
 
     search_svc = svm.SVC()
-    svc_clf = GridSearchCV(search_svc, param_grid, verbose=True, n_jobs=2, cv=2)
+    svc_clf = GridSearchCV(search_svc, param_grid, verbose=2, n_jobs=2, cv=2)
 
     # and here we go
     print('Initiating training')
