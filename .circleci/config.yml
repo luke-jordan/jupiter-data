@@ -13,7 +13,6 @@ workflows:
           filters:
             branches:
               only: 
-                - staging
                 - master
       - deploy_functions:
           filters:

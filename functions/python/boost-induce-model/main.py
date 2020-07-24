@@ -5,7 +5,6 @@ import json
 
 import record
 
-from train import train_model
 from infer import make_inference
 
 local_folder = os.getenv('MODEL_LOCAL_FOLDER', '/tmp')
