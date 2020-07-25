@@ -13,12 +13,14 @@ workflows:
           filters:
             branches:
               only: 
+                - staging
                 - master
       - deploy_functions:
           filters:
             branches:
               only: 
                 - staging
+                - master
   
 jobs:
   train_models:
