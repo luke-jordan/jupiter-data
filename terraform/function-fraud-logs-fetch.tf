@@ -1,9 +1,9 @@
-resource "google_cloudfunctions_function" "fraud-detector-function" {
+resource "google_cloudfunctions_function" "fetch-user-detail-from-flag-table-function" {
+  
+  name = "fraud-user-fetch"
+  description = "Fetch user details from fraud flag table"
 
-  name = "fraud-detector"
-  description = "Flag dodgy users"
-
-  entry_point = "fetchFactsAboutUserAndRunEngine"
+  entry_point = "fetchUserDetailsFromFlagTable"
 
   runtime = "nodejs10"
   available_memory_mb = 128
@@ -20,9 +20,8 @@ resource "google_cloudfunctions_function" "fraud-detector-function" {
       jsonencode(
         {
           "contactsToBeNotified": terraform.workspace == "master" ? ["luke@jupitersave.com", "avish@jupitersave.com"] : ["luke@jupitersave.com"]
-          "GOOGLE_APPLICATION_CREDENTIALS": "service-account-credentials.json",
-          "AUTH_SERVICE_URL": terraform.workspace == "master" ? "https://production-auth.jupitersave.app/authentication" : "https://staging-auth.jupitersave.app/authentication"
+          "GOOGLE_APPLICATION_CREDENTIALS": "service-account-credentials.json"
         }
-    )}" 
+    )}"
   }
 }
