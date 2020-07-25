@@ -189,6 +189,7 @@ def ensure_all_one_hots(df):
         'SIMPLE::TARGET_BALANCE',
         'SOCIAL::FRIENDS_ADDED',
         'SOCIAL::NUMBER_FRIENDS',
+        'WITHDRAWAL::CANCEL_WITHDRAWAL'
     ]
     
     assignment_args = {}
