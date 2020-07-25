@@ -1,6 +1,6 @@
 resource "google_cloudfunctions_function" "fetch-user-detail-from-flag-table-function" {
   
-  name = "fraud-detector"
+  name = "fraud-user-fetch"
   description = "Fetch user details from fraud flag table"
 
   entry_point = "fetchUserDetailsFromFlagTable"
