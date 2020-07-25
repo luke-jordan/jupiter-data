@@ -36,9 +36,9 @@ jobs:
           command: |
             if [ $CIRCLE_BRANCH == 'master' ]; then
               echo "Setting variables for master branch"
-              GCLOUD_SERVICE_KEY=$PRODUCTION_GCLOUD_SERVICE_KEY
-              GOOGLE_PROJECT_ID=$PRODUCTION_GOOGLE_PROJECT_ID
-              GOOGLE_COMPUTE_ZONE=$PRODUCTION_GOOGLE_COMPUTE_ZONE
+              GCLOUD_SERVICE_KEY=\$PRODUCTION_GCLOUD_SERVICE_KEY
+              GOOGLE_PROJECT_ID=\$PRODUCTION_GOOGLE_PROJECT_ID
+              GOOGLE_COMPUTE_ZONE=\$PRODUCTION_GOOGLE_COMPUTE_ZONE
             fi
 
             if [ $CIRCLE_BRANCH == 'staging' ]; then
