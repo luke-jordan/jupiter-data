@@ -68,14 +68,13 @@ jobs:
             
             JOB_NAME=boost_induce_training_job_$(date -u +%y%m%d_%H%M%S)
             JOB_DIR="${STORAGE_BUCKET_PATH}/boost_inducement/"
-            [[ $CIRCLE_BRANCH = "master" ]] && REGION=$MASTER_GOOGLE_COMPUTE_ZONE || REGION=$STAGING_GOOGLE_COMPUTE_ZONE
 
             gcloud ai-platform jobs submit training $JOB_NAME \
               --staging-bucket $STORAGE_BUCKET_PATH \
               --job-dir $JOB_DIR \
               --package-path $TRAINER_PACKAGE_PATH \
               --module-name $MAIN_TRAINER_MODULE \
-              --region $REGION \
+              --region ${GOOGLE_COMPUTE_ZONE} \
               --runtime-version 2.1 \
               --python-version 3.7 \
               -- \
