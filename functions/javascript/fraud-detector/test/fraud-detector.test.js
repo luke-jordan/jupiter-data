@@ -14,6 +14,10 @@ const bigQueryTableInsertStub = sinon.stub();
 const bigQueryFetchStub = sinon.stub();
 const requestRetryStub = sinon.stub();
 const timestampStub = sinon.stub(utils, 'generateCurrentTimeInMilliseconds');
+const BIG_QUERY_DATASET_LOCATION = config.get('BIG_QUERY_DATASET_LOCATION');
+const GOOGLE_PROJECT_ID = config.get('GOOGLE_PROJECT_ID');
+const DATASET_ID = config.get('BIG_QUERY_DATASET_ID');
+const TABLE_ID = config.get('BIG_QUERY_TABLE_ID');
 
 const resetStubs = () => {
     bigQueryTableInsertStub.reset();
@@ -27,6 +31,46 @@ const sampleFlagTime = timestamp;
 const sampleRuleLabel = 'single_very_large_saving_event';
 // eslint-disable-next-line camelcase
 const sampleRuleListWithLatestFlagTime = [[{ rule_label: sampleRuleLabel, latest_flag_time: sampleFlagTime }]];
+const userId = '1a';
+const accountId = '3b43';
+const sampleUserAccountInfo = {
+    userId,
+    accountId
+};
+const sampleCreatedAtTime = 1577138301793;
+const sampleUpdatedAtTime = 1577138301793;
+const sampleRuleLabel1 = 'single_very_large_saving_event';
+const sampleRuleLabel2 = 'latest_saving_event_greater_than_six_months_average';
+const sampleAccuracy = 'PENDING_CONFIRMATION';
+const sampleResponseForFetchUserDetailFromFlagTable = [
+    {
+        'user_id': userId,
+        'account_id': accountId,
+        'rule_label': sampleRuleLabel1,
+        'reason': 'User has a deposit greater than 100,000 rands',
+        'accuracy': sampleAccuracy,
+        'created_at': sampleCreatedAtTime,
+        'updated_at': sampleUpdatedAtTime
+    },
+    {
+        'user_id': userId,
+        'account_id': accountId,
+        'rule_label': sampleRuleLabel2,
+        'reason': `User's latest inward transfer > 10x past 6 month average transfer`,
+        'accuracy': sampleAccuracy,
+        'created_at': sampleCreatedAtTime,
+        'updated_at': sampleUpdatedAtTime
+    }
+];
+const optionsForFetchUserDetail = {
+    query: `
+            SELECT *
+            FROM \`${GOOGLE_PROJECT_ID}.${DATASET_ID}.${TABLE_ID}\`
+            where \`user_id\` = @userId and \`account_id\` = @accountId
+        `,
+    location: BIG_QUERY_DATASET_LOCATION,
+    params: sampleUserAccountInfo
+};
 
 class MockBigQueryClass {
     // eslint-disable-next-line class-methods-use-this
@@ -39,7 +83,11 @@ class MockBigQueryClass {
     }
 
     // eslint-disable-next-line class-methods-use-this
-    query () {
+    query (options) {
+        if (options.query === optionsForFetchUserDetail.query) {
+            return [sampleResponseForFetchUserDetailFromFlagTable];
+        }
+
         return sampleRuleListWithLatestFlagTime;
     }
 }
@@ -59,9 +107,12 @@ const {
     notifyAdminsOfNewlyFlaggedUser,
     constructPayloadForUserFlagTable,
     insertUserFlagIntoTable,
+    logUserNotFlagged,
     fetchFactsAboutUserAndRunEngine,
     sendNotificationOfResultToAdmins,
-    isRuleSafeOrIsExperimentalModeOn
+    isRuleSafeOrIsExperimentalModeOn,
+    fetchUserDetailsFromFlagTable,
+    constructOptionsForUserDetailsFetchFromFlagTable
 } = fraudDetector;
 const {
     accuracyStates,
@@ -81,13 +132,11 @@ const serviceUrls = config.get('serviceUrls');
 const EMAIL_SUBJECT_FOR_ADMINS = config.get('emailSubjectForAdmins');
 const {
     NOTIFICATION_SERVICE_URL,
+    AUTH_SERVICE_URL,
     FETCH_USER_BEHAVIOUR_URL
 } = serviceUrls;
 
-const sampleUserAccountInfo = {
-    userId: '1a',
-    accountId: '3b43'
-};
+const samplePayloadForFetchUserDetail = sampleUserAccountInfo;
 
 const formattedRulesWithLatestFlagTime = {
     [sampleRuleLabel]: sampleFlagTime
@@ -124,10 +173,8 @@ const sampleRow = [
     }
     /* eslint-enable */
 ];
-const samplePayloadFromFetchFactsTrigger = {
-  userId: 'bkc-3a',
-  accountId: 'fdla'
-};
+
+const samplePayloadFromFetchFactsTrigger = sampleUserAccountInfo;
 
 const ruleWithExperimentalModeTrue = {
     experimental: true,
@@ -185,6 +232,11 @@ const ruleWithoutExperimentalMode = {
     }
 };
 
+const sampleResponseFromAuthService = {
+    userRole: 'SYSTEM_ADMIN'
+};
+const sampleRequestHeaders = { Authentication: 'Bearer xxx' };
+
 describe('Utils for Fraud Detector', () => {
     it('should create timestamp for database successfully', async () => {
         timestampStub.callThrough();
@@ -206,6 +258,14 @@ describe('Fraud Detector', () => {
         expect(result).to.be.undefined;
         expect(bigQueryTableInsertStub).to.have.been.calledOnce;
 
+    });
+
+    it(`should log user not flagged`, async () => {
+        bigQueryTableInsertStub.resolves();
+
+        const result = await logUserNotFlagged(sampleUserAccountInfo);
+        expect(result).to.be.undefined;
+        expect(bigQueryTableInsertStub).to.have.been.calledOnce;
     });
 
     it(`should construct notification payload correctly`, async () => {
@@ -266,15 +326,13 @@ describe('Fraud Detector', () => {
 
     it(`should 'fetch facts about user and run engine' successfully`, async () => {
         requestRetryStub.onFirstCall().resolves({
+            body: sampleResponseFromAuthService,
+            statusCode: httpStatus.OK
+        });
+        requestRetryStub.onSecondCall().resolves({
             body: sampleFactsFromUserBehaviour,
             statusCode: httpStatus.OK
         });
-        requestRetryStub.onSecondCall().resolves();
-
-        const {
-            userId,
-            accountId
-        } = samplePayloadFromFetchFactsTrigger;
 
         const extraConfigForFetchUserBehaviour = {
             url: `${FETCH_USER_BEHAVIOUR_URL}`,
@@ -287,6 +345,7 @@ describe('Fraud Detector', () => {
         };
 
         const req = {
+            headers: sampleRequestHeaders,
             method: POST,
             body: { ...samplePayloadFromFetchFactsTrigger }
         };
@@ -299,19 +358,32 @@ describe('Fraud Detector', () => {
             })
         };
 
+        const extraConfigForFetchUserDetailFromFlagTable = {
+            url: `${AUTH_SERVICE_URL}`,
+            method: POST,
+            body: { token: req.headers['Authentication'].substring('Bearer '.length) }
+        };
+
         const result = await fetchFactsAboutUserAndRunEngine(req, res);
         expect(result).to.be.undefined;
         expect(endResponseStub).to.have.been.calledOnce;
-        expect(requestRetryStub).to.have.been.calledOnce;
+        expect(requestRetryStub).to.have.been.calledTwice;
         expect(requestRetryStub.firstCall.args[0]).to.deep.equal({
+            ...baseConfigForRequestRetry,
+            ...extraConfigForFetchUserDetailFromFlagTable
+        });
+        expect(requestRetryStub.secondCall.args[0]).to.deep.equal({
             ...baseConfigForRequestRetry,
             ...extraConfigForFetchUserBehaviour
         });
     });
 
     it(`should notify properly on failure -> 'fetch facts about user and run engine'`, async () => {
-        requestRetryStub.onFirstCall().resolves({});
-        requestRetryStub.onSecondCall().resolves();
+        requestRetryStub.onFirstCall().resolves({
+            body: sampleResponseFromAuthService,
+            statusCode: httpStatus.OK
+        });
+        requestRetryStub.onSecondCall().resolves({});
 
         const messageWithoutErrorStackValue = `Just so you know, fraud detector ran. Extra info: {"errorMessage":"Could not fetch facts from user behaviour","errorStack"`;
         const payloadWithoutMessage = {
@@ -325,11 +397,6 @@ describe('Fraud Detector', () => {
             body: payloadWithoutMessage
         };
 
-        const {
-            userId,
-            accountId
-        } = samplePayloadFromFetchFactsTrigger;
-
         const extraConfigForFetchUserBehaviour = {
             url: `${FETCH_USER_BEHAVIOUR_URL}`,
             method: POST,
@@ -341,9 +408,17 @@ describe('Fraud Detector', () => {
         };
 
         const req = {
+            headers: sampleRequestHeaders,
             method: POST,
             body: { ...samplePayloadFromFetchFactsTrigger }
         };
+
+        const extraConfigForFetchUserDetailFromFlagTable = {
+            url: `${AUTH_SERVICE_URL}`,
+            method: POST,
+            body: { token: req.headers['Authentication'].substring('Bearer '.length) }
+        };
+
         const endResponseStub = sinon.stub();
         const jsonResponseStub = sinon.stub();
         const res = {
@@ -356,13 +431,17 @@ describe('Fraud Detector', () => {
         const result = await fetchFactsAboutUserAndRunEngine(req, res);
         expect(result).to.be.undefined;
         expect(endResponseStub).to.have.been.calledOnce;
-        expect(requestRetryStub).to.have.been.calledTwice;
+        expect(requestRetryStub).to.have.been.calledThrice;
         expect(requestRetryStub.firstCall.args[0]).to.deep.equal({
+            ...baseConfigForRequestRetry,
+            ...extraConfigForFetchUserDetailFromFlagTable
+        });
+        expect(requestRetryStub.secondCall.args[0]).to.deep.equal({
             ...baseConfigForRequestRetry,
             ...extraConfigForFetchUserBehaviour
         });
 
-        const messageForSendNotificationResultToAdmins = requestRetryStub.secondCall.args[0].body.message;
+        const messageForSendNotificationResultToAdmins = requestRetryStub.thirdCall.args[0].body.message;
         const indexOfErrorStackInMessage = messageForSendNotificationResultToAdmins.indexOf(`errorStack`);
 
         if (indexOfErrorStackInMessage === indexNotExist) {
@@ -374,10 +453,10 @@ describe('Fraud Detector', () => {
             expect(messageForSendNotificationResultToAdmins.substring(indexOfStringBeforeErrorStackValue)).to.exist;
 
             // delete message property from body of the payload as message property might be unpredictable with an error stack embedded in the message
-            Reflect.deleteProperty(requestRetryStub.secondCall.args[0].body, 'message');
+            Reflect.deleteProperty(requestRetryStub.thirdCall.args[0].body, 'message');
         }
 
-        expect(requestRetryStub.secondCall.args[0]).to.deep.equal({
+        expect(requestRetryStub.thirdCall.args[0]).to.deep.equal({
             ...baseConfigForRequestRetry,
             ...extraConfigForVerboseWithoutMessage
         });
@@ -405,9 +484,14 @@ describe('Fraud Detector', () => {
 
     it(`should 'fetch facts about user and run engine' checks for missing 'userId' parameter in payload`, async () => {
         const req = {
+            headers: sampleRequestHeaders,
             method: POST,
             body: { userId: null, accountId: 'hdfl' }
         };
+        requestRetryStub.onFirstCall().resolves({
+            body: sampleResponseFromAuthService,
+            statusCode: httpStatus.OK
+        });
         const endResponseStub = sinon.stub();
         const res = {
             status: () => ({
@@ -415,18 +499,33 @@ describe('Fraud Detector', () => {
             })
         };
 
+        const extraConfigForFetchUserDetailFromFlagTable = {
+            url: `${AUTH_SERVICE_URL}`,
+            method: POST,
+            body: { token: req.headers['Authentication'].substring('Bearer '.length) }
+        };
+
         const result = await fetchFactsAboutUserAndRunEngine(req, res);
         expect(result).to.be.undefined;
         expect(endResponseStub).to.have.been.calledTwice;
+        expect(requestRetryStub.firstCall.args[0]).to.deep.equal({
+            ...baseConfigForRequestRetry,
+            ...extraConfigForFetchUserDetailFromFlagTable
+        });
         expect(res.status().end.firstCall.args[0]).to.equal(`Received request to 'check for fraudulent user'`);
         expect(res.status().end.secondCall.args[0]).to.equal('invalid payload => \'userId\' and \'accountId\' are required');
     });
 
     it(`should 'fetch facts about user and run engine' checks for missing 'accountId' parameter in payload`, async () => {
         const req = {
+            headers: sampleRequestHeaders,
             method: POST,
             body: { userId: 'kfld', accountId: null }
         };
+        requestRetryStub.onFirstCall().resolves({
+            body: sampleResponseFromAuthService,
+            statusCode: httpStatus.OK
+        });
         const endResponseStub = sinon.stub();
         const res = {
             status: () => ({
@@ -434,8 +533,18 @@ describe('Fraud Detector', () => {
             })
         };
 
+        const extraConfigForFetchUserDetailFromFlagTable = {
+            url: `${AUTH_SERVICE_URL}`,
+            method: POST,
+            body: { token: req.headers['Authentication'].substring('Bearer '.length) }
+        };
+
         const result = await fetchFactsAboutUserAndRunEngine(req, res);
         expect(result).to.be.undefined;
+        expect(requestRetryStub.firstCall.args[0]).to.deep.equal({
+            ...baseConfigForRequestRetry,
+            ...extraConfigForFetchUserDetailFromFlagTable
+        });
         expect(endResponseStub).to.have.been.calledTwice;
         expect(res.status().end.firstCall.args[0]).to.equal(`Received request to 'check for fraudulent user'`);
         expect(res.status().end.secondCall.args[0]).to.equal('invalid payload => \'userId\' and \'accountId\' are required');
@@ -443,9 +552,14 @@ describe('Fraud Detector', () => {
 
     it(`should send failure response when the 'body' of the request does not exist`, async () => {
         const req = {
+            headers: sampleRequestHeaders,
             method: POST,
             body: null
         };
+        requestRetryStub.onFirstCall().resolves({
+            body: sampleResponseFromAuthService,
+            statusCode: httpStatus.OK
+        });
         const endResponseStub = sinon.stub();
         const res = {
             status: () => ({
@@ -453,15 +567,26 @@ describe('Fraud Detector', () => {
             })
         };
 
+        const extraConfigForFetchUserDetailFromFlagTable = {
+            url: `${AUTH_SERVICE_URL}`,
+            method: POST,
+            body: { token: req.headers['Authentication'].substring('Bearer '.length) }
+        };
+
         const result = await fetchFactsAboutUserAndRunEngine(req, res);
         expect(result).to.be.undefined;
         expect(endResponseStub).to.have.been.calledTwice;
+        expect(requestRetryStub.firstCall.args[0]).to.deep.equal({
+            ...baseConfigForRequestRetry,
+            ...extraConfigForFetchUserDetailFromFlagTable
+        });
         expect(res.status().end.firstCall.args[0]).to.equal(`Received request to 'check for fraudulent user'`);
         expect(res.status().end.secondCall.args[0]).to.equal('Unable to check for fraudulent user');
     });
 
     it(`should exit gracefully when it cannot 'fetch facts from user behaviour service'`, async () => {
         const req = {
+            headers: sampleRequestHeaders,
             method: POST,
             body: { ...samplePayloadFromFetchFactsTrigger }
         };
@@ -471,13 +596,26 @@ describe('Fraud Detector', () => {
                 end: endResponseStub
             })
         };
-        requestRetryStub.onFirstCall().resolves();
+        requestRetryStub.onFirstCall().resolves({
+            body: sampleResponseFromAuthService,
+            statusCode: httpStatus.OK
+        });
         requestRetryStub.onSecondCall().rejects();
+        requestRetryStub.onThirdCall().resolves();
+        const extraConfigForFetchUserDetailFromFlagTable = {
+            url: `${AUTH_SERVICE_URL}`,
+            method: POST,
+            body: { token: req.headers['Authentication'].substring('Bearer '.length) }
+        };
 
         const result = await fetchFactsAboutUserAndRunEngine(req, res);
         expect(result).to.be.undefined;
         expect(endResponseStub).to.have.been.calledOnce;
-        expect(requestRetryStub).to.have.been.calledTwice;
+        expect(requestRetryStub).to.have.been.calledThrice;
+        expect(requestRetryStub.firstCall.args[0]).to.deep.equal({
+            ...baseConfigForRequestRetry,
+            ...extraConfigForFetchUserDetailFromFlagTable
+        });
         expect(res.status().end.firstCall.args[0]).to.equal(`Received request to 'check for fraudulent user'`);
     });
 
@@ -521,6 +659,59 @@ describe('Fraud Detector', () => {
 
         const resultOfWithoutExperimentalMode = await isRuleSafeOrIsExperimentalModeOn(ruleWithoutExperimentalMode);
         expect(resultOfWithoutExperimentalMode).to.equal(true);
+    });
+
+    it(`should construct options to 'fetch user data from flag table' successfully`, async () => {
+        const expectedQuery = `
+            SELECT *
+            FROM \`${GOOGLE_PROJECT_ID}.${DATASET_ID}.${TABLE_ID}\`
+            where \`user_id\` = @userId and \`account_id\` = @accountId
+        `;
+
+        const expectedOptions = {
+            query: expectedQuery,
+            location: BIG_QUERY_DATASET_LOCATION,
+            params: {
+                userId,
+                accountId
+            }
+        };
+
+        const result = await constructOptionsForUserDetailsFetchFromFlagTable(sampleUserAccountInfo, expectedQuery);
+        expect(result).to.exist;
+        expect(result).to.deep.equal(expectedOptions);
+    });
+
+    it(`should 'fetch user data from flag table' successfully`, async () => {
+        const req = {
+            headers: sampleRequestHeaders,
+            method: POST,
+            body: { ...samplePayloadForFetchUserDetail}
+        };
+        requestRetryStub.onFirstCall().resolves({
+            body: sampleResponseFromAuthService,
+            statusCode: httpStatus.OK
+        });
+        const jsonResponseStub = sinon.stub();
+        const res = {
+            status: () => ({
+                json: jsonResponseStub
+            })
+        };
+        const extraConfigForFetchUserDetailFromFlagTable = {
+            url: `${AUTH_SERVICE_URL}`,
+            method: POST,
+            body: { token: req.headers['Authentication'].substring('Bearer '.length) }
+        };
+
+        const result = await fetchUserDetailsFromFlagTable(req, res);
+        expect(result).to.be.undefined;
+        expect(jsonResponseStub).to.have.been.calledOnce;
+        expect(requestRetryStub.firstCall.args[0]).to.deep.equal({
+            ...baseConfigForRequestRetry,
+            ...extraConfigForFetchUserDetailFromFlagTable
+        });
+        expect(res.status().json.firstCall.args[0]).to.deep.equal(sampleResponseForFetchUserDetailFromFlagTable);
     });
 
 });

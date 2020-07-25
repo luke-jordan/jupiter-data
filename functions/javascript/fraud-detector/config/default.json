@@ -7,7 +7,8 @@
   "verboseMode": false,
   "serviceUrls": {
     "NOTIFICATION_SERVICE_URL": "{notification_service}",
-    "FETCH_USER_BEHAVIOUR_URL": "{fetch_user_behaviour}"
+    "FETCH_USER_BEHAVIOUR_URL": "{fetch_user_behaviour}",
+    "AUTH_SERVICE_URL": "{auth_service}"
   },
   "emailSubjectForAdmins": "Fraud Alert",
   "GOOGLE_APPLICATION_CREDENTIALS": "service-account-credentials.json"

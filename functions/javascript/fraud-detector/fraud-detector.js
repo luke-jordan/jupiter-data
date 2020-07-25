@@ -26,6 +26,7 @@ const {
 
 const {
     NOTIFICATION_SERVICE_URL,
+    AUTH_SERVICE_URL,
     FETCH_USER_BEHAVIOUR_URL
 } = serviceUrls;
 
@@ -48,6 +49,37 @@ const {
 const CONTACTS_TO_BE_NOTIFIED = config.get('contactsToBeNotified');
 const VERBOSE_MODE = config.get('verboseMode');
 const bigQueryClient = new BigQuery();
+const sqlQueryForUserDetailsFetchFromFlagTable = `
+            SELECT *
+            FROM \`${GOOGLE_PROJECT_ID}.${DATASET_ID}.${TABLE_ID}\`
+            where \`user_id\` = @userId and \`account_id\` = @accountId
+        `;
+
+const sendFailureResponse = (res, error) => {
+    logger(`Error occurred while handling 'check for fraudulent user' request. Error: ${JSON.stringify(error)}`);
+    res.status(httpStatus.BAD_REQUEST).end('Unable to check for fraudulent user');
+};
+
+const sendSuccessResponse = (req, res) => {
+    logger(`Received request to 'check for fraudulent user' request. Payload: ${JSON.stringify(req.body)}`);
+    res.status(httpStatus.OK).end(`Received request to 'check for fraudulent user'`);
+};
+
+const handleNotSupportedHttpMethod = (res) => {
+    logger(`Request is invalid. Only ${POST} http method accepted`);
+    res.status(httpStatus.METHOD_NOT_ALLOWED).end(`Only ${POST} http method accepted`);
+};
+
+const missingParameterInReceivedPayload = (parameters) => !parameters.userId || !parameters.accountId;
+
+const handleMissingParameterInReceivedPayload = (payload, res) => {
+    res.status(httpStatus.BAD_REQUEST).end(`invalid payload => 'userId' and 'accountId' are required`);
+    logger(
+        `Request to 'check for fraudulent user' failed because of invalid parameters in received payload. 
+        Received payload: ${JSON.stringify(payload)}`
+    );
+    return null;
+};
 
 const sendHttpRequest = async (extraConfig, specifiedRequestTitle) => {
     logger(`Sending '${specifiedRequestTitle}' request with extra config: ${JSON.stringify(extraConfig)}`);
@@ -60,6 +92,50 @@ const sendHttpRequest = async (extraConfig, specifiedRequestTitle) => {
     logger(`Response from '${specifiedRequestTitle}' request with extra config: ${JSON.stringify(extraConfig)}. 
     Response: ${JSON.stringify(response)}`);
     return response;
+};
+
+const verifyRequestToken = async (req, res) => {
+    logger(`Verifying the request token`);
+
+    const extraConfig = {
+        url: `${AUTH_SERVICE_URL}`,
+        method: POST,
+        body: { token: req.headers['Authentication'].substring('Bearer '.length) }
+    };
+    const responseFromAuthService = await sendHttpRequest(extraConfig, 'Verifying the request token with auth service');
+
+    // continue based on response;
+    if (responseFromAuthService && responseFromAuthService.body && responseFromAuthService.body.userRole === 'SYSTEM_ADMIN') {
+        logger(`Request token is valid`);
+        return responseFromAuthService;
+    }
+
+    logger(`Request token is NOT valid`);
+    res.status(httpStatus.UNAUTHORIZED).end(`Only ${POST} http method accepted`);
+    
+};
+
+const validateRequestAndExtractParams = async (req, res) => {
+    logger(`Validating request and extracting params`);
+    if (req.method !== POST) {
+        return handleNotSupportedHttpMethod(res);
+    }
+
+    const requestAuthorized = await verifyRequestToken(req, res);
+    if (!requestAuthorized) {
+        logger(`Request is not authorized`);
+        return;
+    }
+
+    try {
+        const payload = JSON.parse(JSON.stringify(req.body));
+        if (missingParameterInReceivedPayload(payload)) {
+            return handleMissingParameterInReceivedPayload(payload, res);
+        }
+        return payload;
+    } catch (error) {
+        sendFailureResponse(res, error);
+    }
 };
 
 const constructPayloadForUserFlagTable = (userAccountInfo, ruleLabel, reasonForFlaggingUser) => {
@@ -199,10 +275,54 @@ const insertUserFlagIntoTable = async (row) => {
     }
 };
 
+const constructOptionsForUserDetailsFetchFromFlagTable = async (payload) => {
+    logger(`Constructing options for user detail fetch from flag table: ${JSON.stringify(payload)}`);
+
+    const {
+        userId,
+        accountId
+    } = payload;
+    return {
+        query: sqlQueryForUserDetailsFetchFromFlagTable,
+        location: BIG_QUERY_DATASET_LOCATION,
+        params: {
+            userId,
+            accountId
+        }
+    };
+};
+
+const fetchUserDetailsFromFlagTable = async (req, res) => {
+    try {
+        const payload = await validateRequestAndExtractParams(req, res);
+        if (!payload) {
+            return;
+        }
+
+        const options = await constructOptionsForUserDetailsFetchFromFlagTable(payload);
+
+        logger(`Fetching user detail from flag table: ${TABLE_ID}`);
+        const [rows] = await bigQueryClient.query(options);
+        logger(`Successfully fetched user details from big query. Response: ${JSON.stringify(rows)}`);
+        res.status(httpStatus.OK).json(rows);
+        return;
+    } catch (error) {
+        sendFailureResponse(res, error);
+    }
+};
+
 const logFraudulentUserFlag = async (userAccountInfo, ruleLabel, reasonForFlaggingUser) => {
-    logger(`Save new fraudulent flag for user with info: ${JSON.stringify(userAccountInfo)} 
+    logger(`Save new fraudulent flag for user with info: ${JSON.stringify(userAccountInfo)}
         ruleLabel: ${ruleLabel} and reason for flagging user: ${reasonForFlaggingUser}`);
 
+    const row = constructPayloadForUserFlagTable(userAccountInfo, ruleLabel, reasonForFlaggingUser);
+
+    await insertUserFlagIntoTable(row);
+};
+
+const logUserNotFlagged = async (userAccountInfo, ruleLabel = 'user_not_flagged', reasonForFlaggingUser = 'User was not flagged by any of the rules') => {
+    logger(`Save new user not flagged for user with info: ${JSON.stringify(userAccountInfo)}
+        ruleLabel: ${ruleLabel} and reason for flagging user: ${reasonForFlaggingUser}`);
     const row = constructPayloadForUserFlagTable(userAccountInfo, ruleLabel, reasonForFlaggingUser);
 
     await insertUserFlagIntoTable(row);
@@ -230,17 +350,22 @@ const logFraudulentUserAndNotifyAdmins = async (event, userAccountInfo) => {
 
 // Run the engine to evaluate facts against the rules
 const createEngineAndRunFactsAgainstRules = async (facts, rules) => {
-    const engineWithRules = constructNewEngineAndAddRules(CUSTOM_RULES);
-
+    const engineWithRules = constructNewEngineAndAddRules(rules);
+    const userAccountInfo = facts.userAccountInfo;
     logger(`Running facts: ${JSON.stringify(facts)} against rules: ${JSON.stringify(rules)}`);
 
-    await engineWithRules.
-    run(facts).
-    then((resultsOfPassedRules) => resultsOfPassedRules.events.forEach(async (event) => {
-        await logFraudulentUserAndNotifyAdmins(event, facts.userAccountInfo);
-    })).catch((error) => {
-       logger(`Error occurred while Running engine with facts: ${JSON.stringify(facts)} and rules: ${JSON.stringify(rules)}. Error: ${JSON.stringify(error)}`);
+    const resultsOfPassedRules = await engineWithRules.run(facts).
+        catch((error) => {
+            logger(`Error occurred while Running engine with facts: ${JSON.stringify(facts)} and rules: ${JSON.stringify(rules)}. Error: ${JSON.stringify(error)}`);
         });
+
+    if (resultsOfPassedRules && resultsOfPassedRules.events && resultsOfPassedRules.events.length > 0) {
+        const fraudulentLogs = resultsOfPassedRules.events.map(async (event) => logFraudulentUserAndNotifyAdmins(event, userAccountInfo));
+        await Promise.all(fraudulentLogs);
+        return;
+    }
+
+    await logUserNotFlagged(userAccountInfo);
 };
 
 const fetchFactsFromUserBehaviourService = async (userId, accountId, formattedRulesWithLatestFlagTime) => {
@@ -273,48 +398,6 @@ const fetchFactsFromUserBehaviourService = async (userId, accountId, formattedRu
     }
 };
 
-const sendFailureResponse = (res, error) => {
-    logger(`Error occurred while handling 'check for fraudulent user' request. Error: ${JSON.stringify(error)}`);
-    res.status(httpStatus.BAD_REQUEST).end('Unable to check for fraudulent user');
-};
-
-const sendSuccessResponse = (req, res) => {
-    logger(`Received request to 'check for fraudulent user' request. Payload: ${JSON.stringify(req.body)}`);
-    res.status(httpStatus.OK).end(`Received request to 'check for fraudulent user'`);
-};
-
-const handleNotSupportedHttpMethod = (res) => {
-    logger(`Request is invalid. Only ${POST} http method accepted`);
-    res.status(httpStatus.METHOD_NOT_ALLOWED).end(`Only ${POST} http method accepted`);
-};
-
-const missingParameterInReceivedPayload = (parameters) => !parameters.userId || !parameters.accountId;
-
-const handleMissingParameterInReceivedPayload = (payload, res) => {
-    res.status(httpStatus.BAD_REQUEST).end(`invalid payload => 'userId' and 'accountId' are required`);
-    logger(
-        `Request to 'check for fraudulent user' failed because of invalid parameters in received payload. 
-        Received payload: ${JSON.stringify(payload)}`
-    );
-    return null;
-};
-
-const validateRequestAndExtractParams = (req, res) => {
-    if (req.method !== POST) {
-        return handleNotSupportedHttpMethod(res);
-    }
-
-    try {
-        const payload = JSON.parse(JSON.stringify(req.body));
-        if (missingParameterInReceivedPayload(payload)) {
-            return handleMissingParameterInReceivedPayload(payload, res);
-        }
-        return payload;
-    } catch (error) {
-        sendFailureResponse(res, error);
-    }
-};
-
 const sendNotificationOfResultToAdmins = async (requestStatus) => {
     logger('Notifying admins of result (error, or verbose mode, or...)');
     const baseMessage = 'Just so you know, fraud detector ran';
@@ -343,7 +426,7 @@ const sendNotificationOfResultToAdmins = async (requestStatus) => {
 const fetchFactsAboutUserAndRunEngine = async (req, res) => {
     sendSuccessResponse(req, res); // so that function that triggers this can exit successfully
     try {
-        const payload = validateRequestAndExtractParams(req, res);
+        const payload = await validateRequestAndExtractParams(req, res);
         if (!payload) {
             return;
         }
@@ -370,6 +453,7 @@ const fetchFactsAboutUserAndRunEngine = async (req, res) => {
     }
 };
 
+
 module.exports = {
     logFraudulentUserAndNotifyAdmins,
     logFraudulentUserFlag,
@@ -378,7 +462,10 @@ module.exports = {
     notifyAdminsOfNewlyFlaggedUser,
     constructPayloadForUserFlagTable,
     insertUserFlagIntoTable,
+    logUserNotFlagged,
     fetchFactsAboutUserAndRunEngine,
+    fetchUserDetailsFromFlagTable,
     sendNotificationOfResultToAdmins,
-    isRuleSafeOrIsExperimentalModeOn
+    isRuleSafeOrIsExperimentalModeOn,
+    constructOptionsForUserDetailsFetchFromFlagTable
 };
