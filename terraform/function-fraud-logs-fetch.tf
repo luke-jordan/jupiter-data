@@ -1,13 +1,19 @@
 resource "google_cloudfunctions_function" "fetch-user-detail-from-flag-table-function" {
+  
   name = "fraud-detector"
-  description = "Fetch user details from flag table"
-  available_memory_mb = 128
-  source_archive_bucket = "${var.gcp_bucket_prefix[terraform.workspace]}-fraud-detector-bucket"
-  source_archive_object = "fraud_detector_${var.deploy_code_commit_hash}.zip"
-  timeout = 60
+  description = "Fetch user details from fraud flag table"
+
   entry_point = "fetchUserDetailsFromFlagTable"
-  trigger_http = true
+
   runtime = "nodejs10"
+  available_memory_mb = 128
+  timeout = 60
+
+  source_archive_bucket = google_storage_bucket.function_code.name
+  source_archive_object = "fraud_detector/${var.deploy_code_commit_hash}.zip"
+
+  trigger_http = true
+
   environment_variables = {
     DEBUG = "*",
     NODE_CONFIG = "${
