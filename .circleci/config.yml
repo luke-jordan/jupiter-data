@@ -19,7 +19,6 @@ workflows:
             branches:
               only: 
                 - staging
-                - master
   
 jobs:
   train_models:
@@ -36,9 +35,9 @@ jobs:
           command: |
             if [ $CIRCLE_BRANCH == 'master' ]; then
               echo "Setting variables for master branch"
-              GCLOUD_SERVICE_KEY=\$PRODUCTION_GCLOUD_SERVICE_KEY
-              GOOGLE_PROJECT_ID=\$PRODUCTION_GOOGLE_PROJECT_ID
-              GOOGLE_COMPUTE_ZONE=\$PRODUCTION_GOOGLE_COMPUTE_ZONE
+              echo "export GCLOUD_SERVICE_KEY=\$PRODUCTION_GCLOUD_SERVICE_KEY" >> $BASH_ENV
+              echo "export GOOGLE_PROJECT_ID=\$PRODUCTION_GOOGLE_PROJECT_ID" >> $BASH_ENV
+              echo "export GOOGLE_COMPUTE_ZONE=\$PRODUCTION_GOOGLE_COMPUTE_ZONE" >> $BASH_ENV
             fi
 
             if [ $CIRCLE_BRANCH == 'staging' ]; then
