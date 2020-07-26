@@ -18,21 +18,21 @@ JOB_DIR="gs://jupiter_models_${BRANCH}/boost_inducement/"
 
 echo "Strange: ${BRANCH}, versus: ${PROJECT_ID}"
 
-gcloud ai-platform local train \
-        --package-path $TRAINER_PACKAGE_PATH \
-        --module-name $MAIN_TRAINER_MODULE \
-        -- \
-        --project_id ${PROJECT_ID} \
-        --storage_bucket ${STORAGE_BUCKET}
+# gcloud ai-platform local train \
+#         --package-path $TRAINER_PACKAGE_PATH \
+#         --module-name $MAIN_TRAINER_MODULE \
+#         -- \
+#         --project_id ${PROJECT_ID} \
+#         --storage_bucket ${STORAGE_BUCKET}
 
-# gcloud ai-platform jobs submit training $JOB_NAME \
-#     --staging-bucket $STORAGE_BUCKET_PATH \
-#     --job-dir $JOB_DIR \
-#     --package-path $TRAINER_PACKAGE_PATH \
-#     --module-name $MAIN_TRAINER_MODULE \
-#     --region $REGION \
-#     --runtime-version 2.1 \
-#     --python-version 3.7 \
-#     -- \
-#     --project_id ${PROJECT_ID} \
-#     --storage_bucket ${STORAGE_BUCKET}
+gcloud ai-platform jobs submit training $JOB_NAME \
+    --staging-bucket $STORAGE_BUCKET_PATH \
+    --job-dir $JOB_DIR \
+    --package-path $TRAINER_PACKAGE_PATH \
+    --module-name $MAIN_TRAINER_MODULE \
+    --region $REGION \
+    --runtime-version 2.1 \
+    --python-version 3.7 \
+    -- \
+    --project_id ${PROJECT_ID} \
+    --storage_bucket ${STORAGE_BUCKET}
