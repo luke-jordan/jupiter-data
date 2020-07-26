@@ -68,7 +68,10 @@ def add_one_hots(df, boost_type_category):
 def make_inference(user_ids, boost, model):
     # for these users, get a dataframe from bq with some necessary data
     bq_df = enrich_users_from_bq(user_ids)
-    
+    if len(bq_df) == 0:
+        # sometimes we get asked about users with no prior information (or for whome queries come back empty)
+        return pd.DataFrame({ 'user_id': user_ids, 'should_offer': False })
+
     df = bq_df[['user_id']]
     df = df.assign(
         boost_amount_whole_currency=boost["boost_amount_whole_currency"],
