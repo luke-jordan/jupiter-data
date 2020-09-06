@@ -30,10 +30,10 @@ resource "google_cloudfunctions_function" "fraud-detector-function" {
 
 # IAM entry for all users to invoke the function (using because GCP IAM = worst thing + little current risk in allowing general trigger)
 # obviously primary candidate for fixing/change, when we are able to generally fix the GCP IAM config
-resource "google_cloudfunctions_function_iam_member" "invoker" {
-  project        = google_cloudfunctions_function.function.project
-  region         = google_cloudfunctions_function.function.region
-  cloud_function = google_cloudfunctions_function.function.name
+resource "google_cloudfunctions_function_iam_member" "fraud_invoker" {
+  project        = google_cloudfunctions_function.fraud-detector-function.project
+  region         = google_cloudfunctions_function.fraud-detector-function.region
+  cloud_function = google_cloudfunctions_function.fraud-detector-function.name
 
   role   = "roles/cloudfunctions.invoker"
   member = "allUsers"

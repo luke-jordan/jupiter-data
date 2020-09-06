@@ -40,7 +40,7 @@ resource "google_cloudfunctions_function" "boost-inducement-infer" {
 # i.e., not great, but not exposing quite so much, at least not yet. and simplest will be a quick JWT based lock 
 # (definitely _not_ using the extreme hell that is GCP IAP, Endpoints etc - whole Docker container to do API, OIDC, etc., etc., shiver)
 
-resource "google_cloudfunctions_function_iam_member" "invoker" {
+resource "google_cloudfunctions_function_iam_member" "boost_invoker" {
   project        = google_cloudfunctions_function.boost-inducement-infer.project
   region         = google_cloudfunctions_function.boost-inducement-infer.region
   cloud_function = google_cloudfunctions_function.boost-inducement-infer.name
