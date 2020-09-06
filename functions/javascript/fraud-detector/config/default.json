@@ -11,5 +11,6 @@
     "AUTH_SERVICE_URL": "{auth_service}"
   },
   "emailSubjectForAdmins": "Fraud Alert",
-  "GOOGLE_APPLICATION_CREDENTIALS": "service-account-credentials.json"
+  "GOOGLE_APPLICATION_CREDENTIALS": "service-account-credentials.json",
+  "AUTH_SERVICE_ENABLED": true
 }

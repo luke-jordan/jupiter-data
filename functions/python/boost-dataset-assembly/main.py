@@ -123,7 +123,7 @@ def upload_frame(feature_df):
     file_name = f"{file_prefix}_{datetime.today().strftime('%Y_%m_%dT%H:%M:%S')}.csv"
     
     print(f"Uploading dataframe to bucket {bucket_name}, folder boost_target, file: {file_name}")
-    bucket.blob(f"boost_target/{file_name}").upload_from_string(feature_df.to_csv(), 'text/csv')
+    bucket.blob(f"boost_target/{file_name}").upload_from_string(feature_df.to_csv(index=False), 'text/csv')
     print("Completed uploading")
 
 def produce_boost_save_dataset():
