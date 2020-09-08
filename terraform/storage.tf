@@ -24,3 +24,10 @@ resource "google_storage_bucket" "amplitude_data" {
 
     force_destroy = false
 }
+
+# Storage bucket for datasets used in training
+
+resource "google_storage_bucket" "boost_ml_datasets" {
+    name = "${terraform.workspace == "master" ? "prod" : "staging"}_boost_ml_datasets"
+    location = var.gcp_default_continent[terraform.workspace]
+}
