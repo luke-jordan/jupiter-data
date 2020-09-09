@@ -245,6 +245,17 @@ jobs:
                fi
                zip -rq $HOME/boost_model_$CIRCLE_SHA1.zip .
 
+               cd $HOME/app/functions/python/boost-dataset-assembly
+               echo $CIRCLE_SHA1 > last_commit.txt
+               echo "Setting environment variables for boost dataset assembly"
+               if [ $CIRCLE_BRANCH == 'master' ]; then
+                echo $PRODUCTION_GCLOUD_SERVICE_KEY >> service-account-credentials.json
+               fi
+               if [ $CIRCLE_BRANCH == 'staging' ]; then
+                echo $STAGING_GCLOUD_SERVICE_KEY >> service-account-credentials.json
+               fi
+               zip -rq $HOME/boost_dataset_$CIRCLE_SHA1.zip .
+
             fi
 
       - run:
@@ -299,6 +310,7 @@ jobs:
               ./app/google-cloud-sdk/bin/gsutil cp metrics_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/metrics/${CIRCLE_SHA1}.zip
 
               ./app/google-cloud-sdk/bin/gsutil cp boost_model_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/boost_inducement/${CIRCLE_SHA1}.zip
+              ./app/google-cloud-sdk/bin/gsutil cp boost_dataset_$CIRCLE_SHA1.zip gs://${CODE_BUCKET}/boost_dataset/${CIRCLE_SHA1}.zip
             fi
 
       - run:
