@@ -47,6 +47,27 @@ resource "google_cloud_scheduler_job" "daily_email_job" {
     }
 }
 
+# Helper topic to assemble dataset (run every two hours so fresh one always available)
+resource "google_pubsub_topic" "scheduled_dataset_assembly" {
+    name = "scheduled_dataset_assembly"
+
+    labels = {
+        environment = terraform.workspace
+    }
+}
+
+resource "google_cloud_scheduler_job" "scheduled_dataset_job" {
+    name = "dataset_assembly_regular_job"
+    description = "Multiple times per day dataset assembly"
+    
+    schedule = "0 */2 * * *"
+
+    pubsub_target {
+        topic_name = google_pubsub_topic.scheduled_dataset_assembly.id
+        data = base64encode("{}")
+    }
+}
+
 # Helper topic for scheduling of daily model training
 resource "google_pubsub_topic" "daily_model_training" {
     name = "daily_model_training"

@@ -96,6 +96,10 @@ const sendHttpRequest = async (extraConfig, specifiedRequestTitle) => {
 
 const verifyRequestToken = async (req, res) => {
     logger(`Verifying the request token`);
+    if (!config.get('AUTH_SERVICE_ENABLED')) {
+        logger('Auth service not enabled, returning');
+        return true;
+    }
 
     const extraConfig = {
         url: `${AUTH_SERVICE_URL}`,
@@ -248,6 +252,7 @@ const obtainLastAlertTimesForUser = async (rules, userId) => {
 const notifyAdminsOfNewlyFlaggedUser = async (payload) => {
     logger('Notifying admins of newly flagged user');
     try {
+        // todo : switch to sendgrid
         const extraConfig = {
             url: `${NOTIFICATION_SERVICE_URL}`,
             method: POST,
