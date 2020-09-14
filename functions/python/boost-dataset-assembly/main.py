@@ -126,7 +126,8 @@ def upload_frame(feature_df):
     bucket.blob(f"boost_target/{file_name}").upload_from_string(feature_df.to_csv(index=False), 'text/csv')
     print("Completed uploading")
 
-def produce_boost_save_dataset():
+# event and context for GCP
+def produce_boost_save_dataset(event=None, context=None):
     bq = bigquery.Client()
     master_df = bq.query("""
         select * from ops.all_user_events where event_type like 'BOOST_CREATED%' or event_type = 'SAVING_PAYMENT_SUCCESSFUL'
