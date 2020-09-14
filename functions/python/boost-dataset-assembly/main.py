@@ -127,7 +127,7 @@ def upload_frame(feature_df):
     print("Completed uploading")
 
 # event and context for GCP
-def produce_boost_save_dataset(event, context):
+def produce_boost_save_dataset(event=None, context=None):
     bq = bigquery.Client()
     master_df = bq.query("""
         select * from ops.all_user_events where event_type like 'BOOST_CREATED%' or event_type = 'SAVING_PAYMENT_SUCCESSFUL'
